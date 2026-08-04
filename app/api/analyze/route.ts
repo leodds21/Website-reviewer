@@ -6,10 +6,12 @@ import { checkSitemapRobots } from "@/lib/checks/sitemap-robots";
 import { runPageSpeed } from "@/lib/pagespeed";
 import { getCached, setCached } from "@/lib/cache";
 import { aggregateScore, type AggregatedScore } from "@/lib/score";
+import { deriveIssues, type Issue } from "@/lib/issues";
 
 type AnalyzeReport = {
   domain: string;
   score: AggregatedScore;
+  issues: Issue[];
   checkedAt: string;
 };
 
@@ -92,10 +94,12 @@ export async function POST(request: Request) {
   }
 
   const score = aggregateScore({ pagespeed, https, metaTags, altImages, sitemapRobots });
+  const issues = deriveIssues({ pagespeed, https, metaTags, altImages, sitemapRobots });
 
   const report: AnalyzeReport = {
     domain,
     score,
+    issues,
     checkedAt: new Date().toISOString(),
   };
 
