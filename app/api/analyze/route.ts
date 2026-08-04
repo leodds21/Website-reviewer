@@ -7,6 +7,7 @@ import { runPageSpeed, type PageSpeedResult } from "@/lib/pagespeed";
 import { getCached, setCached } from "@/lib/cache";
 import { aggregateScore, type AggregatedScore } from "@/lib/score";
 import { deriveIssues, type Issue } from "@/lib/issues";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
 
@@ -99,7 +100,23 @@ async function* settleInOrder<T extends Record<string, Promise<unknown>>>(
   }
 }
 
+// TODO(i18n): every error string below is Portuguese-only — the client
+// currently shows them as-is regardless of UI language. Fixing this
+// properly means either accepting a `lang` param here and returning a
+// code the client maps through its own dictionary (consistent with how
+// deriveIssues() already separates data from display text), or moving
+// all error copy to the client and having routes return error codes
+// instead of messages. Deferred: low-traffic path, not blocking.
 export async function GET(request: Request) {
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const rateLimit = checkRateLimit(ip);
+  if (rateLimit.limited) {
+    return NextResponse.json(
+      { error: "Muitas análises em pouco tempo. Tenta de novo mais tarde." },
+      { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } },
+    );
+  }
+
   const { searchParams } = new URL(request.url);
   const rawUrl = (searchParams.get("url") ?? "").trim();
 
