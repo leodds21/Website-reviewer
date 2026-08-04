@@ -22,7 +22,10 @@ const messySite = deriveIssues({
   sitemapRobots: { hasSitemap: false, hasRobotsTxt: true },
 });
 console.log("site bagunçado →", messySite);
-assert(messySite.some((i) => i.category === "security" && i.severity === "critico"), "sem https gera issue crítica de segurança");
-assert(messySite.some((i) => i.title.includes('"Home"')), "título genérico 'Home' é detectado especificamente");
+assert(messySite.some((i) => i.code === "no-https" && i.severity === "critico"), "sem https gera issue crítica de segurança");
+assert(messySite.some((i) => i.code === "generic-title" && i.params?.title === "Home"), "título genérico 'Home' é detectado especificamente, com o título nos params");
 assert(messySite.filter((i) => i.severity === "critico").length >= 3, "site ruim acumula vários críticos (https, título, alt-images maioria ausente)");
-assert(messySite.some((i) => i.category === "accessibility" && i.title.startsWith("8 de 12")), "contagem de alt-images ausentes aparece no título");
+assert(
+  messySite.some((i) => i.code === "missing-alt" && i.params?.missing === 8 && i.params?.sampled === 12),
+  "contagem de alt-images ausentes vai nos params, não numa frase pronta",
+);
