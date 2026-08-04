@@ -2,17 +2,12 @@
 
 import { useEffect, useState } from "react";
 import type { Severity } from "@/lib/score";
+import { useLanguage } from "@/app/i18n/LanguageContext";
 
 const SEVERITY_BAR: Record<Severity, string> = {
   critico: "bg-[var(--color-accent-900)]",
   atencao: "bg-[var(--color-accent-700)]",
   ok: "bg-[var(--color-neutral-600)]",
-};
-
-const SEVERITY_LABEL: Record<Severity, string> = {
-  critico: "crítico",
-  atencao: "atenção",
-  ok: "ok",
 };
 
 export function CategoryCard({
@@ -24,6 +19,7 @@ export function CategoryCard({
   score: number;
   severity: Severity;
 }) {
+  const { t } = useLanguage();
   const [width, setWidth] = useState(0);
   useEffect(() => {
     const id = requestAnimationFrame(() => setWidth(score));
@@ -39,7 +35,7 @@ export function CategoryCard({
           <span
             className={severity === "ok" ? "text-[var(--color-neutral-600)]" : "text-[var(--color-accent-800)]"}
           >
-            · {SEVERITY_LABEL[severity]}
+            · {t.severity[severity]}
           </span>
         </span>
       </div>

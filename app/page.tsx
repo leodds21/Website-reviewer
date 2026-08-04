@@ -5,6 +5,9 @@ import { ScoreRing } from "./components/ScoreRing";
 import { CategoryCard } from "./components/CategoryCard";
 import { IssueList } from "./components/IssueList";
 import { LoadingSequence, type StepKey } from "./components/LoadingSequence";
+import { LanguageSwitcher } from "./components/LanguageSwitcher";
+import { useLanguage } from "./i18n/LanguageContext";
+import { translateIssue, type CategoryKey } from "./i18n/translations";
 import type { AggregatedScore } from "@/lib/score";
 import type { Issue } from "@/lib/issues";
 
@@ -17,12 +20,7 @@ type AnalyzeReport = {
 
 type Stage = "idle" | "analyzing" | "report" | "next-step";
 
-const CATEGORIES: { key: "performance" | "seo" | "accessibility" | "security"; label: string }[] = [
-  { key: "performance", label: "Performance" },
-  { key: "seo", label: "SEO" },
-  { key: "accessibility", label: "Acessibilidade" },
-  { key: "security", label: "Segurança" },
-];
+const CATEGORY_KEYS: CategoryKey[] = ["performance", "seo", "accessibility", "security"];
 
 function Corners() {
   return (
@@ -44,6 +42,7 @@ function Brand() {
 }
 
 export default function Home() {
+  const { locale, t } = useLanguage();
   const [url, setUrl] = useState("");
   const [stage, setStage] = useState<Stage>("idle");
   const [completedSteps, setCompletedSteps] = useState<StepKey[]>([]);
@@ -77,8 +76,13 @@ export default function Home() {
     });
 
     source.addEventListener("error", (event) => {
+      // The server sends its failure reason in Portuguese regardless of
+      // UI language (it's produced deep in the check/PageSpeed layer,
+      // not worth threading a locale through the whole backend for a
+      // rare error path) — a native connection-level error has no
+      // `data` at all, so that case falls back to the localized string.
       const raw = (event as MessageEvent).data;
-      const message = raw ? (JSON.parse(raw) as { error: string }).error : "Erro de conexão ao analisar o site.";
+      const message = raw ? (JSON.parse(raw) as { error: string }).error : t.errorGeneric;
       setError(message);
       setStage("idle");
       source.close();
@@ -89,7 +93,7 @@ export default function Home() {
     event.preventDefault();
     const endpoint = process.env.NEXT_PUBLIC_FORMSPREE_ENDPOINT;
     if (!endpoint) {
-      setContactError("Formulário não configurado.");
+      setContactError(t.formNotConfigured);
       return;
     }
 
@@ -112,10 +116,10 @@ export default function Home() {
       if (response.ok) {
         setContactSubmitted(true);
       } else {
-        setContactError("Não foi possível enviar. Tenta de novo em instantes.");
+        setContactError(t.sendError);
       }
     } catch {
-      setContactError("Não foi possível enviar. Tenta de novo em instantes.");
+      setContactError(t.sendError);
     } finally {
       setContactSubmitting(false);
     }
@@ -132,25 +136,25 @@ export default function Home() {
       <div className="w-full max-w-md">
         <div className="mb-8 flex items-baseline justify-between">
           <Brand />
+          <LanguageSwitcher />
         </div>
 
         {stage === "idle" && (
           <>
             <h1 className="mb-3 text-4xl leading-[1.05] tracking-tight">
-              Todo site tem
+              {t.headline[0]}
               <br />
-              um ponto fraco.
+              {t.headline[1]}
             </h1>
             <p className="mb-6 max-w-sm text-[13.5px] leading-relaxed text-[var(--color-text)]/80">
-              A gente encontra o seu em menos de um minuto — performance, SEO, acessibilidade e
-              segurança, tudo junto.
+              {t.subheadline}
             </p>
 
             <form onSubmit={startAnalysis}>
-              <label className="mb-1.5 block text-xs text-[var(--color-text)]/70">Analisar</label>
+              <label className="mb-1.5 block text-xs text-[var(--color-text)]/70">{t.analyzeLabel}</label>
               <input
                 className="mb-3 w-full border border-[var(--color-divider)] bg-white/60 px-2.5 py-2 font-mono text-[13.5px] outline-none focus-visible:border-[var(--color-accent)]"
-                placeholder="suasite.com.br"
+                placeholder={t.urlPlaceholder}
                 value={url}
                 onChange={(event) => setUrl(event.target.value)}
               />
@@ -159,14 +163,14 @@ export default function Home() {
                 disabled={!url}
                 className="flex w-full items-center justify-between border border-[var(--color-accent)] bg-[var(--color-accent)] px-4 py-2.5 font-[var(--font-heading)] text-[14.5px] font-semibold text-white transition-colors hover:bg-[var(--color-accent-600)] disabled:opacity-45"
               >
-                Rodar diagnóstico <span>→</span>
+                {t.runButton} <span>→</span>
               </button>
             </form>
 
             {error && <p className="mt-4 text-sm text-[var(--color-accent-900)]">{error}</p>}
 
             <p className="mt-6 text-[11px] leading-relaxed text-[var(--color-neutral-600)] italic">
-              Não guardamos a URL nem o relatório depois. Roda, mostra, some.
+              {t.privacyNote}
             </p>
           </>
         )}
@@ -189,14 +193,19 @@ export default function Home() {
                   <span className="text-base font-normal text-[var(--color-neutral-600)]"> /100</span>
                 </div>
                 <span className="mt-1.5 inline-flex border border-[var(--color-accent)] px-2.5 py-0.5 text-[11px] text-[var(--color-accent)]">
-                  {report.score.overallSeverity === "ok" ? "Está bem" : "Precisa de atenção"}
+                  {report.score.overallSeverity === "ok" ? t.scoreLabelOk : t.scoreLabelAttention}
                 </span>
               </div>
             </div>
 
             <div className="mt-5 mb-5 flex flex-col gap-2.5">
-              {CATEGORIES.map(({ key, label }) => (
-                <CategoryCard key={key} label={label} score={report.score[key].score} severity={report.score[key].severity} />
+              {CATEGORY_KEYS.map((key) => (
+                <CategoryCard
+                  key={key}
+                  label={t.categories[key]}
+                  score={report.score[key].score}
+                  severity={report.score[key].severity}
+                />
               ))}
             </div>
 
@@ -207,7 +216,7 @@ export default function Home() {
               onClick={() => setStage("next-step")}
               className="mt-6 flex w-full items-center justify-center border border-[var(--color-accent)] bg-[var(--color-accent)] py-2.5 text-[14.5px] font-semibold text-white transition-colors hover:bg-[var(--color-accent-600)]"
             >
-              Ver próximo passo →
+              {t.nextStepButton}
             </button>
           </div>
         )}
@@ -220,15 +229,11 @@ export default function Home() {
             </div>
 
             <div className="mb-2 text-xs font-semibold tracking-[0.12em] text-[var(--color-accent-700)] uppercase">
-              Próximo passo
+              {t.nextStepKicker}
             </div>
-            <h3 className="mb-3 text-[22px] leading-[1.15] tracking-tight">
-              O relatório aponta. Resolver é outra etapa.
-            </h3>
+            <h3 className="mb-3 text-[22px] leading-[1.15] tracking-tight">{t.nextStepHeadline}</h3>
             <p className="mb-4 text-[13px] leading-relaxed text-[var(--color-text)]/80">
-              {topIssues.length >= 2
-                ? "Se dois desses pontos já tão custando venda, vale mexer neles antes do resto."
-                : "É por aqui que vale começar."}
+              {topIssues.length >= 2 ? t.nextStepBodyTwo : t.nextStepBodyFew}
             </p>
 
             {topIssues.length > 0 && (
@@ -238,7 +243,7 @@ export default function Home() {
                   {topIssues.map((issue, index) => (
                     <div key={index} className="flex gap-2 text-[12.5px]">
                       <span className="text-[var(--color-accent-900)]">☑</span>
-                      <span>{issue.title}</span>
+                      <span>{translateIssue(locale, issue.code, issue.params).title}</span>
                     </div>
                   ))}
                 </div>
@@ -246,40 +251,38 @@ export default function Home() {
             )}
 
             {contactSubmitted ? (
-              <p className="text-sm text-[var(--color-accent-800)]">
-                Recebido. Volto pra você em breve.
-              </p>
+              <p className="text-sm text-[var(--color-accent-800)]">{t.sendSuccess}</p>
             ) : (
               <form onSubmit={submitContact}>
-                <p className="mb-2.5 text-xs text-[var(--color-text)]/70">Se quiser ajuda com isso:</p>
+                <p className="mb-2.5 text-xs text-[var(--color-text)]/70">{t.contactIntro}</p>
                 <div className="mb-2.5">
-                  <label className="mb-1 block text-xs text-[var(--color-text)]/70">Nome</label>
+                  <label className="mb-1 block text-xs text-[var(--color-text)]/70">{t.nameLabel}</label>
                   <input
                     required
                     className="w-full border border-[var(--color-divider)] bg-white/60 px-2.5 py-2 text-sm outline-none focus-visible:border-[var(--color-accent)]"
-                    placeholder="Seu nome"
+                    placeholder={t.namePlaceholder}
                     value={contact.name}
                     onChange={(event) => setContact({ ...contact, name: event.target.value })}
                   />
                 </div>
                 <div className="mb-2.5">
-                  <label className="mb-1 block text-xs text-[var(--color-text)]/70">E-mail</label>
+                  <label className="mb-1 block text-xs text-[var(--color-text)]/70">{t.emailLabel}</label>
                   <input
                     required
                     type="email"
                     className="w-full border border-[var(--color-divider)] bg-white/60 px-2.5 py-2 text-sm outline-none focus-visible:border-[var(--color-accent)]"
-                    placeholder="voce@email.com"
+                    placeholder={t.emailPlaceholder}
                     value={contact.email}
                     onChange={(event) => setContact({ ...contact, email: event.target.value })}
                   />
                 </div>
                 <div className="mb-3">
-                  <label className="mb-1 block text-xs text-[var(--color-text)]/70">Mensagem</label>
+                  <label className="mb-1 block text-xs text-[var(--color-text)]/70">{t.messageLabel}</label>
                   <textarea
                     required
                     rows={3}
                     className="w-full resize-y border border-[var(--color-divider)] bg-white/60 px-2.5 py-2 text-sm outline-none focus-visible:border-[var(--color-accent)]"
-                    placeholder="Conte um pouco sobre o que precisa"
+                    placeholder={t.messagePlaceholder}
                     value={contact.message}
                     onChange={(event) => setContact({ ...contact, message: event.target.value })}
                   />
@@ -292,14 +295,12 @@ export default function Home() {
                   disabled={contactSubmitting}
                   className="flex w-full items-center justify-center border border-[var(--color-accent)] bg-[var(--color-accent)] py-2.5 text-[14.5px] font-semibold text-white transition-colors hover:bg-[var(--color-accent-600)] disabled:opacity-45"
                 >
-                  {contactSubmitting ? "Enviando…" : "Enviar"}
+                  {contactSubmitting ? t.sending : t.sendButton}
                 </button>
               </form>
             )}
 
-            <p className="mt-4 text-[10.5px] text-[var(--color-neutral-600)]">
-              Isdias.dev · relatório referente a {report.domain}
-            </p>
+            <p className="mt-4 text-[10.5px] text-[var(--color-neutral-600)]">{t.reportFooter(report.domain)}</p>
           </div>
         )}
       </div>
