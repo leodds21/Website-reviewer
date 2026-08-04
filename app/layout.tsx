@@ -16,7 +16,7 @@ const barlowCondensed = Barlow_Condensed({
 });
 
 export const metadata: Metadata = {
-  title: "Isdias.dev — diagnóstico de site",
+  title: "Isdias.dev, diagnóstico de site",
   description: "Performance, SEO, acessibilidade e segurança do seu site em menos de um minuto.",
 };
 
