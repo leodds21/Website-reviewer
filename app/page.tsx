@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Loader2, Check } from "lucide-react";
 import { ScoreRing } from "./components/ScoreRing";
 import { CategoryCard } from "./components/CategoryCard";
 import { IssueList } from "./components/IssueList";
@@ -51,6 +52,7 @@ export default function Home() {
 
   const [contact, setContact] = useState({ name: "", email: "", message: "" });
   const [contactSubmitting, setContactSubmitting] = useState(false);
+  const [contactJustSucceeded, setContactJustSucceeded] = useState(false);
   const [contactSubmitted, setContactSubmitted] = useState(false);
   const [contactError, setContactError] = useState<string | null>(null);
 
@@ -108,16 +110,22 @@ export default function Home() {
           name: contact.name,
           email: contact.email,
           message: contact.message,
-          _subject: `Isdias.dev — novo contato sobre ${report?.domain}`,
+          _subject: `Isdias.dev: novo contato sobre ${report?.domain}`,
           site: report?.domain,
         }),
       });
 
       if (response.ok) {
-        setContactSubmitted(true);
-      } else {
-        setContactError(t.sendError);
+        // Holds the button in its "check" state for a beat before
+        // swapping to the confirmation message — an instant swap reads
+        // as the click didn't register, not as success.
+        setContactSubmitting(false);
+        setContactJustSucceeded(true);
+        setTimeout(() => setContactSubmitted(true), 1200);
+        return;
       }
+
+      setContactError(t.sendError);
     } catch {
       setContactError(t.sendError);
     } finally {
@@ -292,10 +300,15 @@ export default function Home() {
 
                 <button
                   type="submit"
-                  disabled={contactSubmitting}
-                  className="flex w-full items-center justify-center border border-[var(--color-accent)] bg-[var(--color-accent)] py-2.5 text-[14.5px] font-semibold text-white transition-colors hover:bg-[var(--color-accent-600)] disabled:opacity-45"
+                  disabled={contactSubmitting || contactJustSucceeded}
+                  className="flex w-full items-center justify-center gap-2 border border-[var(--color-accent)] bg-[var(--color-accent)] py-2.5 text-[14.5px] font-semibold text-white transition-colors hover:bg-[var(--color-accent-600)] disabled:opacity-100"
                 >
-                  {contactSubmitting ? t.sending : t.sendButton}
+                  {contactJustSucceeded ? (
+                    <Check size={16} strokeWidth={2} />
+                  ) : contactSubmitting ? (
+                    <Loader2 size={16} strokeWidth={2} className="animate-spin" />
+                  ) : null}
+                  {contactJustSucceeded ? "" : contactSubmitting ? t.sending : t.sendButton}
                 </button>
               </form>
             )}
