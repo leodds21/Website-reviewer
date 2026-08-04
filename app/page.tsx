@@ -202,7 +202,7 @@ export default function Home() {
               {CATEGORY_KEYS.map((key) => (
                 <CategoryCard
                   key={key}
-                  label={t.categories[key]}
+                  category={key}
                   score={report.score[key].score}
                   severity={report.score[key].severity}
                 />
