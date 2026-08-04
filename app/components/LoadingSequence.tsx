@@ -1,15 +1,19 @@
 "use client";
 
+import { useLanguage } from "@/app/i18n/LanguageContext";
+import type { CategoryKey } from "@/app/i18n/translations";
+
 export type StepKey = "https" | "metaTags" | "altImages" | "sitemapRobots" | "pagespeed";
 
-const CATEGORY_GROUPS: { label: string; labelLowercase: string; steps: StepKey[] }[] = [
-  { label: "Segurança", labelLowercase: "segurança", steps: ["https"] },
-  { label: "SEO", labelLowercase: "SEO", steps: ["metaTags", "sitemapRobots"] },
-  { label: "Acessibilidade", labelLowercase: "acessibilidade", steps: ["altImages"] },
-  { label: "Performance", labelLowercase: "performance", steps: ["pagespeed"] },
+const CATEGORY_GROUPS: { key: CategoryKey; steps: StepKey[] }[] = [
+  { key: "security", steps: ["https"] },
+  { key: "seo", steps: ["metaTags", "sitemapRobots"] },
+  { key: "accessibility", steps: ["altImages"] },
+  { key: "performance", steps: ["pagespeed"] },
 ];
 
 export function LoadingSequence({ completedSteps }: { completedSteps: StepKey[] }) {
+  const { t } = useLanguage();
   const completedSet = new Set(completedSteps);
   const currentGroup = completedSteps.length > 0
     ? CATEGORY_GROUPS.find((group) => group.steps.includes(completedSteps[completedSteps.length - 1]))
@@ -20,9 +24,9 @@ export function LoadingSequence({ completedSteps }: { completedSteps: StepKey[] 
       <div className="mb-6 flex items-center gap-2">
         {CATEGORY_GROUPS.map((group, index) => {
           const done = group.steps.every((step) => completedSet.has(step));
-          const active = !done && group.label === currentGroup?.label;
+          const active = !done && group.key === currentGroup?.key;
           return (
-            <div key={group.label} className="flex items-center gap-2">
+            <div key={group.key} className="flex items-center gap-2">
               <span
                 className={`h-[9px] w-[9px] ${
                   done
@@ -43,18 +47,16 @@ export function LoadingSequence({ completedSteps }: { completedSteps: StepKey[] 
       </div>
 
       <h2 className="mb-2 text-2xl tracking-tight">
-        {currentGroup ? `Verificando ${currentGroup.labelLowercase}…` : "Iniciando análise…"}
+        {currentGroup ? t.verifying(t.categories[currentGroup.key].toLowerCase()) : t.startingAnalysis}
       </h2>
-      <p className="mb-4 text-[13px] text-[var(--color-text)]/70">
-        Isso leva menos de um minuto — estamos rodando as checagens de verdade, não é decoração.
-      </p>
+      <p className="mb-4 text-[13px] text-[var(--color-text)]/70">{t.loadingSubtitle}</p>
 
       <div className="h-px bg-[var(--color-divider)]" />
 
       <ul className="mt-4 flex flex-col gap-2">
         {CATEGORY_GROUPS.filter((group) => group.steps.every((step) => completedSet.has(step))).map((group) => (
-          <li key={group.label} className="fade-in-up text-[13px] text-[var(--color-text)]/80">
-            <b className="font-semibold">{group.label}</b> — checagem concluída
+          <li key={group.key} className="fade-in-up text-[13px] text-[var(--color-text)]/80">
+            {t.checkDone(t.categories[group.key])}
           </li>
         ))}
       </ul>
