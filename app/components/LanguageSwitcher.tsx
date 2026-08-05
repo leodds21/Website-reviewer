@@ -21,13 +21,18 @@ function LocaleOption({
       type="button"
       onClick={() => onSelect(value)}
       aria-pressed={active}
-      aria-label={fullName}
       lang={value}
       className={
         active ? "text-[var(--color-text)]" : "text-[var(--color-neutral-700)] hover:text-[var(--color-accent-700)]"
       }
     >
+      {/* The full name is appended rather than replacing "PT" via
+          aria-label. An accessible name that doesn't contain the
+          visible text breaks voice control — saying "click PT" matches
+          nothing when the name is only "Português" (WCAG 2.5.3, and
+          flagged by Lighthouse's label-content-name-mismatch). */}
       {label}
+      <span className="sr-only"> ({fullName})</span>
     </button>
   );
 }
