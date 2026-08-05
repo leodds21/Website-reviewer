@@ -1,3 +1,5 @@
+import { safeFetch } from "../safeFetch";
+
 const SAMPLE_SIZE = 20;
 
 export type AltImagesCheckResult = {
@@ -16,9 +18,8 @@ export async function checkAltImages(url: string): Promise<AltImagesCheckResult>
     ? url
     : `https://${url}`;
 
-  const response = await fetch(requestedUrl, {
+  const response = await safeFetch(requestedUrl, {
     method: "GET",
-    redirect: "follow",
     signal: AbortSignal.timeout(8000),
   });
 

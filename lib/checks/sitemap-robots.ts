@@ -1,3 +1,5 @@
+import { safeFetch } from "../safeFetch";
+
 export type SitemapRobotsCheckResult = {
   hasSitemap: boolean;
   hasRobotsTxt: boolean;
@@ -5,9 +7,8 @@ export type SitemapRobotsCheckResult = {
 
 async function existsAt(url: string): Promise<boolean> {
   try {
-    const response = await fetch(url, {
+    const response = await safeFetch(url, {
       method: "GET",
-      redirect: "follow",
       signal: AbortSignal.timeout(8000),
     });
     return response.ok;

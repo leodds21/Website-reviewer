@@ -1,3 +1,5 @@
+import { safeFetch } from "../safeFetch";
+
 export type MetaTagsCheckResult = {
   hasViewport: boolean;
   hasTitle: boolean;
@@ -16,9 +18,8 @@ export async function checkMetaTags(url: string): Promise<MetaTagsCheckResult> {
     ? url
     : `https://${url}`;
 
-  const response = await fetch(requestedUrl, {
+  const response = await safeFetch(requestedUrl, {
     method: "GET",
-    redirect: "follow",
     signal: AbortSignal.timeout(8000),
   });
 
@@ -29,10 +30,12 @@ export async function checkMetaTags(url: string): Promise<MetaTagsCheckResult> {
   const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
   const title = titleMatch ? titleMatch[1].trim() : null;
 
-  const descriptionMatch = html.match(
-    /<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["'][^>]*>/i,
-  );
-  const description = descriptionMatch ? descriptionMatch[1].trim() : null;
+  // Matched as a whole tag first, then content= pulled out of it
+  // separately — real-world markup doesn't always put name= before
+  // content=, and a single regex requiring that order misses it.
+  const descriptionTagMatch = html.match(/<meta\b[^>]*\bname=["']description["'][^>]*>/i);
+  const descriptionContentMatch = descriptionTagMatch?.[0].match(/\bcontent=["']([^"']*)["']/i);
+  const description = descriptionContentMatch ? descriptionContentMatch[1].trim() : null;
 
   return {
     hasViewport,

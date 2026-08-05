@@ -8,6 +8,7 @@ import { getCached, setCached } from "@/lib/cache";
 import { aggregateScore, type AggregatedScore } from "@/lib/score";
 import { deriveIssues, type Issue } from "@/lib/issues";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { isBlockedHost } from "@/lib/safeFetch";
 
 export const dynamic = "force-dynamic";
 
@@ -33,31 +34,6 @@ const STEP_LABELS: Record<keyof CheckResults, string> = {
   sitemapRobots: "Verificando SEO",
   pagespeed: "Verificando performance",
 };
-
-const BLOCKED_HOSTNAMES = new Set(["localhost", "0.0.0.0", "::1"]);
-
-/**
- * Rejects hosts that would make this server-side fetch an SSRF vector:
- * loopback, link-local (includes the cloud metadata endpoint at
- * 169.254.169.254) and private ranges. Best-effort on the literal
- * hostname/IP the user typed — it doesn't resolve DNS, so a domain
- * that resolves to a private IP at request time isn't caught here.
- */
-function isBlockedHost(hostname: string): boolean {
-  if (BLOCKED_HOSTNAMES.has(hostname.toLowerCase())) return true;
-
-  const ipv4 = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (!ipv4) return false;
-
-  const [a, b] = [Number(ipv4[1]), Number(ipv4[2])];
-  return (
-    a === 127 ||
-    a === 10 ||
-    a === 169 && b === 254 ||
-    a === 192 && b === 168 ||
-    a === 172 && b >= 16 && b <= 31
-  );
-}
 
 function parseTargetUrl(input: string): URL | null {
   const withScheme = input.startsWith("http://") || input.startsWith("https://")
@@ -108,7 +84,13 @@ async function* settleInOrder<T extends Record<string, Promise<unknown>>>(
 // all error copy to the client and having routes return error codes
 // instead of messages. Deferred: low-traffic path, not blocking.
 export async function GET(request: Request) {
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  // The leftmost entry in x-forwarded-for is whatever the client
+  // itself claims — trivially spoofable with a header. The rightmost
+  // entry is the one appended by our own trusted edge (Vercel), so
+  // that's the one to trust. This assumes exactly one trusted proxy in
+  // front of the app; an additional untrusted proxy in the chain would
+  // still need its own handling.
+  const ip = request.headers.get("x-forwarded-for")?.split(",").pop()?.trim() ?? "unknown";
   const rateLimit = checkRateLimit(ip);
   if (rateLimit.limited) {
     return NextResponse.json(
