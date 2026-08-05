@@ -4,6 +4,10 @@ export type PageSpeedCategory = "performance" | "accessibility" | "best-practice
 
 export type PageSpeedResult = {
   scores: Record<PageSpeedCategory, number>;
+  // Undefined, not a 0 fallback, when the audit is missing from the
+  // response — a fake 0s would read as "loads instantly," which is
+  // actively misleading rather than merely absent data.
+  lcpSeconds?: number;
 };
 
 /**
@@ -46,6 +50,11 @@ export async function runPageSpeed(url: string): Promise<PageSpeedResult> {
     return typeof raw === "number" ? Math.round(raw * 100) : 0;
   };
 
+  // Rounded to one decimal — the raw millisecond figure varies run to
+  // run, and a false extra digit of precision doesn't help anyone.
+  const lcpMs = data.lighthouseResult?.audits?.["largest-contentful-paint"]?.numericValue;
+  const lcpSeconds = typeof lcpMs === "number" ? Math.round((lcpMs / 1000) * 10) / 10 : undefined;
+
   return {
     scores: {
       performance: scoreOf("performance"),
@@ -53,5 +62,6 @@ export async function runPageSpeed(url: string): Promise<PageSpeedResult> {
       "best-practices": scoreOf("best-practices"),
       seo: scoreOf("seo"),
     },
+    lcpSeconds,
   };
 }
