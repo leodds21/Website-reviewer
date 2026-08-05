@@ -54,4 +54,17 @@ export const IMPACT_EXPLANATIONS: Partial<Record<IssueCode, ImpactExplanation>> 
   "no-sitemap": {
     text: "O sitemap é como um mapa que ajuda o Google a encontrar todas as páginas do site, principalmente as mais novas. Sem ele, uma página recém-publicada pode demorar bem mais pra aparecer nos resultados de busca.",
   },
+
+  // lib/pagespeed.ts
+  "low-performance": {
+    text: "Quanto mais devagar o site carrega, maior a chance de a pessoa desistir antes mesmo de ver o conteúdo. Velocidade de carregamento também é um dos fatores que o Google leva em conta pra decidir a posição do site nas buscas.",
+  },
+  "slow-load-impact": {
+    // The specific seconds/percentage numbers are already computed and
+    // shown per-finding (see LOAD_IMPACT_BUCKETS in lib/issues.ts) —
+    // this doesn't restate them, just reinforces that the number above
+    // isn't a guess, tracing back to the same cited source.
+    text: "Cada segundo a mais de espera aumenta a chance de a pessoa sair do site antes de ver qualquer coisa — o número acima não é uma estimativa aleatória, vem de uma pesquisa real sobre esse comportamento.",
+    source: "Análise do Google sobre dados do Chrome UX Report, ~900 mil páginas mobile.",
+  },
 };
