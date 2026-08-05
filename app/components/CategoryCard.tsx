@@ -46,7 +46,7 @@ export function CategoryCard({
         <span className="font-mono">
           {score}{" "}
           <span
-            className={severity === "ok" ? "text-[var(--color-neutral-600)]" : "text-[var(--color-accent-800)]"}
+            className={severity === "ok" ? "text-[var(--color-neutral-700)]" : "text-[var(--color-accent-800)]"}
           >
             · {t.severity[severity]}
           </span>

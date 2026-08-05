@@ -37,7 +37,7 @@ function Corners() {
 function Brand() {
   return (
     <span className="text-lg font-semibold">
-      Isdias<span className="text-[var(--color-accent)]">.dev</span>
+      Isdias<span className="text-[var(--color-accent-700)]">.dev</span>
     </span>
   );
 }
@@ -177,7 +177,7 @@ export default function Home() {
 
             {error && <p className="mt-4 text-sm text-[var(--color-accent-900)]">{error}</p>}
 
-            <p className="mt-6 text-[11px] leading-relaxed text-[var(--color-neutral-600)] italic">
+            <p className="mt-6 text-[11px] leading-relaxed text-[var(--color-neutral-700)] italic">
               {t.privacyNote}
             </p>
           </>
@@ -190,7 +190,7 @@ export default function Home() {
             <Corners />
             <div className="mb-5 flex items-baseline justify-between">
               <Brand />
-              <span className="font-mono text-xs text-[var(--color-neutral-600)]">{report.domain}</span>
+              <span className="font-mono text-xs text-[var(--color-neutral-700)]">{report.domain}</span>
             </div>
 
             <div className="mb-2 flex items-center gap-4">
@@ -198,9 +198,9 @@ export default function Home() {
               <div>
                 <div className="text-[38px] font-semibold leading-none tracking-tight">
                   {report.score.overall}
-                  <span className="text-base font-normal text-[var(--color-neutral-600)]"> /100</span>
+                  <span className="text-base font-normal text-[var(--color-neutral-700)]"> /100</span>
                 </div>
-                <span className="mt-1.5 inline-flex border border-[var(--color-accent)] px-2.5 py-0.5 text-[11px] text-[var(--color-accent)]">
+                <span className="mt-1.5 inline-flex border border-[var(--color-accent)] px-2.5 py-0.5 text-[11px] text-[var(--color-accent-700)]">
                   {report.score.overallSeverity === "ok" ? t.scoreLabelOk : t.scoreLabelAttention}
                 </span>
               </div>
@@ -313,7 +313,7 @@ export default function Home() {
               </form>
             )}
 
-            <p className="mt-4 text-[10.5px] text-[var(--color-neutral-600)]">{t.reportFooter(report.domain)}</p>
+            <p className="mt-4 text-[10.5px] text-[var(--color-neutral-700)]">{t.reportFooter(report.domain)}</p>
           </div>
         )}
       </div>

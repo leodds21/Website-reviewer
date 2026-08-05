@@ -20,7 +20,7 @@ function LocaleOption({
       onClick={() => onSelect(value)}
       aria-current={active}
       className={
-        active ? "text-[var(--color-text)]" : "text-[var(--color-neutral-600)] hover:text-[var(--color-accent)]"
+        active ? "text-[var(--color-text)]" : "text-[var(--color-neutral-700)] hover:text-[var(--color-accent-700)]"
       }
     >
       {label}
