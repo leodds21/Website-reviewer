@@ -51,7 +51,7 @@ export function IdleScreen({
         <button
           type="submit"
           disabled={!url.trim()}
-          className="flex w-full items-center justify-between border border-[var(--color-accent)] bg-[var(--color-accent)] px-4 py-2.5 font-[var(--font-heading)] text-[14.5px] font-semibold text-white transition-colors hover:bg-[var(--color-accent-600)] disabled:opacity-45"
+          className="flex w-full cursor-pointer items-center justify-between border border-[var(--color-accent-700)] bg-[var(--color-accent-700)] px-4 py-2.5 font-[var(--font-heading)] text-[14.5px] font-semibold text-white transition-colors hover:border-[var(--color-accent-800)] hover:bg-[var(--color-accent-800)] active:bg-[var(--color-accent-900)] disabled:cursor-not-allowed disabled:border-[var(--color-divider)] disabled:bg-[var(--color-neutral-200)] disabled:text-[var(--color-neutral-600)]"
         >
           {t.runButton} <span aria-hidden="true">→</span>
         </button>
