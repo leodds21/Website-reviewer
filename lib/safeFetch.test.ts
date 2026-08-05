@@ -1,5 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { lookup } from "node:dns/promises";
 import { BlockedHostError, isBlockedHost, safeFetch } from "./safeFetch";
+
+vi.mock("node:dns/promises", () => ({ lookup: vi.fn() }));
+
+// dns.promises.lookup is overloaded (single address vs array vs family
+// variants), which trips up vi.mocked()'s inferred call signature — this
+// pins mock results to the shape safeFetch actually requests (all: true).
+function dnsResult(...addresses: string[]): Awaited<ReturnType<typeof lookup>> {
+  return addresses.map((address) => ({ address, family: 4 })) as unknown as Awaited<ReturnType<typeof lookup>>;
+}
 
 function fakeResponse(status: number, opts: { location?: string; url?: string } = {}): Response {
   const headers = new Headers();
@@ -30,15 +40,42 @@ describe("isBlockedHost", () => {
 describe("safeFetch", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
+    // Default: any hostname resolves to a plain public address, so
+    // tests that aren't specifically about DNS don't have to think
+    // about it.
+    vi.mocked(lookup).mockResolvedValue(dnsResult("93.184.216.34"));
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.clearAllMocks();
   });
 
-  it("rejects a blocked host without making any network request", async () => {
+  it("rejects a literal blocked host without making any network request or DNS lookup", async () => {
     await expect(safeFetch("http://localhost/")).rejects.toBeInstanceOf(BlockedHostError);
     expect(fetch).not.toHaveBeenCalled();
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it("rejects a hostname that resolves to a blocked IP — not just a literal blocked IP", async () => {
+    // isBlockedHost alone only catches the URL literally containing a
+    // blocked address; this is the case it can't see on its own — a
+    // normal-looking domain whose DNS record points at an internal
+    // address (e.g. an attacker-controlled zone, or cloud metadata via
+    // a rebinding-style domain).
+    vi.mocked(lookup).mockResolvedValueOnce(dnsResult("169.254.169.254"));
+
+    await expect(safeFetch("https://looks-public.example/")).rejects.toBeInstanceOf(BlockedHostError);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("does not block when DNS resolution itself fails — lets the real fetch surface that error", async () => {
+    vi.mocked(lookup).mockRejectedValueOnce(new Error("ENOTFOUND"));
+    vi.mocked(fetch).mockResolvedValueOnce(fakeResponse(200, { url: "https://example.com/" }));
+
+    const response = await safeFetch("https://example.com/");
+
+    expect(response.status).toBe(200);
   });
 
   it("returns the response directly when there's no redirect", async () => {

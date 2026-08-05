@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { checkSitemapRobots } from "./sitemap-robots";
 
+// checkSitemapRobots goes through safeFetch, which resolves DNS to
+// check for a blocked IP before every request — mocked here so the
+// test doesn't depend on real DNS, same as fetch itself.
+vi.mock("node:dns/promises", () => ({ lookup: vi.fn().mockResolvedValue([{ address: "93.184.216.34" }]) }));
+
 function fakeResponse(url: string, status: number): Response {
   return { status, headers: new Headers(), url, ok: status >= 200 && status < 300 } as Response;
 }
