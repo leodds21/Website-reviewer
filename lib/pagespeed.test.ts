@@ -63,4 +63,29 @@ describe("runPageSpeed", () => {
 
     await expect(runPageSpeed("example.com")).rejects.toThrow(/403/);
   });
+
+  it("extracts LCP in seconds from the largest-contentful-paint audit", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      fakeJsonResponse(200, {
+        lighthouseResult: {
+          categories: { performance: { score: 0.3 } },
+          audits: { "largest-contentful-paint": { numericValue: 6234 } },
+        },
+      }),
+    );
+
+    const result = await runPageSpeed("example.com");
+
+    expect(result.lcpSeconds).toBe(6.2);
+  });
+
+  it("leaves lcpSeconds undefined when the audit is missing", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      fakeJsonResponse(200, { lighthouseResult: { categories: { performance: { score: 0.9 } } } }),
+    );
+
+    const result = await runPageSpeed("example.com");
+
+    expect(result.lcpSeconds).toBeUndefined();
+  });
 });
