@@ -50,4 +50,27 @@ describe("checkHttps", () => {
 
     expect(result.redirectedFromHttp).toBe(false);
   });
+
+  it("reports a certificate error as data instead of throwing", async () => {
+    const error = new Error("fetch failed");
+    (error as { cause?: unknown }).cause = { code: "UNABLE_TO_VERIFY_LEAF_SIGNATURE" };
+    vi.mocked(fetch).mockRejectedValueOnce(error);
+
+    const result = await checkHttps("https://example.com");
+
+    expect(result).toEqual({
+      passed: false,
+      finalUrl: "https://example.com",
+      redirectedFromHttp: false,
+      certificateError: true,
+    });
+  });
+
+  it("still throws for connection failures that aren't about the certificate", async () => {
+    const error = new Error("fetch failed");
+    (error as { cause?: unknown }).cause = { code: "ECONNREFUSED" };
+    vi.mocked(fetch).mockRejectedValueOnce(error);
+
+    await expect(checkHttps("https://example.com")).rejects.toThrow("fetch failed");
+  });
 });
