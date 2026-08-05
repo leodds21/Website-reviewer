@@ -128,8 +128,8 @@ export async function GET(request: Request) {
         return;
       }
 
-      const results = {} as CheckResults;
-      let failedMessage: string | null = null;
+      const results: Partial<CheckResults> = {};
+      let firstFailureMessage: string | null = null;
 
       const tasks = {
         https: checkHttps(target),
@@ -141,15 +141,23 @@ export async function GET(request: Request) {
 
       for await (const outcome of settleInOrder(tasks)) {
         if ("error" in outcome) {
-          failedMessage ??= (outcome.error as Error).message;
+          // A check failing doesn't take the whole report down with it —
+          // score.ts/issues.ts already treat a missing check as "not
+          // evaluated" rather than a false negative, so whatever did
+          // succeed is still worth reporting (the camara.rio case: a
+          // broken certificate takes out every check that needs to fetch
+          // page content, but https itself still comes back with a real
+          // finding). The message is kept only for the case where
+          // literally nothing succeeds, below.
+          firstFailureMessage ??= (outcome.error as Error).message;
           continue;
         }
         results[outcome.key] = outcome.value as never;
         send("step", { step: outcome.key, label: STEP_LABELS[outcome.key] });
       }
 
-      if (failedMessage) {
-        send("error", { error: `Não foi possível analisar o site: ${failedMessage}` });
+      if (Object.keys(results).length === 0) {
+        send("error", { error: `Não foi possível analisar o site: ${firstFailureMessage}` });
       } else {
         const score = aggregateScore(results);
         const issues = deriveIssues(results);
