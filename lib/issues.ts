@@ -15,7 +15,8 @@ export type IssueCode =
   | "no-viewport"
   | "missing-alt"
   | "no-sitemap"
-  | "low-performance";
+  | "low-performance"
+  | "slow-load-impact";
 
 export type Issue = {
   category: IssueCategory;
@@ -23,6 +24,19 @@ export type Issue = {
   code: IssueCode;
   params?: Record<string, string | number>;
 };
+
+// Bounce-probability increase by load time, relative to a 1s load.
+// Source: Google's analysis of Chrome UX Report data across ~900k
+// mobile landing pages (the research behind the "Think with Google"
+// mobile speed benchmarks). Only three points are verified — 1s→3s,
+// 1s→5s, 1s→10s — so each bucket reports the verified figure for the
+// threshold it has crossed, as a floor ("pelo menos"/"at least"),
+// instead of interpolating a number nobody measured.
+const LOAD_IMPACT_BUCKETS = [
+  { minSeconds: 10, bounceIncreasePercent: 123 },
+  { minSeconds: 5, bounceIncreasePercent: 90 },
+  { minSeconds: 3, bounceIncreasePercent: 32 },
+] as const;
 
 /**
  * Turns the raw check/PageSpeed results into findings for the "o que
@@ -86,6 +100,18 @@ export function deriveIssues(input: {
       code: "low-performance",
       params: { score: input.pagespeed.scores.performance },
     });
+  }
+
+  if (typeof input.pagespeed.lcpSeconds === "number") {
+    const bucket = LOAD_IMPACT_BUCKETS.find((b) => input.pagespeed.lcpSeconds! >= b.minSeconds);
+    if (bucket) {
+      issues.push({
+        category: "performance",
+        severity: bucket.minSeconds >= 5 ? "critico" : "atencao",
+        code: "slow-load-impact",
+        params: { seconds: input.pagespeed.lcpSeconds, bounceIncreasePercent: bucket.bounceIncreasePercent },
+      });
+    }
   }
 
   return issues;

@@ -33,3 +33,66 @@ describe("deriveIssues", () => {
     expect(messySite.filter((issue) => issue.severity === "critico").length).toBeGreaterThanOrEqual(3);
   });
 });
+
+describe("deriveIssues — slow-load-impact", () => {
+  const baseInput = {
+    https: { passed: true, finalUrl: "https://x.com", redirectedFromHttp: false },
+    metaTags: { hasViewport: true, hasTitle: true, title: "X", hasDescription: true, description: "Y" },
+    altImages: { sampledCount: 10, missingAltCount: 0, missingAltSrcs: [] },
+    sitemapRobots: { hasSitemap: true, hasRobotsTxt: true },
+  };
+
+  it("doesn't fire when lcpSeconds is unavailable", () => {
+    const issues = deriveIssues({
+      ...baseInput,
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 90 } },
+    });
+
+    expect(issues.some((issue) => issue.code === "slow-load-impact")).toBe(false);
+  });
+
+  it("doesn't fire below the first verified bucket (3s)", () => {
+    const issues = deriveIssues({
+      ...baseInput,
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 90 }, lcpSeconds: 2.5 },
+    });
+
+    expect(issues.some((issue) => issue.code === "slow-load-impact")).toBe(false);
+  });
+
+  it("uses the 32% figure (atencao) between 3s and 5s", () => {
+    const issues = deriveIssues({
+      ...baseInput,
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 90 }, lcpSeconds: 4.0 },
+    });
+
+    expect(issues).toContainEqual({
+      category: "performance",
+      severity: "atencao",
+      code: "slow-load-impact",
+      params: { seconds: 4.0, bounceIncreasePercent: 32 },
+    });
+  });
+
+  it("uses the 90% figure (critico) between 5s and 10s", () => {
+    const issues = deriveIssues({
+      ...baseInput,
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 90 }, lcpSeconds: 6.0 },
+    });
+
+    expect(issues).toContainEqual(
+      expect.objectContaining({ code: "slow-load-impact", severity: "critico", params: { seconds: 6.0, bounceIncreasePercent: 90 } }),
+    );
+  });
+
+  it("uses the 123% figure (critico) at 10s or beyond", () => {
+    const issues = deriveIssues({
+      ...baseInput,
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 90 }, lcpSeconds: 12.0 },
+    });
+
+    expect(issues).toContainEqual(
+      expect.objectContaining({ code: "slow-load-impact", severity: "critico", params: { seconds: 12.0, bounceIncreasePercent: 123 } }),
+    );
+  });
+});
