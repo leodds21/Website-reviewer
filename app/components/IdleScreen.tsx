@@ -2,6 +2,7 @@
 
 import { Brand, Corners } from "./Chrome";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { PrivacyPolicyDialog } from "./PrivacyPolicyDialog";
 import { useLanguage } from "@/app/i18n/LanguageContext";
 
 export function IdleScreen({
@@ -62,7 +63,9 @@ export function IdleScreen({
         </p>
       )}
 
-      <p className="mt-6 text-[11px] leading-relaxed text-[var(--color-neutral-700)] italic">{t.privacyNote}</p>
+      <div className="mt-6 text-[11.5px] leading-relaxed text-[var(--color-neutral-700)] italic">
+        {t.privacyNote} <PrivacyPolicyDialog />
+      </div>
     </div>
   );
 }
