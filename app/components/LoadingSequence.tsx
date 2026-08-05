@@ -27,10 +27,25 @@ const DISPLAY_STEPS: { key: DisplayStepKey; requires: StepKey[] }[] = [
 
 function StepIndicator({ status }: { status: StepStatus }) {
   if (status === "done") {
-    return <span className="h-[9px] w-[9px] shrink-0 bg-[var(--color-accent-900)]" aria-hidden="true" />;
+    // Keyed by status at the call site (see the `<li>` below), so
+    // remounting here on the pending/current -> done transition is
+    // what replays the pop-in animation — it's a CSS animation, not a
+    // transition, so it only plays once on mount.
+    return (
+      <span
+        className="step-done-marker h-[9px] w-[9px] shrink-0 bg-[var(--color-accent-900)]"
+        aria-hidden="true"
+      />
+    );
   }
   if (status === "current") {
-    return <span className="h-[9px] w-[9px] shrink-0 animate-pulse bg-[var(--color-accent-700)]" aria-hidden="true" />;
+    return (
+      <span className="relative flex h-[9px] w-[9px] shrink-0 items-center justify-center" aria-hidden="true">
+        <span className="ping-ring" />
+        <span className="ping-ring" style={{ animationDelay: "0.8s" }} />
+        <span className="relative h-[9px] w-[9px] bg-[var(--color-accent-700)]" />
+      </span>
+    );
   }
   return <span className="h-[9px] w-[9px] shrink-0 border-[1.5px] border-[var(--color-neutral-200)]" aria-hidden="true" />;
 }
@@ -65,14 +80,27 @@ export function LoadingSequence({ completedSteps }: { completedSteps: StepKey[] 
       <h1 className="mb-2 text-2xl tracking-tight">{t.loadingHeadline}</h1>
       <p className="mb-5 text-[13px] leading-relaxed text-[var(--color-text)]/80">{t.loadingSubtitle}</p>
 
-      <div
-        className="progress-track mb-6 h-[3px]"
-        style={{ "--progress": `${progressPercent}%` } as React.CSSProperties}
-      />
+      <div className="mb-1.5 flex items-baseline justify-end">
+        <span className="font-mono text-[11px] tabular-nums text-[var(--color-neutral-700)]">{progressPercent}%</span>
+      </div>
+      <div className="progress-track mb-6 h-[3px]">
+        <div className="progress-fill" style={{ width: `${progressPercent}%` }}>
+          <span className="progress-shimmer" />
+        </div>
+      </div>
 
       <ul className="flex flex-col gap-3">
         {items.map((item) => (
-          <li key={item.key} className="flex items-center gap-2.5" aria-current={item.status === "current" ? "step" : undefined}>
+          // Keyed by status, not just item.key: this remounts the row
+          // (and its indicator) on every pending -> current -> done
+          // transition, which is what replays the CSS animations —
+          // a plain prop change wouldn't, since animation (unlike
+          // transition) only plays once per mount.
+          <li
+            key={`${item.key}-${item.status}`}
+            className="fade-in-up flex items-center gap-2.5"
+            aria-current={item.status === "current" ? "step" : undefined}
+          >
             <StepIndicator status={item.status} />
             <span
               className={
