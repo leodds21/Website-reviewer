@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { checkHttps, type HttpsCheckResult } from "@/lib/checks/https";
+import { parseSecurityHeaders, type SecurityHeadersCheckResult } from "@/lib/checks/security-headers";
 import { parseMetaTags, type MetaTagsCheckResult } from "@/lib/checks/meta-tags";
 import { parseAltImages, type AltImagesCheckResult } from "@/lib/checks/alt-images";
 import { checkSitemapRobots, type SitemapRobotsCheckResult } from "@/lib/checks/sitemap-robots";
@@ -17,6 +18,7 @@ export const dynamic = "force-dynamic";
 
 type CheckResults = {
   https: HttpsCheckResult;
+  securityHeaders: SecurityHeadersCheckResult;
   metaTags: MetaTagsCheckResult;
   altImages: AltImagesCheckResult;
   sitemapRobots: SitemapRobotsCheckResult;
@@ -165,6 +167,24 @@ export async function GET(request: Request) {
           results.altImages = parseAltImages(outcome.value);
           send("step", { step: "metaTags" });
           send("step", { step: "altImages" });
+          continue;
+        }
+
+        if (outcome.key === "https") {
+          // securityHeaders reads off the same response checkHttps
+          // already fetched — no request of its own, so it isn't a
+          // separate entry in `tasks`, just derived data the moment
+          // https settles. Only meaningful once the connection is
+          // actually secure (see deriveIssues), but the step event
+          // still fires either way so the loading UI's security group
+          // reaches "done" instead of hanging on a step that silently
+          // never arrives.
+          results.https = outcome.value;
+          send("step", { step: "https" });
+          if (outcome.value.passed && outcome.value.headers) {
+            results.securityHeaders = parseSecurityHeaders(outcome.value.headers);
+          }
+          send("step", { step: "securityHeaders" });
           continue;
         }
 

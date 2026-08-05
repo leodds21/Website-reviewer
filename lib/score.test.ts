@@ -28,6 +28,27 @@ describe("aggregateScore", () => {
     expect(noHttps.security.severity).toBe("critico");
   });
 
+  it("blends security headers into the security score, alongside https + best-practices", () => {
+    const result = aggregateScore({
+      pagespeed: { scores: { performance: 90, accessibility: 95, "best-practices": 92, seo: 88 } },
+      https: { passed: true, finalUrl: "https://x.com", redirectedFromHttp: false },
+      securityHeaders: { hasHsts: true, hasCsp: false, hasClickjackingProtection: true }, // 2/3 -> ~67
+    });
+
+    expect(result.security.score).toBe(Math.round((100 + 92 + (2 / 3) * 100) / 3));
+  });
+
+  it("doesn't change the security score when securityHeaders wasn't provided", () => {
+    // Matches the pre-existing "média(100, 92)" test above — absence
+    // of the new input shouldn't silently shift old behavior.
+    const result = aggregateScore({
+      pagespeed: { scores: { performance: 90, accessibility: 95, "best-practices": 92, seo: 88 } },
+      https: { passed: true, finalUrl: "https://x.com", redirectedFromHttp: false },
+    });
+
+    expect(result.security.score).toBe(96);
+  });
+
   it("blends seo/accessibility signals beyond Lighthouse alone", () => {
     const weakSeo = aggregateScore({
       pagespeed: { scores: { performance: 90, accessibility: 95, "best-practices": 92, seo: 40 } },
