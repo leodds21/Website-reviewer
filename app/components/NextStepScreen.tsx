@@ -3,7 +3,7 @@
 import { Loader2, Check } from "lucide-react";
 import { Brand, Corners } from "./Chrome";
 import { useLanguage } from "@/app/i18n/LanguageContext";
-import { translateIssue } from "@/app/i18n/translations";
+import { synthesizeCriticalImpact, translateIssue } from "@/app/i18n/translations";
 import { useContactForm } from "@/app/hooks/useContactForm";
 import type { AnalyzeReport } from "@/lib/report";
 import type { Issue } from "@/lib/issues";
@@ -15,6 +15,14 @@ export function NextStepScreen({ report, topIssues }: { report: AnalyzeReport; t
     formNotConfigured: t.formNotConfigured,
     sendError: t.sendError,
   });
+
+  // One short summary sentence tying the critical findings together —
+  // not a repeat of each item's own explanation, which is exactly why
+  // it lives here (right before the CTA) instead of inside the
+  // checklist above. null when there's nothing critical to summarize,
+  // e.g. a report with only secondary findings.
+  const criticalIssues = report.issues.filter((issue) => issue.severity === "critico");
+  const impactSynthesis = synthesizeCriticalImpact(locale, criticalIssues);
 
   return (
     <div className="blueprint bg-white/60 p-5">
@@ -45,6 +53,10 @@ export function NextStepScreen({ report, topIssues }: { report: AnalyzeReport; t
             ))}
           </div>
         </div>
+      )}
+
+      {impactSynthesis && (
+        <p className="mb-4 text-[13px] leading-relaxed text-[var(--color-text)]/80">{impactSynthesis}</p>
       )}
 
       {succeeded ? (
