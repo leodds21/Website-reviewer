@@ -1,5 +1,3 @@
-import { safeFetch } from "../safeFetch";
-
 export type MetaTagsCheckResult = {
   hasViewport: boolean;
   hasTitle: boolean;
@@ -10,21 +8,12 @@ export type MetaTagsCheckResult = {
 
 /**
  * Checks presence of the meta viewport tag, a non-empty <title> and a
- * meta description — plain regex over the raw HTML, since we only need
- * presence/content of a handful of tags and not a full DOM.
+ * meta description — plain regex over already-fetched HTML, since we
+ * only need presence/content of a handful of tags and not a full DOM.
+ * A pure function, not a fetch of its own: the page is fetched once,
+ * shared with checkAltImages, by the caller (see lib/fetchHtml.ts).
  */
-export async function checkMetaTags(url: string): Promise<MetaTagsCheckResult> {
-  const requestedUrl = url.startsWith("http://") || url.startsWith("https://")
-    ? url
-    : `https://${url}`;
-
-  const response = await safeFetch(requestedUrl, {
-    method: "GET",
-    signal: AbortSignal.timeout(8000),
-  });
-
-  const html = await response.text();
-
+export function parseMetaTags(html: string): MetaTagsCheckResult {
   const hasViewport = /<meta[^>]+name=["']viewport["'][^>]*>/i.test(html);
 
   const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);

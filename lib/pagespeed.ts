@@ -1,9 +1,15 @@
+import { normalizeUrl } from "./url";
+
 const PAGESPEED_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed";
 
 export type PageSpeedCategory = "performance" | "accessibility" | "best-practices" | "seo";
 
 export type PageSpeedResult = {
-  scores: Record<PageSpeedCategory, number>;
+  // Partial, not a 0 fallback, when a category is missing from the
+  // response (Lighthouse can abort auditing just one category and
+  // still return the others) — a fake 0 reads as "failed completely,"
+  // which is a fabricated verdict, not merely absent data.
+  scores: Partial<Record<PageSpeedCategory, number>>;
   // Undefined, not a 0 fallback, when the audit is missing from the
   // response — a fake 0s would read as "loads instantly," which is
   // actively misleading rather than merely absent data.
@@ -15,15 +21,13 @@ export type PageSpeedResult = {
  * returns the category scores (0-100). Requests all four categories in
  * one call, since the API charges the same quota either way.
  */
-export async function runPageSpeed(url: string): Promise<PageSpeedResult> {
+export async function runPageSpeed(url: string, signal?: AbortSignal): Promise<PageSpeedResult> {
   const apiKey = process.env.PAGESPEED_API_KEY;
   if (!apiKey) {
     throw new Error("PAGESPEED_API_KEY não configurada");
   }
 
-  const requestedUrl = url.startsWith("http://") || url.startsWith("https://")
-    ? url
-    : `https://${url}`;
+  const requestedUrl = normalizeUrl(url);
 
   const endpoint = new URL(PAGESPEED_ENDPOINT);
   endpoint.searchParams.set("url", requestedUrl);
@@ -32,9 +36,10 @@ export async function runPageSpeed(url: string): Promise<PageSpeedResult> {
     endpoint.searchParams.append("category", category);
   }
 
+  const timeout = AbortSignal.timeout(30000);
   const response = await fetch(endpoint, {
     method: "GET",
-    signal: AbortSignal.timeout(30000),
+    signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
   });
 
   if (!response.ok) {
@@ -45,9 +50,9 @@ export async function runPageSpeed(url: string): Promise<PageSpeedResult> {
   const data = await response.json();
   const categories = data.lighthouseResult?.categories ?? {};
 
-  const scoreOf = (category: string): number => {
+  const scoreOf = (category: string): number | undefined => {
     const raw = categories[category]?.score;
-    return typeof raw === "number" ? Math.round(raw * 100) : 0;
+    return typeof raw === "number" ? Math.round(raw * 100) : undefined;
   };
 
   // Rounded to one decimal — the raw millisecond figure varies run to

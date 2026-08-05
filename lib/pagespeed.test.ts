@@ -47,7 +47,11 @@ describe("runPageSpeed", () => {
     expect(result.scores).toEqual({ performance: 90, accessibility: 95, "best-practices": 100, seo: 80 });
   });
 
-  it("defaults a missing category to 0 instead of throwing", async () => {
+  it("leaves a missing category undefined instead of fabricating a 0", async () => {
+    // A fabricated 0 would read as "failed completely" — a real
+    // verdict we never actually measured. Lighthouse can abort just
+    // one category's audit and still return the others, so this is a
+    // real response shape, not a hypothetical.
     vi.mocked(fetch).mockResolvedValueOnce(
       fakeJsonResponse(200, { lighthouseResult: { categories: { performance: { score: 0.5 } } } }),
     );
@@ -55,7 +59,7 @@ describe("runPageSpeed", () => {
     const result = await runPageSpeed("example.com");
 
     expect(result.scores.performance).toBe(50);
-    expect(result.scores.seo).toBe(0);
+    expect(result.scores.seo).toBeUndefined();
   });
 
   it("throws with the status and body when the API call fails", async () => {
