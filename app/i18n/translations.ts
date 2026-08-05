@@ -133,6 +133,10 @@ const pt: Dictionary = {
       title: `Performance em ${params?.score}/100 no Lighthouse.`,
       description: "Tempo de sobra pra alguém desistir de esperar a página carregar.",
     }),
+    "slow-load-impact": (params) => ({
+      title: `O site demora ${String(params?.seconds).replace(".", ",")}s pra carregar.`,
+      description: `Nessa faixa, a chance de o visitante desistir antes da página carregar é pelo menos ${params?.bounceIncreasePercent}% maior.`,
+    }),
   },
 };
 
@@ -215,6 +219,10 @@ const en: Dictionary = {
     "low-performance": (params) => ({
       title: `Performance at ${params?.score}/100 on Lighthouse.`,
       description: "Plenty of time for someone to give up waiting for the page to load.",
+    }),
+    "slow-load-impact": (params) => ({
+      title: `The site takes ${params?.seconds}s to load.`,
+      description: `At that speed, the visitor's chance of leaving before the page loads is at least ${params?.bounceIncreasePercent}% higher.`,
     }),
   },
 };
