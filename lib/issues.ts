@@ -3,6 +3,7 @@ import type { HttpsCheckResult } from "./checks/https";
 import type { MetaTagsCheckResult } from "./checks/meta-tags";
 import type { AltImagesCheckResult } from "./checks/alt-images";
 import type { SitemapRobotsCheckResult } from "./checks/sitemap-robots";
+import type { SecurityHeadersCheckResult } from "./checks/security-headers";
 
 export type IssueCategory = "performance" | "seo" | "accessibility" | "security";
 export type IssueSeverity = "critico" | "atencao";
@@ -10,6 +11,9 @@ export type IssueSeverity = "critico" | "atencao";
 export type IssueCode =
   | "no-https"
   | "invalid-certificate"
+  | "no-hsts"
+  | "no-csp"
+  | "no-clickjacking-protection"
   | "no-title"
   | "generic-title"
   | "no-description"
@@ -42,6 +46,7 @@ const LOAD_IMPACT_BUCKETS = [
 export type DeriveIssuesInput = {
   pagespeed?: PageSpeedResult;
   https?: HttpsCheckResult;
+  securityHeaders?: SecurityHeadersCheckResult;
   metaTags?: MetaTagsCheckResult;
   altImages?: AltImagesCheckResult;
   sitemapRobots?: SitemapRobotsCheckResult;
@@ -69,6 +74,21 @@ export function deriveIssues(input: DeriveIssuesInput): Issue[] {
       issues.push({ category: "security", severity: "critico", code: "invalid-certificate" });
     } else if (!input.https.passed) {
       issues.push({ category: "security", severity: "critico", code: "no-https" });
+    }
+  }
+
+  // Header hardening only means anything once the connection itself is
+  // trustworthy — flagging a missing CSP on a site that isn't even
+  // serving HTTPS would bury the one finding that actually matters.
+  if (input.https?.passed && input.securityHeaders) {
+    if (!input.securityHeaders.hasHsts) {
+      issues.push({ category: "security", severity: "atencao", code: "no-hsts" });
+    }
+    if (!input.securityHeaders.hasCsp) {
+      issues.push({ category: "security", severity: "atencao", code: "no-csp" });
+    }
+    if (!input.securityHeaders.hasClickjackingProtection) {
+      issues.push({ category: "security", severity: "atencao", code: "no-clickjacking-protection" });
     }
   }
 

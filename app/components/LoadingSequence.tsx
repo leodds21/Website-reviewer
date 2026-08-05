@@ -3,10 +3,10 @@
 import { useLanguage } from "@/app/i18n/LanguageContext";
 import type { CategoryKey } from "@/app/i18n/translations";
 
-export type StepKey = "https" | "metaTags" | "altImages" | "sitemapRobots" | "pagespeed";
+export type StepKey = "https" | "securityHeaders" | "metaTags" | "altImages" | "sitemapRobots" | "pagespeed";
 
 const CATEGORY_GROUPS: { key: CategoryKey; steps: StepKey[] }[] = [
-  { key: "security", steps: ["https"] },
+  { key: "security", steps: ["https", "securityHeaders"] },
   { key: "seo", steps: ["metaTags", "sitemapRobots"] },
   { key: "accessibility", steps: ["altImages"] },
   { key: "performance", steps: ["pagespeed"] },

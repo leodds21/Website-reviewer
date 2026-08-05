@@ -123,6 +123,18 @@ const pt: Dictionary = {
       title: "O certificado de segurança do site está incompleto.",
       description: "O servidor não envia a cadeia de certificado completa. Navegadores costumam corrigir isso sozinhos e esconder o problema, mas é uma falha real de configuração.",
     }),
+    "no-hsts": () => ({
+      title: "O site não usa HSTS.",
+      description: "Sem esse cabeçalho, o navegador não força HTTPS automaticamente nas próximas visitas, deixando uma brecha na primeira conexão.",
+    }),
+    "no-csp": () => ({
+      title: "Falta o cabeçalho Content-Security-Policy.",
+      description: "Esse cabeçalho ajuda a bloquear scripts maliciosos injetados na página. Sem ele, o site fica mais exposto a esse tipo de ataque.",
+    }),
+    "no-clickjacking-protection": () => ({
+      title: "O site não tem proteção contra clickjacking.",
+      description: "Sem essa proteção, outro site pode embutir o seu numa camada invisível e enganar o visitante a clicar em algo sem perceber.",
+    }),
     "no-title": () => ({
       title: "A página não tem título.",
       description: "O Google não sabe do que o site trata.",
@@ -159,6 +171,9 @@ const pt: Dictionary = {
   impact: {
     "no-https": "Seu site aparece com o aviso \"não seguro\" no navegador do visitante. Isso passa desconfiança, principalmente se a pessoa for preencher algum formulário ou fazer uma compra.",
     "invalid-certificate": "O certificado de segurança do site tem um problema de configuração. Na maioria dos navegadores isso passa despercebido, mas em alguns aparelhos, apps ou navegadores mais rigorosos o site pode aparecer com alerta de segurança.",
+    "no-hsts": "Isso não deixa o site vulnerável de imediato, mas é uma camada de proteção a menos: sem ela, existe uma brecha pequena onde alguém na mesma rede do visitante (tipo um wifi público) poderia, em teoria, interceptar a primeira conexão antes dela virar HTTPS.",
+    "no-csp": "Esse é um cabeçalho técnico que ajuda a impedir que um invasor injete código malicioso na sua página, por exemplo através de um formulário ou campo de comentário vulnerável. Sem ele, essa camada extra de defesa não existe.",
+    "no-clickjacking-protection": "Sem essa proteção, é tecnicamente possível outro site \"vestir\" o seu por cima de uma página falsa, fazendo a pessoa pensar que está clicando numa coisa quando na verdade está clicando em outra.",
     "no-title": "A aba do navegador e os resultados de busca do Google mostram o site sem nenhum nome. Isso dificulta a pessoa reconhecer ou lembrar do site depois de encontrar num resultado de busca.",
     "generic-title": "O título que aparece no Google pra esse site é genérico demais (tipo \"Home\"), sem dizer nada sobre o que o negócio oferece. Quem está buscando não tem motivo pra escolher esse resultado em vez do concorrente.",
     "no-description": "Falta o textinho que aparece embaixo do link nos resultados do Google. Sem ele, o Google escolhe um trecho aleatório da página pra mostrar, o que deixa o resultado menos convidativo na hora de decidir em qual link clicar.",
@@ -175,6 +190,10 @@ const pt: Dictionary = {
   impactClause: {
     "no-https": "a insegurança da conexão",
     "invalid-certificate": "o problema no certificado de segurança",
+    // no-hsts/no-csp/no-clickjacking-protection have no clause: all
+    // three are always severity "atencao" (see deriveIssues), so they
+    // can never reach the critical-only input synthesizeCriticalImpact
+    // consumes — same reasoning as no-description/no-sitemap below.
     "no-title": "a falta de um título que identifique o site nas buscas",
     "generic-title": "um título genérico demais pra se destacar nas buscas",
     "no-viewport": "a experiência ruim pra quem acessa pelo celular",
@@ -248,6 +267,18 @@ const en: Dictionary = {
       title: "The site's security certificate is incomplete.",
       description: "The server isn't sending the full certificate chain. Browsers often patch this over and hide the problem, but it's a real configuration issue.",
     }),
+    "no-hsts": () => ({
+      title: "The site doesn't use HSTS.",
+      description: "Without this header, the browser won't automatically force HTTPS on future visits, leaving a gap on the very first connection.",
+    }),
+    "no-csp": () => ({
+      title: "Missing the Content-Security-Policy header.",
+      description: "This header helps block malicious scripts injected into the page. Without it, the site is more exposed to that kind of attack.",
+    }),
+    "no-clickjacking-protection": () => ({
+      title: "The site has no clickjacking protection.",
+      description: "Without it, another site can embed yours in an invisible layer and trick a visitor into clicking something without realizing it.",
+    }),
     "no-title": () => ({
       title: "The page has no title.",
       description: "Google doesn't know what the site is about.",
@@ -284,6 +315,9 @@ const en: Dictionary = {
   impact: {
     "no-https": "Your site shows up with a \"not secure\" warning in the visitor's browser. That reads as suspicious, especially if someone's about to fill out a form or make a purchase.",
     "invalid-certificate": "The site's security certificate has a configuration problem. Most browsers quietly work around it, but on some devices, apps, or stricter browsers the site can show up with a security warning instead.",
+    "no-hsts": "This doesn't make the site immediately vulnerable, but it's one less layer of protection: without it, there's a small window where someone on the same network as the visitor (like public wifi) could, in theory, intercept that first connection before it becomes HTTPS.",
+    "no-csp": "This is a technical header that helps stop an attacker from injecting malicious code into your page, for example through a vulnerable form or comment field. Without it, that extra layer of defense doesn't exist.",
+    "no-clickjacking-protection": "Without this protection, it's technically possible for another site to overlay yours on top of a fake page, making someone think they're clicking one thing when they're actually clicking another.",
     "no-title": "The browser tab and Google's search results show the site with no name at all. That makes it harder for someone to recognize or remember the site after finding it in a search.",
     "generic-title": "The title that shows up on Google for this site is too generic (like \"Home\"), and says nothing about what the business actually offers. Someone searching has no reason to pick this result over a competitor's.",
     "no-description": "The short text that shows up under the link in Google's results is missing. Without it, Google picks a random snippet from the page instead, which makes the result less inviting when someone's deciding which link to click.",

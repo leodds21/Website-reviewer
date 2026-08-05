@@ -3,6 +3,7 @@ import type { HttpsCheckResult } from "./checks/https";
 import type { MetaTagsCheckResult } from "./checks/meta-tags";
 import type { AltImagesCheckResult } from "./checks/alt-images";
 import type { SitemapRobotsCheckResult } from "./checks/sitemap-robots";
+import type { SecurityHeadersCheckResult } from "./checks/security-headers";
 
 export type Severity = "critico" | "atencao" | "ok" | "indisponivel";
 
@@ -39,6 +40,14 @@ function categoryScore(score: number): CategoryScore {
   return { score: rounded, severity: severityFor(rounded) };
 }
 
+// Each present header is worth an equal third — there's no published
+// weighting between HSTS/CSP/clickjacking protection to justify
+// treating one as more important than the others.
+function securityHeadersScore(result: SecurityHeadersCheckResult): number {
+  const signals = [result.hasHsts, result.hasCsp, result.hasClickjackingProtection];
+  return (signals.filter(Boolean).length / signals.length) * 100;
+}
+
 // A category with no available component at all (every check it draws
 // on failed to run) is "indisponivel" — not a fabricated 0 or 100.
 // Filters out only the components whose source check actually ran;
@@ -54,6 +63,7 @@ function categoryFrom(components: (number | null)[]): CategoryScore {
 export type AggregateScoreInput = {
   pagespeed?: PageSpeedResult;
   https?: HttpsCheckResult;
+  securityHeaders?: SecurityHeadersCheckResult;
   metaTags?: MetaTagsCheckResult;
   altImages?: AltImagesCheckResult;
   sitemapRobots?: SitemapRobotsCheckResult;
@@ -106,7 +116,11 @@ export function aggregateScore(input: AggregateScoreInput): AggregatedScore {
     ? categoryFrom([])
     : !input.https.passed
       ? categoryScore(0)
-      : categoryFrom([100, input.pagespeed?.scores["best-practices"] ?? null]);
+      : categoryFrom([
+          100,
+          input.pagespeed?.scores["best-practices"] ?? null,
+          input.securityHeaders ? securityHeadersScore(input.securityHeaders) : null,
+        ]);
 
   const categories = [performance, seo, accessibility, security];
   const overallCategory = categoryFrom(categories.map((category) => category.score));

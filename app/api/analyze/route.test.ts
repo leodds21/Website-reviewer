@@ -23,7 +23,12 @@ const HAPPY_HTML = `<html><head>
 </head><body><img src="a.png" alt="ok"></body></html>`;
 
 const HAPPY = {
-  https: { passed: true, finalUrl: "https://example.com/", redirectedFromHttp: false },
+  https: {
+    passed: true,
+    finalUrl: "https://example.com/",
+    redirectedFromHttp: false,
+    headers: new Headers({ "strict-transport-security": "max-age=1", "content-security-policy": "default-src 'self'" }),
+  },
   sitemapRobots: { hasSitemap: true, hasRobotsTxt: true },
   pagespeed: { scores: { performance: 90, accessibility: 95, "best-practices": 90, seo: 90 } },
 };
@@ -79,7 +84,7 @@ describe("GET /api/analyze", () => {
     expect(checkHttps).toHaveBeenCalledWith("route-test-scheme.example", expect.anything());
   });
 
-  it("streams one step event per check (5, including the derived metaTags/altImages pair), then done", async () => {
+  it("streams one step event per check (6, including the derived metaTags/altImages and https/securityHeaders pairs), then done", async () => {
     const response = await GET(requestFor("route-test-happy.example", "route-test-happy.ip"));
 
     expect(response.status).toBe(200);
@@ -90,12 +95,25 @@ describe("GET /api/analyze", () => {
     const done = events.find((event) => event.event === "done");
 
     expect(steps.map((s) => (s.data as { step: string }).step).sort()).toEqual(
-      ["altImages", "https", "metaTags", "pagespeed", "sitemapRobots"].sort(),
+      ["altImages", "https", "metaTags", "pagespeed", "securityHeaders", "sitemapRobots"].sort(),
     );
     expect(done).toBeDefined();
     const report = done!.data as { domain: string; score: { overall: number } };
     expect(report.domain).toBe("route-test-happy.example");
     expect(report.score.overall).toBeGreaterThan(0);
+  });
+
+  it("derives security-header findings from the https check's own response, no separate fetch", async () => {
+    const response = await GET(requestFor("route-test-secheaders.example", "route-test-secheaders.ip"));
+    const events = await readSseEvents(response);
+
+    const done = events.find((event) => event.event === "done")!;
+    const report = done.data as { issues: { code: string }[] };
+
+    // HAPPY.https has HSTS and CSP but no clickjacking protection header.
+    expect(report.issues.some((issue) => issue.code === "no-clickjacking-protection")).toBe(true);
+    expect(report.issues.some((issue) => issue.code === "no-hsts")).toBe(false);
+    expect(report.issues.some((issue) => issue.code === "no-csp")).toBe(false);
   });
 
   it("still sends done with a partial report when only some checks fail", async () => {

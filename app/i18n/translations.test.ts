@@ -5,6 +5,9 @@ import type { Issue } from "@/lib/issues";
 const CATEGORY_BY_CODE: Record<Issue["code"], Issue["category"]> = {
   "no-https": "security",
   "invalid-certificate": "security",
+  "no-hsts": "security",
+  "no-csp": "security",
+  "no-clickjacking-protection": "security",
   "no-title": "seo",
   "generic-title": "seo",
   "no-description": "seo",
