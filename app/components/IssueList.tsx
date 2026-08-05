@@ -28,7 +28,7 @@ function IssueItem({ issue }: { issue: Issue }) {
       <div className={critical ? "mb-0.5 text-[15.5px] leading-tight font-semibold" : "mb-0.5 text-[13px] leading-tight font-medium"}>
         {title}
       </div>
-      <p className={critical ? "text-[12.5px] text-[var(--color-text)]/70" : "text-[12px] text-[var(--color-text)]/60"}>
+      <p className={critical ? "text-[12.5px] text-[var(--color-text)]/70" : "text-[12px] text-[var(--color-neutral-700)]"}>
         {description}
       </p>
     </div>

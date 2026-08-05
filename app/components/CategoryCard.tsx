@@ -6,11 +6,18 @@ import type { Severity } from "@/lib/score";
 import { useLanguage } from "@/app/i18n/LanguageContext";
 import type { CategoryKey } from "@/app/i18n/translations";
 
+// Same severity → color mapping IssueList's badges and ScoreRing use.
 const SEVERITY_BAR: Record<Severity, string> = {
-  critico: "bg-[var(--color-accent-900)]",
-  atencao: "bg-[var(--color-accent-700)]",
-  ok: "bg-[var(--color-neutral-600)]",
+  critico: "bg-[var(--color-severity-critico)]",
+  atencao: "bg-[var(--color-severity-atencao)]",
+  ok: "bg-[var(--color-severity-ok)]",
   indisponivel: "bg-[var(--color-neutral-200)]",
+};
+
+const SEVERITY_TEXT: Record<Exclude<Severity, "indisponivel">, string> = {
+  critico: "text-[var(--color-severity-critico)]",
+  atencao: "text-[var(--color-severity-atencao)]",
+  ok: "text-[var(--color-severity-ok)]",
 };
 
 const CATEGORY_ICON: Record<CategoryKey, typeof Gauge> = {
@@ -55,9 +62,7 @@ export function CategoryCard({
           ) : (
             <>
               {score}{" "}
-              <span
-                className={severity === "ok" ? "text-[var(--color-neutral-700)]" : "text-[var(--color-accent-800)]"}
-              >
+              <span className={severity === "indisponivel" ? "text-[var(--color-neutral-700)]" : SEVERITY_TEXT[severity]}>
                 · {t.severity[severity]}
               </span>
             </>

@@ -77,7 +77,7 @@ export function LoadingSequence({ completedSteps }: { completedSteps: StepKey[] 
             <span
               className={
                 item.status === "pending"
-                  ? "text-[13px] text-[var(--color-neutral-600)]"
+                  ? "text-[13px] text-[var(--color-neutral-700)]"
                   : item.status === "current"
                     ? "text-[13px] font-medium text-[var(--color-text)]"
                     : "text-[13px] text-[var(--color-text)]/80"
