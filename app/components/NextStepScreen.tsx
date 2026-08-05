@@ -34,15 +34,15 @@ export function NextStepScreen({ report, topIssues }: { report: AnalyzeReport; t
       <div className="mb-2 text-xs font-semibold tracking-[0.12em] text-[var(--color-accent-700)] uppercase">
         {t.nextStepKicker}
       </div>
-      <h3 className="mb-3 text-[22px] leading-[1.15] tracking-tight">{t.nextStepHeadline}</h3>
+      <h1 className="mb-3 text-[22px] leading-[1.15] tracking-tight">{t.nextStepHeadline}</h1>
       <p className="mb-4 text-[13px] leading-relaxed text-[var(--color-text)]/80">{t.nextStepBody}</p>
 
       {topIssues.length > 0 && (
         <div className="blueprint mb-4 p-3.5">
           <Corners />
-          <h4 className="mb-2.5 text-[11px] font-semibold tracking-[0.1em] text-[var(--color-text)]/70 uppercase">
+          <h2 className="mb-2.5 text-[11px] font-semibold tracking-[0.1em] text-[var(--color-text)]/70 uppercase">
             {t.recommendationsHeading}
-          </h4>
+          </h2>
           <div className="flex flex-col gap-3">
             {topIssues.map((issue, index) => (
               <div key={index} className="text-[12.5px]">
@@ -62,7 +62,7 @@ export function NextStepScreen({ report, topIssues }: { report: AnalyzeReport; t
         <p className="text-sm text-[var(--color-accent-800)]">{t.sendSuccess}</p>
       ) : (
         <form onSubmit={submitContact}>
-          <h4 className="mb-2.5 text-base font-semibold tracking-tight">{t.contactHeading}</h4>
+          <h2 className="mb-2.5 text-base font-semibold tracking-tight">{t.contactHeading}</h2>
           <div className="mb-2.5">
             <label htmlFor="contact-name" className="mb-1 block text-xs text-[var(--color-text)]/70">
               {t.nameLabel}
