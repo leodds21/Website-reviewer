@@ -58,3 +58,17 @@ describe("cache", () => {
     expect(getCached("cache-test-evict-1199.example")).toEqual({ i: 1199 }); // newest, kept
   });
 });
+
+describe("setCached — eviction order", () => {
+  it("treats a refreshed key as recently used, not as the oldest", () => {
+    // Map keeps a key's original position when you overwrite it, so
+    // without the delete-before-set the most-requested domain is the
+    // first one thrown away.
+    setCached("keep-me", 1);
+    for (let index = 0; index < 1200; index++) setCached(`filler-${index}`, index);
+    setCached("keep-me", 2); // refreshed, so it should survive the next sweep
+    for (let index = 1200; index < 1400; index++) setCached(`filler-${index}`, index);
+
+    expect(getCached("keep-me")).toBe(2);
+  });
+});
