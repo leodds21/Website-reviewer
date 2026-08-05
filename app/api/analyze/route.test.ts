@@ -4,6 +4,7 @@ import { checkMetaTags } from "@/lib/checks/meta-tags";
 import { checkAltImages } from "@/lib/checks/alt-images";
 import { checkSitemapRobots } from "@/lib/checks/sitemap-robots";
 import { runPageSpeed } from "@/lib/pagespeed";
+import * as cache from "@/lib/cache";
 import { GET } from "./route";
 
 // The route orchestrates these five — mocked so this file tests the
@@ -129,6 +130,35 @@ describe("GET /api/analyze", () => {
     expect(events).toHaveLength(1);
     expect(events[0].event).toBe("done");
     expect(checkHttps).not.toHaveBeenCalled();
+  });
+
+  it("keeps two paths on the same host from colliding in the cache", async () => {
+    const host = "route-test-path.example";
+    const first = await GET(requestFor(`${host}/a`, "route-test-path.ip"));
+    await readSseEvents(first);
+    vi.mocked(checkHttps).mockClear();
+
+    const response = await GET(requestFor(`${host}/b`, "route-test-path.ip"));
+    await readSseEvents(response);
+
+    // A different path on the same host must re-run the checks, not
+    // silently serve /a's cached report for /b.
+    expect(checkHttps).toHaveBeenCalled();
+  });
+
+  it("caches a complete report with the full TTL and a partial one with the short TTL", async () => {
+    const setCachedSpy = vi.spyOn(cache, "setCached");
+
+    const complete = await GET(requestFor("route-test-ttl-complete.example", "route-test-ttl.ip"));
+    await readSseEvents(complete);
+    expect(setCachedSpy).toHaveBeenLastCalledWith(expect.any(String), expect.anything(), cache.FULL_TTL_MS);
+
+    vi.mocked(runPageSpeed).mockRejectedValueOnce(new Error("timeout"));
+    const partial = await GET(requestFor("route-test-ttl-partial.example", "route-test-ttl.ip"));
+    await readSseEvents(partial);
+    expect(setCachedSpy).toHaveBeenLastCalledWith(expect.any(String), expect.anything(), cache.PARTIAL_TTL_MS);
+
+    setCachedSpy.mockRestore();
   });
 
   it("returns 429 with Retry-After once an IP exceeds 10 requests in the window", async () => {
