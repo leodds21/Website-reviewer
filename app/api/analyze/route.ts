@@ -4,7 +4,7 @@ import { checkMetaTags, type MetaTagsCheckResult } from "@/lib/checks/meta-tags"
 import { checkAltImages, type AltImagesCheckResult } from "@/lib/checks/alt-images";
 import { checkSitemapRobots, type SitemapRobotsCheckResult } from "@/lib/checks/sitemap-robots";
 import { runPageSpeed, type PageSpeedResult } from "@/lib/pagespeed";
-import { getCached, setCached } from "@/lib/cache";
+import { getCached, setCached, FULL_TTL_MS, PARTIAL_TTL_MS } from "@/lib/cache";
 import { aggregateScore, type AggregatedScore } from "@/lib/score";
 import { deriveIssues, type Issue } from "@/lib/issues";
 import { checkRateLimit } from "@/lib/rateLimit";
@@ -113,6 +113,12 @@ export async function GET(request: Request) {
 
   const domain = targetUrl.hostname;
   const target = targetUrl.toString();
+  // Path-aware: hostname alone would serve example.com/produtos's
+  // report for a request about example.com/sobre, silently wrong for
+  // any site analyzed at more than one path. Query/hash intentionally
+  // excluded — those more often vary per-visitor (tracking params)
+  // than change what's actually being analyzed.
+  const cacheKey = `${targetUrl.origin}${targetUrl.pathname}`;
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -121,7 +127,7 @@ export async function GET(request: Request) {
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
       }
 
-      const cached = getCached<AnalyzeReport>(domain);
+      const cached = getCached<AnalyzeReport>(cacheKey);
       if (cached) {
         send("done", cached);
         controller.close();
@@ -162,7 +168,12 @@ export async function GET(request: Request) {
         const score = aggregateScore(results);
         const issues = deriveIssues(results);
         const report: AnalyzeReport = { domain, score, issues, checkedAt: new Date().toISOString() };
-        setCached(domain, report);
+        // A report where some checks failed to run shouldn't be
+        // trusted as long as a complete one — a transient failure
+        // (a slow site timing out) shouldn't lock every visitor into a
+        // degraded report for the full 6h TTL.
+        const isComplete = Object.keys(results).length === Object.keys(tasks).length;
+        setCached(cacheKey, report, isComplete ? FULL_TTL_MS : PARTIAL_TTL_MS);
         send("done", report);
       }
 
