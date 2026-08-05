@@ -35,7 +35,8 @@ type Dictionary = {
   whatWeFound: string;
   points: (count: number) => string;
   noIssues: string;
-  showMore: (count: number) => string;
+  showAllPoints: (count: number) => string;
+  showLess: string;
   nextStepButton: string;
   nextStepKicker: string;
   nextStepHeadline: string;
@@ -110,7 +111,8 @@ const pt: Dictionary = {
   whatWeFound: "O que encontramos",
   points: (count) => `${count} ${count === 1 ? "ponto" : "pontos"}`,
   noIssues: "Não encontramos problema nenhum nas checagens que rodamos.",
-  showMore: (count) => `Mostrar mais ${count} ${count === 1 ? "problema" : "problemas"} ⌄`,
+  showAllPoints: (count) => `Ver todos os ${count} ${count === 1 ? "ponto" : "pontos"} ↓`,
+  showLess: "Mostrar menos ↑",
   nextStepButton: "Ver como corrigir →",
   nextStepKicker: "Próximo passo",
   nextStepHeadline: "O relatório aponta. Resolver é outra etapa.",
@@ -277,7 +279,8 @@ const en: Dictionary = {
   whatWeFound: "What we found",
   points: (count) => `${count} ${count === 1 ? "point" : "points"}`,
   noIssues: "We didn't find any problems in the checks we ran.",
-  showMore: (count) => `Show ${count} more ${count === 1 ? "problem" : "problems"} ⌄`,
+  showAllPoints: (count) => `See all ${count} ${count === 1 ? "point" : "points"} ↓`,
+  showLess: "Show less ↑",
   nextStepButton: "See how to fix it →",
   nextStepKicker: "Next step",
   nextStepHeadline: "The report points it out. Fixing it is a separate step.",
