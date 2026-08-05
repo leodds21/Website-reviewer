@@ -164,6 +164,7 @@ const pt: Dictionary = {
     "no-description": "Falta o textinho que aparece embaixo do link nos resultados do Google. Sem ele, o Google escolhe um trecho aleatório da página pra mostrar, o que deixa o resultado menos convidativo na hora de decidir em qual link clicar.",
     "no-viewport": "Em celular, a página pode aparecer minúscula, exigindo que a pessoa dê zoom pra ler qualquer coisa. A maior parte de quem acessa a internet hoje faz isso pelo celular, então essa experiência ruim atinge boa parte dos visitantes.",
     "missing-alt": "Sem a descrição alternativa, quem usa leitor de tela (pessoas com deficiência visual) não sabe o que aquelas imagens mostram — pra elas, é como se a imagem simplesmente não existisse. Também reduz a chance de essas imagens aparecerem nas buscas do Google.",
+    "no-sitemap": "O sitemap é como um mapa que ajuda o Google a encontrar todas as páginas do site, principalmente as mais novas. Sem ele, uma página recém-publicada pode demorar bem mais pra aparecer nos resultados de busca.",
   },
   impactClause: {
     "no-https": "a insegurança da conexão",
@@ -172,6 +173,9 @@ const pt: Dictionary = {
     "generic-title": "um título genérico demais pra se destacar nas buscas",
     "no-viewport": "a experiência ruim pra quem acessa pelo celular",
     "missing-alt": "as imagens sem descrição pra quem usa leitor de tela",
+    // no-sitemap has no clause: it's always severity "atencao", never
+    // "critico" (see deriveIssues), so it can never reach the
+    // critical-only input synthesizeCriticalImpact consumes.
   },
   synthesizeImpact: (clauses) => {
     const joined = clauses.length > 1 ? `${clauses[0]} e ${clauses[1]}` : clauses[0];
@@ -277,6 +281,7 @@ const en: Dictionary = {
     "no-description": "The short text that shows up under the link in Google's results is missing. Without it, Google picks a random snippet from the page instead, which makes the result less inviting when someone's deciding which link to click.",
     "no-viewport": "On mobile, the page can show up tiny, forcing people to zoom in just to read anything. Most people browse the internet from a phone these days, so this bad experience hits a large share of visitors.",
     "missing-alt": "Without alt text, screen reader users (people with visual impairments) have no idea what those images show — to them, it's as if the image simply isn't there. It also lowers the odds of those images showing up in Google search results.",
+    "no-sitemap": "A sitemap is like a map that helps Google find every page on the site, especially the newest ones. Without it, a page you just published can take much longer to show up in search results.",
   },
   impactClause: {
     "no-https": "the insecure connection",
