@@ -3,7 +3,7 @@
 import { Loader2, Check } from "lucide-react";
 import { Brand, Corners } from "./Chrome";
 import { useLanguage } from "@/app/i18n/LanguageContext";
-import { synthesizeCriticalImpact, translateIssue } from "@/app/i18n/translations";
+import { synthesizeCriticalImpact, translateIssue, translateRecommendation } from "@/app/i18n/translations";
 import { useContactForm } from "@/app/hooks/useContactForm";
 import type { AnalyzeReport } from "@/lib/report";
 import type { Issue } from "@/lib/issues";
@@ -19,8 +19,8 @@ export function NextStepScreen({ report, topIssues }: { report: AnalyzeReport; t
   // One short summary sentence tying the critical findings together —
   // not a repeat of each item's own explanation, which is exactly why
   // it lives here (right before the CTA) instead of inside the
-  // checklist above. null when there's nothing critical to summarize,
-  // e.g. a report with only secondary findings.
+  // recommendations block above. null when there's nothing critical to
+  // summarize, e.g. a report with only secondary findings.
   const criticalIssues = report.issues.filter((issue) => issue.severity === "critico");
   const impactSynthesis = synthesizeCriticalImpact(locale, criticalIssues);
 
@@ -35,20 +35,19 @@ export function NextStepScreen({ report, topIssues }: { report: AnalyzeReport; t
         {t.nextStepKicker}
       </div>
       <h3 className="mb-3 text-[22px] leading-[1.15] tracking-tight">{t.nextStepHeadline}</h3>
-      <p className="mb-4 text-[13px] leading-relaxed text-[var(--color-text)]/80">
-        {topIssues.length >= 2 ? t.nextStepBodyTwo : t.nextStepBodyFew}
-      </p>
+      <p className="mb-4 text-[13px] leading-relaxed text-[var(--color-text)]/80">{t.nextStepBody}</p>
 
       {topIssues.length > 0 && (
         <div className="blueprint mb-4 p-3.5">
           <Corners />
-          <div className="flex flex-col gap-2">
+          <h4 className="mb-2.5 text-[11px] font-semibold tracking-[0.1em] text-[var(--color-text)]/70 uppercase">
+            {t.recommendationsHeading}
+          </h4>
+          <div className="flex flex-col gap-3">
             {topIssues.map((issue, index) => (
-              <div key={index} className="flex gap-2 text-[12.5px]">
-                <span className="text-[var(--color-accent-900)]" aria-hidden="true">
-                  ☑
-                </span>
-                <span>{translateIssue(locale, issue.code, issue.params).title}</span>
+              <div key={index} className="text-[12.5px]">
+                <div className="mb-0.5 font-medium">{translateIssue(locale, issue.code, issue.params).title}</div>
+                <p className="text-[var(--color-text)]/70">{translateRecommendation(locale, issue.code)}</p>
               </div>
             ))}
           </div>
@@ -63,7 +62,7 @@ export function NextStepScreen({ report, topIssues }: { report: AnalyzeReport; t
         <p className="text-sm text-[var(--color-accent-800)]">{t.sendSuccess}</p>
       ) : (
         <form onSubmit={submitContact}>
-          <p className="mb-2.5 text-xs text-[var(--color-text)]/70">{t.contactIntro}</p>
+          <h4 className="mb-2.5 text-base font-semibold tracking-tight">{t.contactHeading}</h4>
           <div className="mb-2.5">
             <label htmlFor="contact-name" className="mb-1 block text-xs text-[var(--color-text)]/70">
               {t.nameLabel}
@@ -117,8 +116,8 @@ export function NextStepScreen({ report, topIssues }: { report: AnalyzeReport; t
           <button
             type="submit"
             disabled={submitting || justSucceeded}
-            className={`flex w-full items-center justify-center gap-2 border border-[var(--color-accent)] bg-[var(--color-accent)] py-2.5 text-[14.5px] font-semibold text-white transition-colors hover:bg-[var(--color-accent-600)] ${
-              justSucceeded ? "disabled:opacity-100" : "disabled:opacity-45"
+            className={`flex w-full items-center justify-center gap-2 border border-[var(--color-accent-700)] bg-[var(--color-accent-700)] py-2.5 text-[14.5px] font-semibold text-white transition-colors hover:border-[var(--color-accent-800)] hover:bg-[var(--color-accent-800)] active:bg-[var(--color-accent-900)] ${
+              justSucceeded ? "disabled:opacity-100" : "disabled:border-[var(--color-divider)] disabled:bg-[var(--color-neutral-200)] disabled:text-[var(--color-neutral-600)]"
             }`}
           >
             {justSucceeded ? (

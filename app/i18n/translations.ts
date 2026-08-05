@@ -40,9 +40,9 @@ type Dictionary = {
   nextStepButton: string;
   nextStepKicker: string;
   nextStepHeadline: string;
-  nextStepBodyTwo: string;
-  nextStepBodyFew: string;
-  contactIntro: string;
+  nextStepBody: string;
+  recommendationsHeading: string;
+  contactHeading: string;
   nameLabel: string;
   namePlaceholder: string;
   emailLabel: string;
@@ -74,6 +74,14 @@ type Dictionary = {
   // (not shared string-building code) since the joining word ("e" vs
   // "and") and verb agreement differ by language.
   synthesizeImpact: (clauses: string[]) => string;
+  // Objective, technically-grounded action for each finding, shown in
+  // the "O que pode ser feito" step — deliberately never promises a
+  // result (more sales, a fixed ranking) or claims the problem is
+  // costing anything measurable, only describes what fixing it
+  // involves. Filled for every IssueCode, not incrementally like
+  // impact/impactClause, since a finding with no recommendation would
+  // leave a visible gap in that screen.
+  recommendation: Record<IssueCode, string>;
 };
 
 const pt: Dictionary = {
@@ -115,10 +123,10 @@ const pt: Dictionary = {
   showLess: "Mostrar menos ↑",
   nextStepButton: "Ver como corrigir →",
   nextStepKicker: "Próximo passo",
-  nextStepHeadline: "O relatório aponta. Resolver é outra etapa.",
-  nextStepBodyTwo: "Se dois desses pontos já tão custando venda, vale mexer neles antes do resto.",
-  nextStepBodyFew: "É por aqui que vale começar.",
-  contactIntro: "Se quiser ajuda com isso:",
+  nextStepHeadline: "O relatório mostra o problema. Agora, veja o que pode ser feito.",
+  nextStepBody: "Nem todo problema tem o mesmo impacto. Estes são os que vale corrigir primeiro.",
+  recommendationsHeading: "O que pode ser feito",
+  contactHeading: "Quer que a gente cuide disso?",
   nameLabel: "Nome",
   namePlaceholder: "Seu nome",
   emailLabel: "E-mail",
@@ -243,6 +251,23 @@ const pt: Dictionary = {
     const verb = clauses.length > 1 ? "são" : "é";
     return `${joined.charAt(0).toUpperCase()}${joined.slice(1)} ${verb} o que mais pesa contra o site agora, vale resolver antes do resto.`;
   },
+  recommendation: {
+    "no-https": "Ativar um certificado HTTPS válido e configurar o servidor pra redirecionar automaticamente o tráfego de HTTP pra HTTPS.",
+    "invalid-certificate": "Corrigir a cadeia de certificado no servidor, incluindo o certificado intermediário que está faltando.",
+    "no-hsts": "Adicionar o cabeçalho HSTS pra garantir que o navegador sempre use HTTPS nas próximas visitas.",
+    "no-csp": "Configurar um cabeçalho Content-Security-Policy adequado ao site, restringindo de onde scripts podem ser carregados.",
+    "no-clickjacking-protection": "Configurar proteção contra clickjacking e revisar os cabeçalhos de segurança.",
+    "no-title": "Definir um título único pra cada página, descrevendo o que ela oferece.",
+    "generic-title": "Reescrever o título da página com algo específico sobre o negócio, em vez de um termo genérico.",
+    "no-description": "Criar uma meta description alinhada ao conteúdo da página e às buscas relevantes.",
+    "no-viewport": "Adicionar a meta tag de viewport pra que a página se adapte corretamente a telas de celular.",
+    "missing-alt": "Escrever uma descrição alternativa pra cada imagem relevante do site.",
+    "no-sitemap": "Gerar e publicar um sitemap.xml listando as páginas do site.",
+    "low-performance": "Revisar o que mais pesa no carregamento — geralmente imagens grandes, scripts não usados ou fontes carregadas sem necessidade.",
+    "slow-load-impact": "Priorizar o carregamento do conteúdo principal da página antes de qualquer coisa secundária.",
+    "layout-shift": "Reservar o espaço de imagens, anúncios e blocos que carregam depois, pra eles não empurrarem o resto da página.",
+    "color-contrast": "Ajustar as cores de texto e fundo pra aumentar o contraste nos trechos identificados.",
+  },
 };
 
 const en: Dictionary = {
@@ -283,10 +308,10 @@ const en: Dictionary = {
   showLess: "Show less ↑",
   nextStepButton: "See how to fix it →",
   nextStepKicker: "Next step",
-  nextStepHeadline: "The report points it out. Fixing it is a separate step.",
-  nextStepBodyTwo: "If two of these are already costing you sales, worth tackling them before the rest.",
-  nextStepBodyFew: "This is where it's worth starting.",
-  contactIntro: "If you'd like help with this:",
+  nextStepHeadline: "The report shows the problem. Now, here's what can be done.",
+  nextStepBody: "Not every problem has the same impact. These are the ones worth fixing first.",
+  recommendationsHeading: "What can be done",
+  contactHeading: "Want us to take care of it?",
   nameLabel: "Name",
   namePlaceholder: "Your name",
   emailLabel: "Email",
@@ -398,6 +423,23 @@ const en: Dictionary = {
     const verb = clauses.length > 1 ? "are" : "is";
     return `${joined.charAt(0).toUpperCase()}${joined.slice(1)} ${verb} what's weighing the site down the most right now, worth fixing before anything else.`;
   },
+  recommendation: {
+    "no-https": "Set up a valid HTTPS certificate and configure the server to automatically redirect HTTP traffic to HTTPS.",
+    "invalid-certificate": "Fix the certificate chain on the server, including the missing intermediate certificate.",
+    "no-hsts": "Add the HSTS header so the browser always uses HTTPS on future visits.",
+    "no-csp": "Set up a Content-Security-Policy header suited to the site, restricting where scripts can be loaded from.",
+    "no-clickjacking-protection": "Set up clickjacking protection and review the site's security headers.",
+    "no-title": "Set a unique title for each page, describing what it offers.",
+    "generic-title": "Rewrite the page title with something specific about the business, instead of a generic term.",
+    "no-description": "Write a meta description aligned with the page's content and the searches that matter to it.",
+    "no-viewport": "Add the viewport meta tag so the page adapts correctly to phone screens.",
+    "missing-alt": "Write alt text for each relevant image on the site.",
+    "no-sitemap": "Generate and publish a sitemap.xml listing the site's pages.",
+    "low-performance": "Review what's weighing load time down the most — usually large images, unused scripts, or fonts loaded unnecessarily.",
+    "slow-load-impact": "Prioritize loading the page's main content before anything secondary.",
+    "layout-shift": "Reserve space for images, ads, and blocks that load later, so they don't push the rest of the page around.",
+    "color-contrast": "Adjust text and background colors to increase contrast in the flagged areas.",
+  },
 };
 
 export const DICTIONARIES: Record<Locale, Dictionary> = { pt, en };
@@ -421,6 +463,10 @@ export function translateIssue(
 
 export function translateImpact(locale: Locale, code: IssueCode): string | undefined {
   return DICTIONARIES[locale].impact[code];
+}
+
+export function translateRecommendation(locale: Locale, code: IssueCode): string {
+  return DICTIONARIES[locale].recommendation[code];
 }
 
 /**
