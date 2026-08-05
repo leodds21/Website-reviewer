@@ -5,13 +5,11 @@ import { LoadingSequence } from "./components/LoadingSequence";
 import { IdleScreen } from "./components/IdleScreen";
 import { ReportScreen } from "./components/ReportScreen";
 import { NextStepScreen } from "./components/NextStepScreen";
-import { useLanguage } from "./i18n/LanguageContext";
 import { useAnalysis } from "./hooks/useAnalysis";
 
 export default function Home() {
-  const { t } = useLanguage();
   const [url, setUrl] = useState("");
-  const { stage, setStage, completedSteps, report, error, startAnalysis } = useAnalysis(t.errorGeneric);
+  const { stage, setStage, completedSteps, report, error, startAnalysis } = useAnalysis();
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();

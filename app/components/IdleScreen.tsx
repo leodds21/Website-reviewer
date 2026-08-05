@@ -4,6 +4,8 @@ import { Brand, Corners } from "./Chrome";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { PrivacyPolicyDialog } from "./PrivacyPolicyDialog";
 import { useLanguage } from "@/app/i18n/LanguageContext";
+import { translateAnalysisError } from "@/app/i18n/translations";
+import type { AnalyzeError } from "@/lib/analyzeError";
 
 export function IdleScreen({
   url,
@@ -14,9 +16,9 @@ export function IdleScreen({
   url: string;
   onUrlChange: (value: string) => void;
   onSubmit: (event: React.FormEvent) => void;
-  error: string | null;
+  error: AnalyzeError | null;
 }) {
-  const { t } = useLanguage();
+  const { locale, t } = useLanguage();
 
   return (
     <div className="blueprint bg-white/60 p-5">
@@ -58,8 +60,15 @@ export function IdleScreen({
       </form>
 
       {error && (
-        <p role="alert" className="mt-4 text-sm text-[var(--color-accent-900)]">
-          {error}
+        // The typed URL is deliberately left in the input above, so
+        // recovering is "fix the typo and press the button again"
+        // rather than "start over from a blank field".
+        <p
+          role="alert"
+          className="mt-4 border-l-[3px] py-0.5 pl-3 text-[13px] leading-relaxed"
+          style={{ borderColor: "var(--color-severity-critico)" }}
+        >
+          {translateAnalysisError(locale, error)}
         </p>
       )}
 

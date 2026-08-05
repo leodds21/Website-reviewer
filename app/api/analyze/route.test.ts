@@ -63,7 +63,19 @@ describe("GET /api/analyze", () => {
     const response = await GET(requestFor("", "route-test-missing.ip"));
 
     expect(response.status).toBe(400);
-    expect((await response.json()).error).toMatch(/URL/);
+    expect((await response.json()).code).toBe("missing-url");
+  });
+
+  it("returns a machine-readable code, not a prose message, for a rejected URL", async () => {
+    // The route has no idea which language the visitor picked, so
+    // anything it phrases itself would be stuck in one language. The
+    // client owns the wording.
+    const response = await GET(requestFor("not a url at all", "route-test-badurl.ip"));
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.code).toBe("invalid-url");
+    expect(body.error).toBeUndefined();
   });
 
   it("returns 400 for a URL that resolves to a blocked host, before running any check", async () => {
@@ -134,7 +146,7 @@ describe("GET /api/analyze", () => {
     expect(report.score.performance.score).toBeNull();
   });
 
-  it("emits a failed event, with a generic message, only when every check fails", async () => {
+  it("emits a failed event, carrying only a code, when every check fails", async () => {
     vi.mocked(checkHttps).mockRejectedValueOnce(new Error("fetch failed: internal detail nobody outside should see"));
     vi.mocked(fetchHtml).mockRejectedValueOnce(new Error("fetch failed"));
     vi.mocked(checkSitemapRobots).mockRejectedValueOnce(new Error("fetch failed"));
@@ -145,12 +157,51 @@ describe("GET /api/analyze", () => {
 
     expect(events).toHaveLength(1);
     expect(events[0].event).toBe("failed");
-    // Generic on purpose — internal error detail (API keys, raw
-    // response bodies, resolved internal hostnames) never reaches
-    // the client, only server logs.
-    const message = (events[0].data as { error: string }).error;
-    expect(message).not.toContain("internal detail");
-    expect(message).not.toContain("PAGESPEED_API_KEY");
+    expect((events[0].data as { code: string }).code).toBe("analysis-failed");
+    // Internal error detail (API keys, raw response bodies, resolved
+    // internal hostnames) never reaches the client, only server logs —
+    // a bare code can't leak any of it by construction.
+    const serialized = JSON.stringify(events[0].data);
+    expect(serialized).not.toContain("internal detail");
+    expect(serialized).not.toContain("PAGESPEED_API_KEY");
+  });
+
+  it("returns 429 with a rate-limited code and the wait time in the body", async () => {
+    const ip = "route-test-rl-code.ip";
+    for (let index = 0; index < 10; index++) {
+      await GET(requestFor(`route-test-rlc-${index}.example`, ip));
+    }
+
+    const response = await GET(requestFor("route-test-rlc-last.example", ip));
+    const body = await response.json();
+
+    expect(response.status).toBe(429);
+    expect(body.code).toBe("rate-limited");
+    // The UI turns this into "tenta de novo em X minutos" — without it
+    // the message can only say "later", which is a worse answer.
+    expect(body.retryAfterSeconds).toBeGreaterThan(0);
+  });
+
+  it("doesn't cache a partial report when the visitor left mid-analysis", async () => {
+    // Otherwise the half-finished results of an abandoned run get
+    // served to the *next* visitor for the full partial TTL.
+    const setCachedSpy = vi.spyOn(cache, "setCached");
+    const controller = new AbortController();
+    vi.mocked(runPageSpeed).mockImplementationOnce(
+      () => new Promise((_, reject) => controller.signal.addEventListener("abort", () => reject(new Error("aborted")))),
+    );
+
+    const request = new Request("http://localhost/api/analyze?url=route-test-abort.example", {
+      headers: { "x-forwarded-for": "route-test-abort.ip" },
+      signal: controller.signal,
+    });
+
+    const response = await GET(request);
+    controller.abort();
+    await readSseEvents(response).catch(() => []);
+
+    expect(setCachedSpy).not.toHaveBeenCalled();
+    setCachedSpy.mockRestore();
   });
 
   it("serves the second request for the same domain from cache, skipping the checks entirely", async () => {

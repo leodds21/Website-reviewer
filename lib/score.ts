@@ -40,6 +40,14 @@ function categoryScore(score: number): CategoryScore {
   return { score: rounded, severity: severityFor(rounded) };
 }
 
+// A pass/fail signal as a score component: present is 100, absent is
+// 0, and "we couldn't determine it" contributes nothing at all rather
+// than being scored as a failure.
+function booleanSignal(value: boolean | null | undefined): number | null {
+  if (value === null || value === undefined) return null;
+  return value ? 100 : 0;
+}
+
 // Each present header is worth an equal third — there's no published
 // weighting between HSTS/CSP/clickjacking protection to justify
 // treating one as more important than the others.
@@ -92,11 +100,14 @@ export function aggregateScore(input: AggregateScoreInput): AggregatedScore {
     input.pagespeed?.scores.seo ?? null,
     input.metaTags ? (input.metaTags.hasTitle ? 100 : 0) : null,
     input.metaTags ? (input.metaTags.hasDescription ? 100 : 0) : null,
-    input.sitemapRobots ? (input.sitemapRobots.hasSitemap ? 100 : 0) : null,
-    // Was fetched but never actually scored — robots.txt matters for
-    // the same reason sitemap.xml does (it's how crawlers are told
-    // what to do with the site), so it belongs in the same blend.
-    input.sitemapRobots ? (input.sitemapRobots.hasRobotsTxt ? 100 : 0) : null,
+    // `?? null` rather than a truthiness check: hasSitemap/hasRobotsTxt
+    // are boolean | null, and a null (we couldn't reach the host to
+    // find out) has to stay out of the average instead of scoring 0
+    // like a confirmed absence would.
+    booleanSignal(input.sitemapRobots?.hasSitemap),
+    // robots.txt matters for the same reason sitemap.xml does — it's
+    // how crawlers are told what to do with the site.
+    booleanSignal(input.sitemapRobots?.hasRobotsTxt),
   ]);
 
   const accessibility = categoryFrom([
