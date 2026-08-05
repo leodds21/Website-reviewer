@@ -49,4 +49,9 @@ export const IMPACT_EXPLANATIONS: Partial<Record<IssueCode, ImpactExplanation>> 
   "missing-alt": {
     text: "Sem a descrição alternativa, quem usa leitor de tela (pessoas com deficiência visual) não sabe o que aquelas imagens mostram — pra elas, é como se a imagem simplesmente não existisse. Também reduz a chance de essas imagens aparecerem nas buscas do Google.",
   },
+
+  // lib/checks/sitemap-robots.ts
+  "no-sitemap": {
+    text: "O sitemap é como um mapa que ajuda o Google a encontrar todas as páginas do site, principalmente as mais novas. Sem ele, uma página recém-publicada pode demorar bem mais pra aparecer nos resultados de busca.",
+  },
 };
