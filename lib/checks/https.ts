@@ -52,6 +52,10 @@ export async function checkHttps(url: string, signal?: AbortSignal): Promise<Htt
       signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
     });
 
+    // Only the final URL and the headers matter here — leaving the body
+    // unread would hold the connection open in undici's pool until GC.
+    await response.body?.cancel();
+
     const finalUrl = response.url;
 
     return {
