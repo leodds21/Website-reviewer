@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { checkAltImages } from "./alt-images";
 
+// checkAltImages goes through safeFetch, which resolves DNS to check
+// for a blocked IP before every request — mocked here so the test
+// doesn't depend on real DNS, same as fetch itself.
+vi.mock("node:dns/promises", () => ({ lookup: vi.fn().mockResolvedValue([{ address: "93.184.216.34" }]) }));
+
 function fakeHtmlResponse(html: string): Response {
   return {
     status: 200,
