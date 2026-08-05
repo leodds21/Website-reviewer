@@ -1,4 +1,4 @@
-import type { IssueCategory, IssueCode } from "@/lib/issues";
+import type { Issue, IssueCategory, IssueCode } from "@/lib/issues";
 import type { Severity } from "@/lib/score";
 
 export type Locale = "pt" | "en";
@@ -50,6 +50,20 @@ type Dictionary = {
   errorInvalidUrl: string;
   errorMissingUrl: string;
   issue: Record<IssueCode, (params: IssueParams) => { title: string; description: string }>;
+  // Plain-language "so what" for a non-technical site owner, one level
+  // removed from the technical finding above it — filled in one check
+  // module at a time (see lib/checks/), so Partial rather than a full
+  // Record. Not rendered per-item in the UI; it's source material a
+  // future detail view could use directly.
+  impact: Partial<Record<IssueCode, string>>;
+  // Short noun-phrase version of the same idea, grammatically built to
+  // slot into synthesizeImpact() below (e.g. "the insecure connection").
+  impactClause: Partial<Record<IssueCode, string>>;
+  // Turns 1-2 clauses from impactClause into the one summary sentence
+  // shown before the contact form — kept as a per-locale function
+  // (not shared string-building code) since the joining word ("e" vs
+  // "and") and verb agreement differ by language.
+  synthesizeImpact: (clauses: string[]) => string;
 };
 
 const pt: Dictionary = {
@@ -142,6 +156,19 @@ const pt: Dictionary = {
       description: `Nessa faixa, a chance de o visitante desistir antes da página carregar é pelo menos ${params?.bounceIncreasePercent}% maior.`,
     }),
   },
+  impact: {
+    "no-https": "Seu site aparece com o aviso \"não seguro\" no navegador do visitante. Isso passa desconfiança, principalmente se a pessoa for preencher algum formulário ou fazer uma compra.",
+    "invalid-certificate": "O certificado de segurança do site tem um problema de configuração. Na maioria dos navegadores isso passa despercebido, mas em alguns aparelhos, apps ou navegadores mais rigorosos o site pode aparecer com alerta de segurança.",
+  },
+  impactClause: {
+    "no-https": "a insegurança da conexão",
+    "invalid-certificate": "o problema no certificado de segurança",
+  },
+  synthesizeImpact: (clauses) => {
+    const joined = clauses.length > 1 ? `${clauses[0]} e ${clauses[1]}` : clauses[0];
+    const verb = clauses.length > 1 ? "são" : "é";
+    return `${joined.charAt(0).toUpperCase()}${joined.slice(1)} ${verb} o que mais pesa contra o site agora, vale resolver antes do resto.`;
+  },
 };
 
 const en: Dictionary = {
@@ -233,6 +260,19 @@ const en: Dictionary = {
       description: `At that speed, the visitor's chance of leaving before the page loads is at least ${params?.bounceIncreasePercent}% higher.`,
     }),
   },
+  impact: {
+    "no-https": "Your site shows up with a \"not secure\" warning in the visitor's browser. That reads as suspicious, especially if someone's about to fill out a form or make a purchase.",
+    "invalid-certificate": "The site's security certificate has a configuration problem. Most browsers quietly work around it, but on some devices, apps, or stricter browsers the site can show up with a security warning instead.",
+  },
+  impactClause: {
+    "no-https": "the insecure connection",
+    "invalid-certificate": "the security certificate problem",
+  },
+  synthesizeImpact: (clauses) => {
+    const joined = clauses.length > 1 ? `${clauses[0]} and ${clauses[1]}` : clauses[0];
+    const verb = clauses.length > 1 ? "are" : "is";
+    return `${joined.charAt(0).toUpperCase()}${joined.slice(1)} ${verb} what's weighing the site down the most right now, worth fixing before anything else.`;
+  },
 };
 
 export const DICTIONARIES: Record<Locale, Dictionary> = { pt, en };
@@ -252,6 +292,30 @@ export function translateIssue(
   const entry = DICTIONARIES[locale].issue[code];
   if (!entry) return { title: code, description: "" };
   return entry(params);
+}
+
+export function translateImpact(locale: Locale, code: IssueCode): string | undefined {
+  return DICTIONARIES[locale].impact[code];
+}
+
+/**
+ * Combines the critical findings from a report into one short summary
+ * sentence for the "why fix this" spot right before the contact form —
+ * not a per-item explanation, a synthesis. Picks the first 1-2 findings
+ * that have a clause defined (in the order deriveIssues() pushed them,
+ * which already runs security first) and hands them to the locale's
+ * own sentence-builder, since word order and verb agreement aren't
+ * portable across languages. Returns null when there's nothing to
+ * summarize (no critical findings, or none with a clause yet).
+ */
+export function synthesizeCriticalImpact(locale: Locale, criticalIssues: Issue[]): string | null {
+  const dictionary = DICTIONARIES[locale];
+  const clauses = criticalIssues
+    .map((issue) => dictionary.impactClause[issue.code])
+    .filter((clause): clause is string => Boolean(clause))
+    .slice(0, 2);
+
+  return clauses.length > 0 ? dictionary.synthesizeImpact(clauses) : null;
 }
 
 export type { Dictionary };
