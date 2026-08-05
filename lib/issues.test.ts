@@ -60,6 +60,50 @@ describe("deriveIssues", () => {
   });
 });
 
+describe("deriveIssues — security headers", () => {
+  it("doesn't fire when securityHeaders wasn't provided", () => {
+    const issues = deriveIssues({
+      https: { passed: true, finalUrl: "https://x.com", redirectedFromHttp: false },
+    });
+
+    expect(issues).toEqual([]);
+  });
+
+  it("doesn't fire when https failed, even if securityHeaders is present", () => {
+    // Headers off a plain-http (or cert-broken) connection aren't a
+    // meaningful hardening signal — no-https/invalid-certificate is
+    // already the one finding that matters there.
+    const issues = deriveIssues({
+      https: { passed: false, finalUrl: "http://x.com", redirectedFromHttp: false },
+      securityHeaders: { hasHsts: false, hasCsp: false, hasClickjackingProtection: false },
+    });
+
+    expect(issues.some((issue) => issue.code === "no-hsts")).toBe(false);
+    expect(issues.some((issue) => issue.code === "no-csp")).toBe(false);
+    expect(issues.some((issue) => issue.code === "no-clickjacking-protection")).toBe(false);
+  });
+
+  it("flags all three when every header is missing on an https site", () => {
+    const issues = deriveIssues({
+      https: { passed: true, finalUrl: "https://x.com", redirectedFromHttp: false },
+      securityHeaders: { hasHsts: false, hasCsp: false, hasClickjackingProtection: false },
+    });
+
+    expect(issues).toContainEqual({ category: "security", severity: "atencao", code: "no-hsts" });
+    expect(issues).toContainEqual({ category: "security", severity: "atencao", code: "no-csp" });
+    expect(issues).toContainEqual({ category: "security", severity: "atencao", code: "no-clickjacking-protection" });
+  });
+
+  it("flags nothing when every header is present", () => {
+    const issues = deriveIssues({
+      https: { passed: true, finalUrl: "https://x.com", redirectedFromHttp: false },
+      securityHeaders: { hasHsts: true, hasCsp: true, hasClickjackingProtection: true },
+    });
+
+    expect(issues).toEqual([]);
+  });
+});
+
 describe("deriveIssues — slow-load-impact", () => {
   const baseInput = {
     https: { passed: true, finalUrl: "https://x.com", redirectedFromHttp: false },
