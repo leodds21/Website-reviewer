@@ -21,7 +21,9 @@ export type IssueCode =
   | "missing-alt"
   | "no-sitemap"
   | "low-performance"
-  | "slow-load-impact";
+  | "slow-load-impact"
+  | "layout-shift"
+  | "color-contrast";
 
 export type Issue = {
   category: IssueCategory;
@@ -42,6 +44,13 @@ const LOAD_IMPACT_BUCKETS = [
   { minSeconds: 5, bounceIncreasePercent: 90 },
   { minSeconds: 3, bounceIncreasePercent: 32 },
 ] as const;
+
+// Google's own published Core Web Vitals thresholds for Cumulative
+// Layout Shift (web.dev/articles/cls): "good" is below 0.1, "poor" is
+// above 0.25. Values in between ("needs improvement") land as
+// "atencao" here; anything past 0.25 is "critico".
+const CLS_NEEDS_IMPROVEMENT_THRESHOLD = 0.1;
+const CLS_POOR_THRESHOLD = 0.25;
 
 export type DeriveIssuesInput = {
   pagespeed?: PageSpeedResult;
@@ -149,6 +158,23 @@ export function deriveIssues(input: DeriveIssuesInput): Issue[] {
           params: { seconds: lcpSeconds, bounceIncreasePercent: bucket.bounceIncreasePercent },
         });
       }
+    }
+
+    if (typeof input.pagespeed.clsValue === "number" && input.pagespeed.clsValue > CLS_NEEDS_IMPROVEMENT_THRESHOLD) {
+      issues.push({
+        category: "performance",
+        severity: input.pagespeed.clsValue > CLS_POOR_THRESHOLD ? "critico" : "atencao",
+        code: "layout-shift",
+        params: { value: input.pagespeed.clsValue },
+      });
+    }
+
+    if (input.pagespeed.hasColorContrastIssues) {
+      // Lighthouse's audit is pass/fail for the whole page, with no
+      // count or ratio of affected elements exposed here — unlike
+      // missing-alt, there's no proportional signal to grade severity
+      // by, so this stays "atencao" rather than guessing at "critico".
+      issues.push({ category: "accessibility", severity: "atencao", code: "color-contrast" });
     }
   }
 
