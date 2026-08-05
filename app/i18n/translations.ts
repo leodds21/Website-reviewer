@@ -80,6 +80,7 @@ type Dictionary = {
   sendSuccess: string;
   sendError: string;
   formNotConfigured: string;
+  reportHeading: (domain: string) => string;
   reportFooter: (domain: string) => string;
   // One entry per AnalyzeErrorCode: every way an analysis can fail has
   // its own wording, so the visitor is never told "something went
@@ -197,6 +198,7 @@ const pt: Dictionary = {
   sendSuccess: "Recebido. Volto pra você em breve.",
   sendError: "Não foi possível enviar. Tenta de novo em instantes.",
   formNotConfigured: "Formulário não configurado.",
+  reportHeading: (domain) => `Relatório de ${domain}`,
   reportFooter: (domain) => `Isdias.dev · relatório referente a ${domain}`,
   analysisError: {
     "missing-url": () => "Informe o endereço de um site pra analisar.",
@@ -424,6 +426,7 @@ const en: Dictionary = {
   sendSuccess: "Got it. I'll get back to you soon.",
   sendError: "Couldn't send it. Try again in a moment.",
   formNotConfigured: "Form not configured.",
+  reportHeading: (domain) => `Report for ${domain}`,
   reportFooter: (domain) => `Isdias.dev · report for ${domain}`,
   analysisError: {
     "missing-url": () => "Enter the address of a site to analyze.",
