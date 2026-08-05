@@ -15,10 +15,17 @@ type Dictionary = {
   urlPlaceholder: string;
   runButton: string;
   privacyNote: string;
+  loadingKicker: string;
+  loadingHeadline: string;
   loadingSubtitle: string;
-  startingAnalysis: string;
-  verifying: (category: string) => string;
-  checkDone: (category: string) => string;
+  loadingSteps: {
+    validating: string;
+    performance: string;
+    seo: string;
+    accessibility: string;
+    security: string;
+    finishing: string;
+  };
   scoreLabelOk: string;
   scoreLabelAttention: string;
   categories: Record<"performance" | "seo" | "accessibility" | "security", string>;
@@ -75,10 +82,17 @@ const pt: Dictionary = {
   urlPlaceholder: "seusite.com.br",
   runButton: "Rodar diagnóstico",
   privacyNote: "Não guardamos a URL nem o relatório depois. Roda, mostra, some.",
+  loadingKicker: "Analisando",
+  loadingHeadline: "Rodando as checagens.",
   loadingSubtitle: "Isso leva menos de um minuto, e são checagens de verdade rodando, não é decoração.",
-  startingAnalysis: "Iniciando análise…",
-  verifying: (category) => `Verificando ${category}…`,
-  checkDone: (category) => `Checagem de ${category} concluída.`,
+  loadingSteps: {
+    validating: "Validando endereço",
+    performance: "Testando desempenho",
+    seo: "Verificando SEO",
+    accessibility: "Analisando acessibilidade",
+    security: "Conferindo segurança",
+    finishing: "Preparando relatório",
+  },
   scoreLabelOk: "Está bem",
   scoreLabelAttention: "Precisa de atenção",
   categories: {
@@ -232,10 +246,17 @@ const en: Dictionary = {
   urlPlaceholder: "yoursite.com",
   runButton: "Run diagnosis",
   privacyNote: "We don't keep the URL or the report afterward. It runs, it shows, it's gone.",
+  loadingKicker: "Analyzing",
+  loadingHeadline: "Running the checks.",
   loadingSubtitle: "This takes under a minute, and these are real checks running, not decoration.",
-  startingAnalysis: "Starting analysis…",
-  verifying: (category) => `Checking ${category}…`,
-  checkDone: (category) => `${category} check complete.`,
+  loadingSteps: {
+    validating: "Validating address",
+    performance: "Testing performance",
+    seo: "Checking SEO",
+    accessibility: "Analyzing accessibility",
+    security: "Checking security",
+    finishing: "Preparing report",
+  },
   scoreLabelOk: "Looking good",
   scoreLabelAttention: "Needs attention",
   categories: {

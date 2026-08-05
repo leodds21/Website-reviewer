@@ -12,6 +12,16 @@
   --color-neutral-200: #e7e7ea;
   --color-neutral-600: #7a7a7d;
   --color-neutral-700: #5d5d60;
+  /* Reserved specifically for severity indicators (badges, left
+     borders, small dots) — never backgrounds, never the brand's own
+     visual weight. Desaturated to sit next to the blueprint's muted
+     blues without reading as a stoplight palette. */
+  /* All three checked against --color-bg for >=4.5:1 (WCAG AA, normal
+     text), since each is used as text color for its severity label,
+     not just as a decorative dot. */
+  --color-severity-critico: #a8433f;
+  --color-severity-atencao: #8a6522;
+  --color-severity-ok: #43694e;
 }
 
 @theme inline {
@@ -26,6 +36,9 @@
   --color-neutral-200: var(--color-neutral-200);
   --color-neutral-600: var(--color-neutral-600);
   --color-neutral-700: var(--color-neutral-700);
+  --color-severity-critico: var(--color-severity-critico);
+  --color-severity-atencao: var(--color-severity-atencao);
+  --color-severity-ok: var(--color-severity-ok);
   --font-heading: var(--font-heading), sans-serif;
   --font-body: var(--font-body), sans-serif;
 }
@@ -83,14 +96,10 @@ h1, h2, h3, h4 {
   animation: fade-in-up 150ms ease-out;
 }
 
-/* Indeterminate progress bar: we never know how long a check will
-   take, so this doesn't fill toward a value — it just keeps moving,
-   the same "still working" signal as an OS progress bar with no ETA. */
-@keyframes progress-indeterminate {
-  0% { left: -35%; right: 100%; }
-  60% { left: 100%; right: -35%; }
-  100% { left: 100%; right: -35%; }
-}
+/* Determinate progress: the loading screen knows exactly how many of
+   the 6 real checks have settled, so the bar fills toward that real
+   fraction (via the --progress custom property) instead of faking an
+   indeterminate slide with no relationship to actual completion. */
 .progress-track {
   position: relative;
   overflow: hidden;
@@ -99,10 +108,10 @@ h1, h2, h3, h4 {
 .progress-track::after {
   content: "";
   position: absolute;
-  top: 0;
-  bottom: 0;
-  background: var(--color-accent);
-  animation: progress-indeterminate 1.4s ease-in-out infinite;
+  inset: 0 auto 0 0;
+  width: var(--progress, 0%);
+  background: var(--color-accent-700);
+  transition: width 500ms ease-out;
 }
 
 /* A visibly stronger ring than the 1px border-color swap used
