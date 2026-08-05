@@ -62,7 +62,7 @@ export function LoadingSequence({ completedSteps }: { completedSteps: StepKey[] 
       <div className="mb-2 text-xs font-semibold tracking-[0.12em] text-[var(--color-accent-700)] uppercase">
         {t.loadingKicker}
       </div>
-      <h2 className="mb-2 text-2xl tracking-tight">{t.loadingHeadline}</h2>
+      <h1 className="mb-2 text-2xl tracking-tight">{t.loadingHeadline}</h1>
       <p className="mb-5 text-[13px] leading-relaxed text-[var(--color-text)]/80">{t.loadingSubtitle}</p>
 
       <div

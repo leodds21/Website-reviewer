@@ -6,10 +6,12 @@ import { IdleScreen } from "./components/IdleScreen";
 import { ReportScreen } from "./components/ReportScreen";
 import { NextStepScreen } from "./components/NextStepScreen";
 import { useAnalysis } from "./hooks/useAnalysis";
+import { useStageFocus } from "./hooks/useStageFocus";
 
 export default function Home() {
   const [url, setUrl] = useState("");
   const { stage, setStage, completedSteps, report, error, startAnalysis } = useAnalysis();
+  const stageRef = useStageFocus<HTMLDivElement>(stage);
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -24,7 +26,10 @@ export default function Home() {
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-16">
-      <div className="w-full max-w-md">
+      {/* tabIndex -1 makes this focusable programmatically but not in
+          the Tab order, so the focus move on stage change doesn't add a
+          stop keyboard users have to pass through afterwards. */}
+      <div ref={stageRef} tabIndex={-1} className="w-full max-w-md focus:outline-none">
         {stage === "idle" && <IdleScreen url={url} onUrlChange={setUrl} onSubmit={handleSubmit} error={error} />}
 
         {stage === "analyzing" && <LoadingSequence completedSteps={completedSteps} />}

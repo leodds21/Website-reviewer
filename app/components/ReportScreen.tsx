@@ -16,6 +16,11 @@ export function ReportScreen({ report, onNextStep }: { report: AnalyzeReport; on
   return (
     <div className="blueprint bg-white/60 p-5">
       <Corners />
+      {/* The screen's real title. Visually the domain and the big score
+          already say this, but neither is a heading, so without it a
+          screen reader lands on a card with no name and the document
+          jumps straight from nothing to an h2. */}
+      <h1 className="sr-only">{t.reportHeading(report.domain)}</h1>
       <div className="mb-5 flex items-baseline justify-between">
         <Brand />
         <span className="font-mono text-xs text-[var(--color-neutral-700)]">{report.domain}</span>

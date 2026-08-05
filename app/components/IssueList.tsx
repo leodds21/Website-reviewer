@@ -59,7 +59,7 @@ export function IssueList({ issues }: { issues: Issue[] }) {
   return (
     <div>
       <div className="mb-3 flex items-baseline justify-between">
-        <h3 className="text-lg">{t.whatWeFound}</h3>
+        <h2 className="text-lg">{t.whatWeFound}</h2>
         <span className="border-0 bg-[var(--color-neutral-200)] px-2.5 py-0.5 text-[11px] text-[var(--color-neutral-700)]">
           {t.points(issues.length)}
         </span>
