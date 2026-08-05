@@ -6,9 +6,17 @@ import { checkSitemapRobots } from "./sitemap-robots";
 // test doesn't depend on real DNS, same as fetch itself.
 vi.mock("node:dns/promises", () => ({ lookup: vi.fn().mockResolvedValue([{ address: "93.184.216.34" }]) }));
 
-function fakeResponse(url: string, status: number): Response {
-  return { status, headers: new Headers(), url, ok: status >= 200 && status < 300 } as Response;
+function fakeResponse(status: number, body = ""): Response {
+  return {
+    status,
+    headers: new Headers(),
+    ok: status >= 200 && status < 300,
+    text: async () => body,
+    body: { cancel: vi.fn() },
+  } as unknown as Response;
 }
+
+const REAL_SITEMAP = `<?xml version="1.0" encoding="UTF-8"?><urlset><url><loc>https://example.com/</loc></url></urlset>`;
 
 describe("checkSitemapRobots", () => {
   beforeEach(() => {
@@ -19,10 +27,10 @@ describe("checkSitemapRobots", () => {
     vi.unstubAllGlobals();
   });
 
-  it("reports both present when both return 200", async () => {
+  it("reports both present when the sitemap is real XML and robots.txt is 200", async () => {
     vi.mocked(fetch)
-      .mockResolvedValueOnce(fakeResponse("https://example.com/sitemap.xml", 200))
-      .mockResolvedValueOnce(fakeResponse("https://example.com/robots.txt", 200));
+      .mockResolvedValueOnce(fakeResponse(200, REAL_SITEMAP))
+      .mockResolvedValueOnce(fakeResponse(200));
 
     const result = await checkSitemapRobots("example.com");
 
@@ -31,9 +39,7 @@ describe("checkSitemapRobots", () => {
   });
 
   it("reports missing when the request 404s", async () => {
-    vi.mocked(fetch)
-      .mockResolvedValueOnce(fakeResponse("https://example.com/sitemap.xml", 404))
-      .mockResolvedValueOnce(fakeResponse("https://example.com/robots.txt", 200));
+    vi.mocked(fetch).mockResolvedValueOnce(fakeResponse(404)).mockResolvedValueOnce(fakeResponse(200));
 
     const result = await checkSitemapRobots("example.com");
 
@@ -41,10 +47,32 @@ describe("checkSitemapRobots", () => {
     expect(result.hasRobotsTxt).toBe(true);
   });
 
-  it("treats a network error as missing rather than throwing", async () => {
+  it("reports the sitemap missing on a soft-404 (200 OK with an HTML error page)", async () => {
+    // Many hosts return 200 with a normal HTML "page not found" body
+    // instead of a real 404 status for a missing sitemap.xml — a bare
+    // status check would report "found" for a sitemap that doesn't
+    // actually exist.
     vi.mocked(fetch)
-      .mockRejectedValueOnce(new Error("network down"))
-      .mockResolvedValueOnce(fakeResponse("https://example.com/robots.txt", 200));
+      .mockResolvedValueOnce(fakeResponse(200, "<html><body>404 - Page not found</body></html>"))
+      .mockResolvedValueOnce(fakeResponse(200));
+
+    const result = await checkSitemapRobots("example.com");
+
+    expect(result.hasSitemap).toBe(false);
+  });
+
+  it("accepts a sitemap index (not just a plain urlset) as a real sitemap", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(fakeResponse(200, `<?xml version="1.0"?><sitemapindex></sitemapindex>`))
+      .mockResolvedValueOnce(fakeResponse(200));
+
+    const result = await checkSitemapRobots("example.com");
+
+    expect(result.hasSitemap).toBe(true);
+  });
+
+  it("treats a network error as missing rather than throwing", async () => {
+    vi.mocked(fetch).mockRejectedValueOnce(new Error("network down")).mockResolvedValueOnce(fakeResponse(200));
 
     const result = await checkSitemapRobots("example.com");
 
