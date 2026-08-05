@@ -1,6 +1,7 @@
 import type { Issue, IssueCategory, IssueCode } from "@/lib/issues";
 import type { Severity } from "@/lib/score";
 import type { AnalyzeError, AnalyzeErrorCode } from "@/lib/analyzeError";
+import type { ContactErrorCode } from "@/app/hooks/useContactForm";
 
 /**
  * Turns a raw retry delay into something a person would actually say —
@@ -27,6 +28,7 @@ export const LOCALE_STORAGE_KEY = "isdias-lang";
 type IssueParams = Record<string, string | number> | undefined;
 
 type Dictionary = {
+  documentTitle: string;
   tagline: string;
   headline: string[];
   subheadline: string;
@@ -78,8 +80,8 @@ type Dictionary = {
   sending: string;
   sent: string;
   sendSuccess: string;
-  sendError: string;
-  formNotConfigured: string;
+  sendSuccessDetail: (email: string) => string;
+  contactError: Record<ContactErrorCode, string>;
   reportHeading: (domain: string) => string;
   reportFooter: (domain: string) => string;
   // One entry per AnalyzeErrorCode: every way an analysis can fail has
@@ -113,6 +115,7 @@ type Dictionary = {
 };
 
 const pt: Dictionary = {
+  documentTitle: "Isdias.dev, diagnóstico de site",
   tagline: "ferramenta de diagnóstico",
   headline: ["Todo site tem", "um ponto fraco."],
   subheadline:
@@ -196,8 +199,14 @@ const pt: Dictionary = {
   sending: "Enviando…",
   sent: "Enviado",
   sendSuccess: "Recebido. Volto pra você em breve.",
-  sendError: "Não foi possível enviar. Tenta de novo em instantes.",
-  formNotConfigured: "Formulário não configurado.",
+  sendSuccessDetail: (email) => `A resposta vai pra ${email}.`,
+  contactError: {
+    offline: "Você parece estar sem conexão. Sua mensagem não foi enviada — confere a internet e tenta de novo.",
+    timeout: "O envio demorou demais e foi interrompido. Sua mensagem não foi enviada, pode tentar de novo.",
+    rejected: "Não conseguimos enviar sua mensagem. Confere se o e-mail está certo e tenta de novo.",
+    "not-configured": "O formulário de contato está indisponível no momento. Tenta de novo mais tarde.",
+    unknown: "Não foi possível enviar sua mensagem. Tenta de novo em instantes.",
+  },
   reportHeading: (domain) => `Relatório de ${domain}`,
   reportFooter: (domain) => `Isdias.dev · relatório referente a ${domain}`,
   analysisError: {
@@ -342,6 +351,7 @@ const pt: Dictionary = {
 };
 
 const en: Dictionary = {
+  documentTitle: "Isdias.dev, website diagnostics",
   tagline: "diagnostic tool",
   headline: ["Every site has", "a weak spot."],
   subheadline: "We find yours in under a minute: performance, SEO, accessibility and security, all at once.",
@@ -424,8 +434,14 @@ const en: Dictionary = {
   sending: "Sending…",
   sent: "Sent",
   sendSuccess: "Got it. I'll get back to you soon.",
-  sendError: "Couldn't send it. Try again in a moment.",
-  formNotConfigured: "Form not configured.",
+  sendSuccessDetail: (email) => `The reply will go to ${email}.`,
+  contactError: {
+    offline: "You appear to be offline. Your message wasn't sent — check your connection and try again.",
+    timeout: "Sending took too long and was interrupted. Your message wasn't sent, feel free to try again.",
+    rejected: "We couldn't send your message. Check that the email address is correct and try again.",
+    "not-configured": "The contact form is unavailable right now. Please try again later.",
+    unknown: "We couldn't send your message. Try again in a moment.",
+  },
   reportHeading: (domain) => `Report for ${domain}`,
   reportFooter: (domain) => `Isdias.dev · report for ${domain}`,
   analysisError: {
