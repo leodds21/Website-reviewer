@@ -20,8 +20,8 @@ export function LoadingSequence({ completedSteps }: { completedSteps: StepKey[] 
     : null;
 
   return (
-    <div>
-      <div className="mb-6 flex items-center gap-2">
+    <div role="status" aria-live="polite">
+      <div className="mb-6 flex items-center gap-2" aria-hidden="true">
         {CATEGORY_GROUPS.map((group, index) => {
           const done = group.steps.every((step) => completedSet.has(step));
           const active = !done && group.key === currentGroup?.key;
