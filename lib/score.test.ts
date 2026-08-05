@@ -37,7 +37,7 @@ describe("aggregateScore", () => {
       sitemapRobots: { hasSitemap: false, hasRobotsTxt: true },
     });
 
-    expect(weakSeo.seo.score).toBe(10); // média(40, 0, 0, 0)
+    expect(weakSeo.seo.score).toBe(28); // média(40, 0, 0, 0, 100)
     expect(weakSeo.seo.severity).toBe("critico");
     expect(weakSeo.accessibility.score).toBe(Math.round((95 + 100 + 70) / 3));
   });
@@ -80,6 +80,6 @@ describe("aggregateScore", () => {
       sitemapRobots: { hasSitemap: true, hasRobotsTxt: true },
     });
 
-    expect(result.seo.score).toBe(Math.round((60 + 100) / 2));
+    expect(result.seo.score).toBe(Math.round((60 + 100 + 100) / 3));
   });
 });

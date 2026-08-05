@@ -83,6 +83,10 @@ export function aggregateScore(input: AggregateScoreInput): AggregatedScore {
     input.metaTags ? (input.metaTags.hasTitle ? 100 : 0) : null,
     input.metaTags ? (input.metaTags.hasDescription ? 100 : 0) : null,
     input.sitemapRobots ? (input.sitemapRobots.hasSitemap ? 100 : 0) : null,
+    // Was fetched but never actually scored — robots.txt matters for
+    // the same reason sitemap.xml does (it's how crawlers are told
+    // what to do with the site), so it belongs in the same blend.
+    input.sitemapRobots ? (input.sitemapRobots.hasRobotsTxt ? 100 : 0) : null,
   ]);
 
   const accessibility = categoryFrom([
