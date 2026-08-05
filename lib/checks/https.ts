@@ -12,6 +12,11 @@ export type HttpsCheckResult = {
   // intermediate certificate). Distinct from "no-https": the site
   // does serve TLS, it's just not one a client should trust.
   certificateError?: boolean;
+  // Present whenever the request actually got a response — lets
+  // parseSecurityHeaders (lib/checks/security-headers.ts) read HSTS/
+  // CSP/frame protections off the same fetch instead of requesting
+  // the page again just for its headers.
+  headers?: Headers;
 };
 
 const CERTIFICATE_ERROR_CODES = new Set([
@@ -53,6 +58,7 @@ export async function checkHttps(url: string, signal?: AbortSignal): Promise<Htt
       passed: finalUrl.startsWith("https://"),
       finalUrl,
       redirectedFromHttp: requestedUrl.startsWith("http://") && finalUrl.startsWith("https://"),
+      headers: response.headers,
     };
   } catch (error) {
     // A broken certificate chain is itself a real, reportable finding —
