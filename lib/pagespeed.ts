@@ -8,7 +8,14 @@ const PAGESPEED_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPag
 type PageSpeedApiResponse = {
   lighthouseResult?: {
     categories?: Partial<Record<PageSpeedCategory, { score?: number }>>;
-    audits?: { "largest-contentful-paint"?: { numericValue?: number } };
+    audits?: {
+      "largest-contentful-paint"?: { numericValue?: number };
+      "cumulative-layout-shift"?: { numericValue?: number };
+      // Lighthouse audit scores are 0-1 pass/fail here (not a
+      // percentage like the category scores), or null when the audit
+      // doesn't apply to this page at all (e.g. no text found).
+      "color-contrast"?: { score?: number | null };
+    };
   };
 };
 
@@ -24,6 +31,15 @@ export type PageSpeedResult = {
   // response — a fake 0s would read as "loads instantly," which is
   // actively misleading rather than merely absent data.
   lcpSeconds?: number;
+  // Cumulative Layout Shift — how much visible content jumps around
+  // during load. Unitless; Google's own published thresholds (not
+  // ours) are cited where this is turned into a finding, in
+  // lib/issues.ts.
+  clsValue?: number;
+  // Undefined when the color-contrast audit wasn't applicable to this
+  // page at all (score: null) — distinct from "no problem found"
+  // (score: 1, false).
+  hasColorContrastIssues?: boolean;
 };
 
 /**
@@ -70,6 +86,12 @@ export async function runPageSpeed(url: string, signal?: AbortSignal): Promise<P
   const lcpMs = data.lighthouseResult?.audits?.["largest-contentful-paint"]?.numericValue;
   const lcpSeconds = typeof lcpMs === "number" ? Math.round((lcpMs / 1000) * 10) / 10 : undefined;
 
+  const rawCls = data.lighthouseResult?.audits?.["cumulative-layout-shift"]?.numericValue;
+  const clsValue = typeof rawCls === "number" ? Math.round(rawCls * 1000) / 1000 : undefined;
+
+  const contrastScore = data.lighthouseResult?.audits?.["color-contrast"]?.score;
+  const hasColorContrastIssues = typeof contrastScore === "number" ? contrastScore < 1 : undefined;
+
   return {
     scores: {
       performance: scoreOf("performance"),
@@ -78,5 +100,7 @@ export async function runPageSpeed(url: string, signal?: AbortSignal): Promise<P
       seo: scoreOf("seo"),
     },
     lcpSeconds,
+    clsValue,
+    hasColorContrastIssues,
   };
 }
