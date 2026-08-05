@@ -23,16 +23,33 @@ describe("isBlockedHost", () => {
     "127.0.0.1",
     "127.5.5.5",
     "0.0.0.0",
+    "0.1.2.3", // 0.0.0.0/8
+    "100.64.1.1", // CGNAT
     "169.254.169.254", // cloud metadata endpoint
     "192.168.1.1",
     "10.0.0.1",
     "172.16.0.1",
     "172.31.255.255",
+    "::1", // IPv6 loopback
+    "[::1]", // same, as URL.hostname actually returns it (bracketed)
+    "fe80::1", // IPv6 link-local
+    "fd00::1", // IPv6 unique local
+    "[fd12:3456:789a::1]",
+    "::ffff:127.0.0.1", // IPv4-mapped IPv6, dotted form
+    "::ffff:7f00:1", // same, hex form
   ])("blocks %s", (host) => {
     expect(isBlockedHost(host)).toBe(true);
   });
 
-  it.each(["example.com", "8.8.8.8", "172.32.0.1", "172.15.0.1", "193.168.1.1"])("allows %s", (host) => {
+  it.each([
+    "example.com",
+    "8.8.8.8",
+    "172.32.0.1",
+    "172.15.0.1",
+    "193.168.1.1",
+    "2001:4860:4860::8888", // Google public DNS, IPv6
+    "::ffff:8.8.8.8", // IPv4-mapped but the mapped address is public
+  ])("allows %s", (host) => {
     expect(isBlockedHost(host)).toBe(false);
   });
 });
@@ -49,6 +66,23 @@ describe("safeFetch", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.clearAllMocks();
+  });
+
+  it("rejects a non-standard port even on an otherwise-allowed host", async () => {
+    // A public hostname is a free pass to probe internal services on
+    // other ports (a database, an admin panel) if only the host is
+    // checked — 80/443/default are the only legitimate targets for a
+    // "fetch this webpage" tool.
+    await expect(safeFetch("https://example.com:6379/")).rejects.toBeInstanceOf(BlockedHostError);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("allows the default https port explicitly written as :443", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(fakeResponse(200, { url: "https://example.com/" }));
+
+    const response = await safeFetch("https://example.com:443/");
+
+    expect(response.status).toBe(200);
   });
 
   it("rejects a literal blocked host without making any network request or DNS lookup", async () => {
