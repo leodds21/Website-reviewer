@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { lookup } from "node:dns/promises";
-import { BlockedHostError, isBlockedHost, safeFetch } from "./safeFetch";
+import { BlockedHostError, isBlockedHost, readTextCapped, safeFetch } from "./safeFetch";
 
 vi.mock("node:dns/promises", () => ({ lookup: vi.fn() }));
 
@@ -37,6 +37,8 @@ describe("isBlockedHost", () => {
     "[fd12:3456:789a::1]",
     "::ffff:127.0.0.1", // IPv4-mapped IPv6, dotted form
     "::ffff:7f00:1", // same, hex form
+    "::", // IPv6 unspecified — connecting to it lands on localhost
+    "[::]",
   ])("blocks %s", (host) => {
     expect(isBlockedHost(host)).toBe(true);
   });
@@ -66,6 +68,25 @@ describe("safeFetch", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.clearAllMocks();
+  });
+
+  it.each(["file:///etc/passwd", "data:text/html,pwned", "gopher://example.com/", "ftp://example.com/"])(
+    "rejects the non-http(s) protocol %s outright",
+    async (url) => {
+      await expect(safeFetch(url)).rejects.toBeInstanceOf(BlockedHostError);
+      expect(fetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects a redirect that switches to a non-http(s) protocol", async () => {
+    // file:/data: URLs carry an empty hostname *and* an empty port, so
+    // the host and port checks both wave them through — only the
+    // protocol check catches this, and it has to run on every hop, not
+    // just the entry URL.
+    vi.mocked(fetch).mockResolvedValueOnce(fakeResponse(302, { location: "file:///etc/passwd" }));
+
+    await expect(safeFetch("https://example.com/")).rejects.toBeInstanceOf(BlockedHostError);
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it("rejects a non-standard port even on an otherwise-allowed host", async () => {
@@ -149,5 +170,53 @@ describe("safeFetch", () => {
     vi.mocked(fetch).mockResolvedValue(fakeResponse(302, { location: "https://example.com/loop" }));
 
     await expect(safeFetch("https://example.com/")).rejects.toThrow(/redirecionamentos/);
+  });
+});
+
+describe("readTextCapped", () => {
+  function streamingResponse(chunks: string[]): Response {
+    const encoder = new TextEncoder();
+    let index = 0;
+    return {
+      body: new ReadableStream<Uint8Array>({
+        pull(controller) {
+          if (index >= chunks.length) return controller.close();
+          controller.enqueue(encoder.encode(chunks[index++]));
+        },
+      }),
+    } as Response;
+  }
+
+  it("reads a normal body in full", async () => {
+    expect(await readTextCapped(streamingResponse(["<html>", "ok", "</html>"]))).toBe("<html>ok</html>");
+  });
+
+  it("returns an empty string for a body-less response", async () => {
+    expect(await readTextCapped({ body: null } as Response)).toBe("");
+  });
+
+  it("stops at the cap instead of reading an oversized body into memory", async () => {
+    const result = await readTextCapped(streamingResponse(["a".repeat(50), "b".repeat(50)]), 60);
+
+    expect(result).toHaveLength(60);
+    expect(result.startsWith("a".repeat(50))).toBe(true);
+  });
+
+  it("stops on an endless body rather than hanging or exhausting memory", async () => {
+    // The realistic hostile case: a server that never closes the
+    // response. response.text() would keep buffering until the process
+    // dies; this has to return.
+    const encoder = new TextEncoder();
+    const endless = {
+      body: new ReadableStream<Uint8Array>({
+        pull(controller) {
+          controller.enqueue(encoder.encode("x".repeat(1024)));
+        },
+      }),
+    } as Response;
+
+    const result = await readTextCapped(endless, 4096);
+
+    expect(result).toHaveLength(4096);
   });
 });

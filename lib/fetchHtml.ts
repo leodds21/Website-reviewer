@@ -1,4 +1,4 @@
-import { safeFetch } from "./safeFetch";
+import { readTextCapped, safeFetch } from "./safeFetch";
 import { normalizeUrl } from "./url";
 import { CHECK_TIMEOUT_MS } from "./timeouts";
 
@@ -22,5 +22,5 @@ export async function fetchHtml(url: string, signal?: AbortSignal): Promise<stri
     method: "GET",
     signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
   });
-  return response.text();
+  return readTextCapped(response);
 }
