@@ -10,6 +10,7 @@ const SEVERITY_BAR: Record<Severity, string> = {
   critico: "bg-[var(--color-accent-900)]",
   atencao: "bg-[var(--color-accent-700)]",
   ok: "bg-[var(--color-neutral-600)]",
+  indisponivel: "bg-[var(--color-neutral-200)]",
 };
 
 const CATEGORY_ICON: Record<CategoryKey, typeof Gauge> = {
@@ -25,13 +26,14 @@ export function CategoryCard({
   severity,
 }: {
   category: CategoryKey;
-  score: number;
+  score: number | null;
   severity: Severity;
 }) {
   const { t } = useLanguage();
   const Icon = CATEGORY_ICON[category];
   const [width, setWidth] = useState(0);
   useEffect(() => {
+    if (score === null) return;
     const id = requestAnimationFrame(() => setWidth(score));
     return () => cancelAnimationFrame(id);
   }, [score]);
@@ -44,12 +46,18 @@ export function CategoryCard({
           {t.categories[category]}
         </span>
         <span className="font-mono">
-          {score}{" "}
-          <span
-            className={severity === "ok" ? "text-[var(--color-neutral-700)]" : "text-[var(--color-accent-800)]"}
-          >
-            · {t.severity[severity]}
-          </span>
+          {score === null ? (
+            <span className="text-[var(--color-neutral-600)] italic">{t.severity.indisponivel}</span>
+          ) : (
+            <>
+              {score}{" "}
+              <span
+                className={severity === "ok" ? "text-[var(--color-neutral-700)]" : "text-[var(--color-accent-800)]"}
+              >
+                · {t.severity[severity]}
+              </span>
+            </>
+          )}
         </span>
       </div>
       <div className="h-1.5 bg-[var(--color-neutral-200)]">
