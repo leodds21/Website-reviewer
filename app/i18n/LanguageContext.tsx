@@ -22,7 +22,15 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>("pt");
 
   useEffect(() => {
-    const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
+    // localStorage can throw (Safari private mode, cookies/storage
+    // blocked by the user or an extension) — a read failure just means
+    // "no stored preference," not a reason to break the page.
+    let stored: string | null = null;
+    try {
+      stored = localStorage.getItem(LOCALE_STORAGE_KEY);
+    } catch {
+      // ignore, fall back to navigator.language below
+    }
     const resolved = isLocale(stored) ? stored : navigator.language.toLowerCase().startsWith("en") ? "en" : "pt";
     // One-time sync from an external system (localStorage/navigator)
     // that isn't available during SSR — can't be done any other way
@@ -31,9 +39,17 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     setLocaleState(resolved);
   }, []);
 
+  useEffect(() => {
+    document.documentElement.lang = locale === "en" ? "en" : "pt-BR";
+  }, [locale]);
+
   function setLocale(next: Locale) {
     setLocaleState(next);
-    localStorage.setItem(LOCALE_STORAGE_KEY, next);
+    try {
+      localStorage.setItem(LOCALE_STORAGE_KEY, next);
+    } catch {
+      // Preference just won't persist across visits — not fatal.
+    }
   }
 
   const value = useMemo(() => ({ locale, setLocale, t: DICTIONARIES[locale] }), [locale]);
