@@ -10,10 +10,8 @@ import type { Issue } from "@/lib/issues";
 
 export function NextStepScreen({ report, topIssues }: { report: AnalyzeReport; topIssues: Issue[] }) {
   const { locale, t } = useLanguage();
-  const { contact, setContact, submitting, justSucceeded, succeeded, errorMessage, submitContact } = useContactForm({
+  const { contact, setContact, submitting, justSucceeded, succeeded, errorCode, submitContact } = useContactForm({
     domain: report.domain,
-    formNotConfigured: t.formNotConfigured,
-    sendError: t.sendError,
   });
 
   // One short summary sentence tying the critical findings together —
@@ -59,7 +57,15 @@ export function NextStepScreen({ report, topIssues }: { report: AnalyzeReport; t
       )}
 
       {succeeded ? (
-        <p className="text-sm text-[var(--color-accent-800)]">{t.sendSuccess}</p>
+        // Names the address the reply is going to: the fields are gone
+        // at this point, so without it there's no way to notice a typo
+        // in the one thing that makes the reply possible.
+        <div role="status" className="flex gap-2.5 border-l-[3px] border-[var(--color-severity-ok)] py-0.5 pl-3">
+          <div>
+            <p className="text-sm font-medium">{t.sendSuccess}</p>
+            <p className="mt-0.5 text-[12.5px] text-[var(--color-neutral-700)]">{t.sendSuccessDetail(contact.email)}</p>
+          </div>
+        </div>
       ) : (
         <form onSubmit={submitContact}>
           <h2 className="mb-2.5 text-base font-semibold tracking-tight">{t.contactHeading}</h2>
@@ -107,9 +113,15 @@ export function NextStepScreen({ report, topIssues }: { report: AnalyzeReport; t
             />
           </div>
 
-          {errorMessage && (
-            <p role="alert" className="mb-3 text-sm text-[var(--color-accent-900)]">
-              {errorMessage}
+          {errorCode && (
+            // What the visitor typed stays in the fields, so retrying
+            // is one click and not a re-type.
+            <p
+              role="alert"
+              className="mb-3 border-l-[3px] py-0.5 pl-3 text-[13px] leading-relaxed"
+              style={{ borderColor: "var(--color-severity-critico)" }}
+            >
+              {t.contactError[errorCode]}
             </p>
           )}
 
