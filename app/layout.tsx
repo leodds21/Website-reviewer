@@ -15,9 +15,14 @@ const barlowCondensed = Barlow_Condensed({
   subsets: ["latin"],
 });
 
+const title = "Isdias.dev, diagnóstico de site";
+const description = "Performance, SEO, acessibilidade e segurança do seu site em menos de um minuto.";
+
 export const metadata: Metadata = {
-  title: "Isdias.dev, diagnóstico de site",
-  description: "Performance, SEO, acessibilidade e segurança do seu site em menos de um minuto.",
+  title,
+  description,
+  openGraph: { title, description, type: "website" },
+  twitter: { card: "summary", title, description },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

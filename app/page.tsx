@@ -304,11 +304,11 @@ export default function Home() {
                   className="flex w-full items-center justify-center gap-2 border border-[var(--color-accent)] bg-[var(--color-accent)] py-2.5 text-[14.5px] font-semibold text-white transition-colors hover:bg-[var(--color-accent-600)] disabled:opacity-100"
                 >
                   {contactJustSucceeded ? (
-                    <Check size={16} strokeWidth={2} />
+                    <Check size={16} strokeWidth={2} aria-hidden="true" />
                   ) : contactSubmitting ? (
-                    <Loader2 size={16} strokeWidth={2} className="animate-spin" />
+                    <Loader2 size={16} strokeWidth={2} aria-hidden="true" className="animate-spin" />
                   ) : null}
-                  {contactJustSucceeded ? "" : contactSubmitting ? t.sending : t.sendButton}
+                  {contactJustSucceeded ? t.sent : contactSubmitting ? t.sending : t.sendButton}
                 </button>
               </form>
             )}

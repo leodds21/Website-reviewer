@@ -40,7 +40,7 @@ export function CategoryCard({
     <div>
       <div className="mb-1 flex justify-between text-[12.5px]">
         <span className="flex items-center gap-1.5">
-          <Icon size={13} strokeWidth={1.5} className="text-[var(--color-neutral-600)]" />
+          <Icon size={13} strokeWidth={1.5} aria-hidden="true" className="text-[var(--color-neutral-600)]" />
           {t.categories[category]}
         </span>
         <span className="font-mono">
