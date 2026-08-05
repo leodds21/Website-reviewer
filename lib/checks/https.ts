@@ -1,3 +1,5 @@
+import { safeFetch } from "../safeFetch";
+
 export type HttpsCheckResult = {
   passed: boolean;
   finalUrl: string;
@@ -14,9 +16,8 @@ export async function checkHttps(url: string): Promise<HttpsCheckResult> {
     ? url
     : `http://${url}`;
 
-  const response = await fetch(requestedUrl, {
+  const response = await safeFetch(requestedUrl, {
     method: "GET",
-    redirect: "follow",
     signal: AbortSignal.timeout(8000),
   });
 
