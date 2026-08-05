@@ -1,6 +1,16 @@
 import { normalizeUrl } from "./url";
+import { PAGESPEED_TIMEOUT_MS } from "./timeouts";
 
 const PAGESPEED_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed";
+
+// Only the handful of fields this file actually reads out of Google's
+// much larger Lighthouse response — not a full schema.
+type PageSpeedApiResponse = {
+  lighthouseResult?: {
+    categories?: Partial<Record<PageSpeedCategory, { score?: number }>>;
+    audits?: { "largest-contentful-paint"?: { numericValue?: number } };
+  };
+};
 
 export type PageSpeedCategory = "performance" | "accessibility" | "best-practices" | "seo";
 
@@ -36,7 +46,7 @@ export async function runPageSpeed(url: string, signal?: AbortSignal): Promise<P
     endpoint.searchParams.append("category", category);
   }
 
-  const timeout = AbortSignal.timeout(30000);
+  const timeout = AbortSignal.timeout(PAGESPEED_TIMEOUT_MS);
   const response = await fetch(endpoint, {
     method: "GET",
     signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
@@ -47,10 +57,10 @@ export async function runPageSpeed(url: string, signal?: AbortSignal): Promise<P
     throw new Error(`PageSpeed API retornou ${response.status}: ${body}`);
   }
 
-  const data = await response.json();
+  const data = (await response.json()) as PageSpeedApiResponse;
   const categories = data.lighthouseResult?.categories ?? {};
 
-  const scoreOf = (category: string): number | undefined => {
+  const scoreOf = (category: PageSpeedCategory): number | undefined => {
     const raw = categories[category]?.score;
     return typeof raw === "number" ? Math.round(raw * 100) : undefined;
   };

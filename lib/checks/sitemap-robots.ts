@@ -1,5 +1,6 @@
 import { safeFetch } from "../safeFetch";
 import { normalizeUrl } from "../url";
+import { CHECK_TIMEOUT_MS } from "../timeouts";
 
 export type SitemapRobotsCheckResult = {
   hasSitemap: boolean;
@@ -7,7 +8,7 @@ export type SitemapRobotsCheckResult = {
 };
 
 async function fetchWithTimeout(url: string, signal?: AbortSignal): Promise<Response> {
-  const timeout = AbortSignal.timeout(8000);
+  const timeout = AbortSignal.timeout(CHECK_TIMEOUT_MS);
   return safeFetch(url, {
     method: "GET",
     signal: signal ? AbortSignal.any([signal, timeout]) : timeout,

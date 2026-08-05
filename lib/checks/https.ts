@@ -1,5 +1,6 @@
 import { safeFetch } from "../safeFetch";
 import { normalizeUrl } from "../url";
+import { CHECK_TIMEOUT_MS } from "../timeouts";
 
 export type HttpsCheckResult = {
   passed: boolean;
@@ -38,7 +39,7 @@ function isCertificateError(error: unknown): boolean {
  */
 export async function checkHttps(url: string, signal?: AbortSignal): Promise<HttpsCheckResult> {
   const requestedUrl = normalizeUrl(url, "http");
-  const timeout = AbortSignal.timeout(8000);
+  const timeout = AbortSignal.timeout(CHECK_TIMEOUT_MS);
 
   try {
     const response = await safeFetch(requestedUrl, {
