@@ -33,8 +33,12 @@ export function CategoryCard({
   const Icon = CATEGORY_ICON[category];
   const [width, setWidth] = useState(0);
   useEffect(() => {
-    if (score === null) return;
-    const id = requestAnimationFrame(() => setWidth(score));
+    // CategoryCard doesn't remount between analyses (page.tsx keeps a
+    // stable key per category), so without explicitly resetting to 0
+    // for a null score, the bar keeps showing the *previous* site's
+    // width under the "não avaliado" label instead of reading as
+    // genuinely unmeasured.
+    const id = requestAnimationFrame(() => setWidth(score === null ? 0 : score));
     return () => cancelAnimationFrame(id);
   }, [score]);
 

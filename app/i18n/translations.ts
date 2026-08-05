@@ -242,7 +242,16 @@ export function translateIssue(
   code: IssueCode,
   params: IssueParams,
 ): { title: string; description: string } {
-  return DICTIONARIES[locale].issue[code](params);
+  // The Record<IssueCode, ...> type guarantees every *known* code is
+  // covered at compile time, but a report can outlive the code that
+  // produced it — one served from cache, or from a client bundle a
+  // version behind the server — so a code the running dictionary
+  // doesn't recognize is a real runtime possibility, not just a
+  // hypothetical. Without this, that crashes the whole issue list
+  // instead of just skipping the one finding it can't render.
+  const entry = DICTIONARIES[locale].issue[code];
+  if (!entry) return { title: code, description: "" };
+  return entry(params);
 }
 
 export type { Dictionary };
