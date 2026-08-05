@@ -108,12 +108,13 @@ export function deriveIssues(input: DeriveIssuesInput): Issue[] {
   }
 
   if (input.pagespeed) {
-    if (input.pagespeed.scores.performance < 80) {
+    const performanceScore = input.pagespeed.scores.performance;
+    if (typeof performanceScore === "number" && performanceScore < 80) {
       issues.push({
         category: "performance",
-        severity: input.pagespeed.scores.performance < 50 ? "critico" : "atencao",
+        severity: performanceScore < 50 ? "critico" : "atencao",
         code: "low-performance",
-        params: { score: input.pagespeed.scores.performance },
+        params: { score: performanceScore },
       });
     }
 

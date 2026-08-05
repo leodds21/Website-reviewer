@@ -1,4 +1,5 @@
 import { safeFetch } from "../safeFetch";
+import { normalizeUrl } from "../url";
 
 export type HttpsCheckResult = {
   passed: boolean;
@@ -31,16 +32,18 @@ function isCertificateError(error: unknown): boolean {
  * Checks whether a site serves over HTTPS, following redirects (e.g. a
  * plain-HTTP request that the server bounces to HTTPS still counts as
  * passing — what matters is where the request actually lands).
+ * Deliberately defaults to http://, unlike every other check — this is
+ * the one place that needs to start unencrypted to see whether the
+ * site upgrades the connection itself.
  */
-export async function checkHttps(url: string): Promise<HttpsCheckResult> {
-  const requestedUrl = url.startsWith("http://") || url.startsWith("https://")
-    ? url
-    : `http://${url}`;
+export async function checkHttps(url: string, signal?: AbortSignal): Promise<HttpsCheckResult> {
+  const requestedUrl = normalizeUrl(url, "http");
+  const timeout = AbortSignal.timeout(8000);
 
   try {
     const response = await safeFetch(requestedUrl, {
       method: "GET",
-      signal: AbortSignal.timeout(8000),
+      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
     });
 
     const finalUrl = response.url;

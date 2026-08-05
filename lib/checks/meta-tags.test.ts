@@ -1,40 +1,13 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { checkMetaTags } from "./meta-tags";
+import { describe, expect, it } from "vitest";
+import { parseMetaTags } from "./meta-tags";
 
-// checkMetaTags goes through safeFetch, which resolves DNS to check for
-// a blocked IP before every request — mocked here so the test doesn't
-// depend on real DNS, same as fetch itself.
-vi.mock("node:dns/promises", () => ({ lookup: vi.fn().mockResolvedValue([{ address: "93.184.216.34" }]) }));
-
-function fakeHtmlResponse(html: string): Response {
-  return {
-    status: 200,
-    headers: new Headers(),
-    url: "https://example.com/",
-    ok: true,
-    text: async () => html,
-  } as Response;
-}
-
-describe("checkMetaTags", () => {
-  beforeEach(() => {
-    vi.stubGlobal("fetch", vi.fn());
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it("detects viewport, title and description when all are present", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(
-      fakeHtmlResponse(`<html><head>
-        <meta name="viewport" content="width=device-width">
-        <title>Papelaria Central</title>
-        <meta name="description" content="Papelaria em Curitiba">
-      </head></html>`),
-    );
-
-    const result = await checkMetaTags("example.com");
+describe("parseMetaTags", () => {
+  it("detects viewport, title and description when all are present", () => {
+    const result = parseMetaTags(`<html><head>
+      <meta name="viewport" content="width=device-width">
+      <title>Papelaria Central</title>
+      <meta name="description" content="Papelaria em Curitiba">
+    </head></html>`);
 
     expect(result.hasViewport).toBe(true);
     expect(result.hasTitle).toBe(true);
@@ -43,10 +16,8 @@ describe("checkMetaTags", () => {
     expect(result.description).toBe("Papelaria em Curitiba");
   });
 
-  it("reports everything missing on a bare page", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(fakeHtmlResponse("<html><head></head><body></body></html>"));
-
-    const result = await checkMetaTags("example.com");
+  it("reports everything missing on a bare page", () => {
+    const result = parseMetaTags("<html><head></head><body></body></html>");
 
     expect(result.hasViewport).toBe(false);
     expect(result.hasTitle).toBe(false);
@@ -55,15 +26,11 @@ describe("checkMetaTags", () => {
     expect(result.description).toBeNull();
   });
 
-  it("finds the description even when content= comes before name= (regression test)", async () => {
+  it("finds the description even when content= comes before name= (regression test)", () => {
     // The regex used to require name= first and silently missed real-world
     // markup with the attributes in the other order — this is exactly the
     // bug caught in the code review and fixed in the same commit.
-    vi.mocked(fetch).mockResolvedValueOnce(
-      fakeHtmlResponse(`<meta content="Reversed attribute order" name="description">`),
-    );
-
-    const result = await checkMetaTags("example.com");
+    const result = parseMetaTags(`<meta content="Reversed attribute order" name="description">`);
 
     expect(result.hasDescription).toBe(true);
     expect(result.description).toBe("Reversed attribute order");

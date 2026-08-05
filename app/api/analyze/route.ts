@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
 import { checkHttps, type HttpsCheckResult } from "@/lib/checks/https";
-import { checkMetaTags, type MetaTagsCheckResult } from "@/lib/checks/meta-tags";
-import { checkAltImages, type AltImagesCheckResult } from "@/lib/checks/alt-images";
+import { parseMetaTags, type MetaTagsCheckResult } from "@/lib/checks/meta-tags";
+import { parseAltImages, type AltImagesCheckResult } from "@/lib/checks/alt-images";
 import { checkSitemapRobots, type SitemapRobotsCheckResult } from "@/lib/checks/sitemap-robots";
 import { runPageSpeed, type PageSpeedResult } from "@/lib/pagespeed";
+import { fetchHtml } from "@/lib/fetchHtml";
 import { getCached, setCached, FULL_TTL_MS, PARTIAL_TTL_MS } from "@/lib/cache";
 import { aggregateScore, type AggregatedScore } from "@/lib/score";
 import { deriveIssues, type Issue } from "@/lib/issues";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { isBlockedHost } from "@/lib/safeFetch";
+import { normalizeUrl } from "@/lib/url";
 
 export const dynamic = "force-dynamic";
 
@@ -27,21 +29,9 @@ type CheckResults = {
   pagespeed: PageSpeedResult;
 };
 
-const STEP_LABELS: Record<keyof CheckResults, string> = {
-  https: "Verificando segurança",
-  metaTags: "Verificando SEO",
-  altImages: "Verificando acessibilidade",
-  sitemapRobots: "Verificando SEO",
-  pagespeed: "Verificando performance",
-};
-
 function parseTargetUrl(input: string): URL | null {
-  const withScheme = input.startsWith("http://") || input.startsWith("https://")
-    ? input
-    : `https://${input}`;
-
   try {
-    const url = new URL(withScheme);
+    const url = new URL(normalizeUrl(input));
     if (url.protocol !== "http:" && url.protocol !== "https:") return null;
     if (isBlockedHost(url.hostname)) return null;
     return url;
@@ -76,13 +66,6 @@ async function* settleInOrder<T extends Record<string, Promise<unknown>>>(
   }
 }
 
-// TODO(i18n): every error string below is Portuguese-only — the client
-// currently shows them as-is regardless of UI language. Fixing this
-// properly means either accepting a `lang` param here and returning a
-// code the client maps through its own dictionary (consistent with how
-// deriveIssues() already separates data from display text), or moving
-// all error copy to the client and having routes return error codes
-// instead of messages. Deferred: low-traffic path, not blocking.
 export async function GET(request: Request) {
   // The leftmost entry in x-forwarded-for is whatever the client
   // itself claims — trivially spoofable with a header. The rightmost
@@ -121,49 +104,86 @@ export async function GET(request: Request) {
   const cacheKey = `${targetUrl.origin}${targetUrl.pathname}`;
   const encoder = new TextEncoder();
 
+  // Ties every check's fetch to the client connection: if the visitor
+  // closes the tab mid-analysis, this aborts the still-running checks
+  // (including the up-to-30s PageSpeed call) instead of letting them
+  // burn quota and time for nobody.
+  const abortController = new AbortController();
+  request.signal.addEventListener("abort", () => abortController.abort());
+
   const stream = new ReadableStream({
     async start(controller) {
+      let closed = false;
+
       function send(event: string, data: unknown) {
-        controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+        } catch {
+          closed = true; // controller already closed client-side; nothing left to do
+        }
+      }
+
+      function close() {
+        closed = true;
+        try {
+          controller.close();
+        } catch {
+          // already closed — fine
+        }
       }
 
       const cached = getCached<AnalyzeReport>(cacheKey);
       if (cached) {
         send("done", cached);
-        controller.close();
+        close();
         return;
       }
 
       const results: Partial<CheckResults> = {};
-      let firstFailureMessage: string | null = null;
+      let sawFailure = false;
 
+      // https gets the raw user input (not the https-forced `target`)
+      // since its whole job is testing whether a plain-http request
+      // gets upgraded — feeding it an already-https URL made "site
+      // doesn't serve HTTPS at all" nearly unreachable as a finding.
       const tasks = {
-        https: checkHttps(target),
-        metaTags: checkMetaTags(target),
-        altImages: checkAltImages(target),
-        sitemapRobots: checkSitemapRobots(target),
-        pagespeed: runPageSpeed(target),
+        https: checkHttps(rawUrl, abortController.signal),
+        page: fetchHtml(target, abortController.signal),
+        sitemapRobots: checkSitemapRobots(target, abortController.signal),
+        pagespeed: runPageSpeed(target, abortController.signal),
       };
 
       for await (const outcome of settleInOrder(tasks)) {
         if ("error" in outcome) {
-          // A check failing doesn't take the whole report down with it —
-          // score.ts/issues.ts already treat a missing check as "not
-          // evaluated" rather than a false negative, so whatever did
-          // succeed is still worth reporting (the camara.rio case: a
-          // broken certificate takes out every check that needs to fetch
-          // page content, but https itself still comes back with a real
-          // finding). The message is kept only for the case where
-          // literally nothing succeeds, below.
-          firstFailureMessage ??= (outcome.error as Error).message;
+          sawFailure = true;
+          // Logged server-side only — the client gets a generic
+          // message (see below), never this raw detail.
+          console.error(`Checagem "${outcome.key}" falhou para ${target}:`, outcome.error);
           continue;
         }
+
+        if (outcome.key === "page") {
+          // metaTags and altImages both just parse this same fetch —
+          // they used to each fetch the page independently, tripling
+          // traffic against the (third-party) site being analyzed.
+          results.metaTags = parseMetaTags(outcome.value);
+          results.altImages = parseAltImages(outcome.value);
+          send("step", { step: "metaTags" });
+          send("step", { step: "altImages" });
+          continue;
+        }
+
         results[outcome.key] = outcome.value as never;
-        send("step", { step: outcome.key, label: STEP_LABELS[outcome.key] });
+        send("step", { step: outcome.key });
       }
 
       if (Object.keys(results).length === 0) {
-        send("error", { error: `Não foi possível analisar o site: ${firstFailureMessage}` });
+        // Deliberately generic: the real reason (a missing API key, the
+        // exact PageSpeed error body, an internal hostname a redirect
+        // resolved to) is exactly the kind of detail an SSRF/config
+        // guard exists to keep off the client.
+        send("failed", { error: "Não foi possível analisar o site. Tenta de novo em instantes." });
       } else {
         const score = aggregateScore(results);
         const issues = deriveIssues(results);
@@ -171,13 +191,18 @@ export async function GET(request: Request) {
         // A report where some checks failed to run shouldn't be
         // trusted as long as a complete one — a transient failure
         // (a slow site timing out) shouldn't lock every visitor into a
-        // degraded report for the full 6h TTL.
-        const isComplete = Object.keys(results).length === Object.keys(tasks).length;
+        // degraded report for the full 6h TTL. "Complete" ignores the
+        // page/metaTags/altImages split (one fetch, two derived
+        // results) by checking sawFailure directly instead of key count.
+        const isComplete = !sawFailure;
         setCached(cacheKey, report, isComplete ? FULL_TTL_MS : PARTIAL_TTL_MS);
         send("done", report);
       }
 
-      controller.close();
+      close();
+    },
+    cancel() {
+      abortController.abort();
     },
   });
 
