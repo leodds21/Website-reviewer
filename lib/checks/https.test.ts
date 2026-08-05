@@ -27,6 +27,16 @@ describe("checkHttps", () => {
     expect(result.passed).toBe(true);
   });
 
+  it("passes the response headers through, for parseSecurityHeaders to read", async () => {
+    const response = fakeResponse("https://example.com/");
+    (response.headers as Headers).set("strict-transport-security", "max-age=1");
+    vi.mocked(fetch).mockResolvedValueOnce(response);
+
+    const result = await checkHttps("example.com");
+
+    expect(result.headers?.get("strict-transport-security")).toBe("max-age=1");
+  });
+
   it("fails when the final URL is still http", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(fakeResponse("http://example.com/"));
 
