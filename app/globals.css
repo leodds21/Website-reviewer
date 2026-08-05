@@ -122,6 +122,28 @@ h1, h2, h3, h4 {
   outline-offset: 2px;
 }
 
+/* Resets the UA default border/padding/background so the privacy
+   policy <dialog> can be styled entirely through .blueprint + our own
+   utility classes, instead of fighting the browser's built-in look. */
+/* Split in two deliberately: border/padding use the plain element
+   selector so its low specificity always loses to whatever Tailwind
+   utility classes (.blueprint's border, .p-5) a given dialog sets —
+   this only clears the UA default. Positioning needs [open] instead
+   (matching modal dialogs only, when actually shown), and nothing
+   here competes with it, so its slightly higher specificity is fine. */
+dialog {
+  border: none;
+  padding: 0;
+}
+dialog[open] {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+}
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.35);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
