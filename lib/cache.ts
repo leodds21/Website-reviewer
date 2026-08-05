@@ -52,6 +52,11 @@ export function getCached<T>(key: string): T | null {
 }
 
 export function setCached<T>(key: string, data: T, ttlMs: number = FULL_TTL_MS): void {
+  // Delete before set so a refreshed key moves to the end of the Map's
+  // insertion order. Without it, re-analyzing a popular domain keeps
+  // its original position, and eviction — which walks from the oldest
+  // key — would drop the entry getting the most traffic first.
+  store.delete(key);
   store.set(key, { data, expiresAt: Date.now() + ttlMs });
   evictIfNeeded();
 }

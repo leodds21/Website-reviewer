@@ -4,7 +4,6 @@
   --color-bg: #f2f2f3;
   --color-text: #1d1f20;
   --color-accent: #5980a6;
-  --color-accent-600: #597ea3;
   --color-accent-700: #416180;
   --color-accent-800: #2c455d;
   --color-accent-900: #1d2d3d;
@@ -12,13 +11,12 @@
   --color-neutral-200: #e7e7ea;
   --color-neutral-600: #7a7a7d;
   --color-neutral-700: #5d5d60;
-  /* Reserved specifically for severity indicators (badges, left
-     borders, small dots) — never backgrounds, never the brand's own
-     visual weight. Desaturated to sit next to the blueprint's muted
-     blues without reading as a stoplight palette. */
-  /* All three checked against --color-bg for >=4.5:1 (WCAG AA, normal
-     text), since each is used as text color for its severity label,
-     not just as a decorative dot. */
+  /* Reserved for severity indicators (labels, left borders, bars) —
+     never as a fill behind content, never carrying the brand's own
+     visual weight. Desaturated to sit beside the blueprint's muted
+     blues instead of reading as a stoplight palette, and all three
+     checked against --color-bg for >=4.5:1 (WCAG AA for normal text),
+     since each is used as text and not only as a decorative mark. */
   --color-severity-critico: #a8433f;
   --color-severity-atencao: #8a6522;
   --color-severity-ok: #43694e;
@@ -28,7 +26,6 @@
   --color-bg: var(--color-bg);
   --color-text: var(--color-text);
   --color-accent: var(--color-accent);
-  --color-accent-600: var(--color-accent-600);
   --color-accent-700: var(--color-accent-700);
   --color-accent-800: var(--color-accent-800);
   --color-accent-900: var(--color-accent-900);
@@ -122,10 +119,9 @@ h1, h2, h3, h4 {
   outline-offset: 2px;
 }
 
-/* Resets the UA default border/padding/background so the privacy
-   policy <dialog> can be styled entirely through .blueprint + our own
-   utility classes, instead of fighting the browser's built-in look. */
-/* Split in two deliberately: border/padding use the plain element
+/* Clears the UA default so a <dialog> can be styled entirely through
+   .blueprint and our own utility classes.
+   Split in two deliberately: border/padding use the plain element
    selector so its low specificity always loses to whatever Tailwind
    utility classes (.blueprint's border, .p-5) a given dialog sets —
    this only clears the UA default. Positioning needs [open] instead
