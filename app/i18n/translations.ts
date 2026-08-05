@@ -1,5 +1,24 @@
 import type { Issue, IssueCategory, IssueCode } from "@/lib/issues";
 import type { Severity } from "@/lib/score";
+import type { AnalyzeError, AnalyzeErrorCode } from "@/lib/analyzeError";
+
+/**
+ * Turns a raw retry delay into something a person would actually say —
+ * "43 minutos", not "2589 segundos". Rounds up so the stated time is
+ * never optimistic: telling someone to come back sooner than they can
+ * is worse than telling them to wait slightly longer.
+ */
+function formatWait(seconds: number, locale: Locale): string {
+  if (seconds < 60) {
+    const value = Math.max(1, Math.ceil(seconds));
+    if (locale === "en") return `${value} second${value === 1 ? "" : "s"}`;
+    return `${value} segundo${value === 1 ? "" : "s"}`;
+  }
+
+  const minutes = Math.ceil(seconds / 60);
+  if (locale === "en") return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+  return `${minutes} minuto${minutes === 1 ? "" : "s"}`;
+}
 
 export type Locale = "pt" | "en";
 
@@ -62,9 +81,11 @@ type Dictionary = {
   sendError: string;
   formNotConfigured: string;
   reportFooter: (domain: string) => string;
-  errorGeneric: string;
-  errorInvalidUrl: string;
-  errorMissingUrl: string;
+  // One entry per AnalyzeErrorCode: every way an analysis can fail has
+  // its own wording, so the visitor is never told "something went
+  // wrong" when we know exactly what went wrong. `retryAfterSeconds`
+  // is only ever present on rate-limited.
+  analysisError: Record<AnalyzeErrorCode, (retryAfterSeconds?: number) => string>;
   issue: Record<IssueCode, (params: IssueParams) => { title: string; description: string }>;
   // Plain-language "so what" for a non-technical site owner, one level
   // removed from the technical finding above it — filled in one check
@@ -177,9 +198,20 @@ const pt: Dictionary = {
   sendError: "Não foi possível enviar. Tenta de novo em instantes.",
   formNotConfigured: "Formulário não configurado.",
   reportFooter: (domain) => `Isdias.dev · relatório referente a ${domain}`,
-  errorGeneric: "Erro ao analisar o site.",
-  errorInvalidUrl: "URL inválida.",
-  errorMissingUrl: "Informe uma URL.",
+  analysisError: {
+    "missing-url": () => "Informe o endereço de um site pra analisar.",
+    "invalid-url": () => "Esse endereço não parece válido. Confere se está escrito certo, tipo seusite.com.br.",
+    "blocked-url": () => "Só dá pra analisar sites públicos na internet, não endereços internos ou locais.",
+    "rate-limited": (seconds) =>
+      seconds
+        ? `Você fez muitas análises em pouco tempo. Tenta de novo em ${formatWait(seconds, "pt")}.`
+        : "Você fez muitas análises em pouco tempo. Tenta de novo mais tarde.",
+    "analysis-failed": () =>
+      "Não conseguimos acessar esse site. Ele pode estar fora do ar, bloqueando ferramentas de análise, ou o endereço pode estar errado.",
+    timeout: () => "O site demorou demais pra responder e desistimos de esperar. Tenta de novo em instantes.",
+    offline: () => "Você parece estar sem conexão. Confere sua internet e tenta de novo.",
+    unknown: () => "Algo deu errado no meio da análise. Tenta de novo em instantes.",
+  },
   issue: {
     "no-https": () => ({
       title: "O site não é servido em HTTPS.",
@@ -393,9 +425,20 @@ const en: Dictionary = {
   sendError: "Couldn't send it. Try again in a moment.",
   formNotConfigured: "Form not configured.",
   reportFooter: (domain) => `Isdias.dev · report for ${domain}`,
-  errorGeneric: "Error analyzing the site.",
-  errorInvalidUrl: "Invalid URL.",
-  errorMissingUrl: "Enter a URL.",
+  analysisError: {
+    "missing-url": () => "Enter the address of a site to analyze.",
+    "invalid-url": () => "That address doesn't look valid. Check the spelling, something like yoursite.com.",
+    "blocked-url": () => "We can only analyze public sites on the internet, not internal or local addresses.",
+    "rate-limited": (seconds) =>
+      seconds
+        ? `You've run a lot of analyses in a short time. Try again in ${formatWait(seconds, "en")}.`
+        : "You've run a lot of analyses in a short time. Try again later.",
+    "analysis-failed": () =>
+      "We couldn't reach that site. It may be down, blocking analysis tools, or the address may be wrong.",
+    timeout: () => "The site took too long to respond and we stopped waiting. Try again in a moment.",
+    offline: () => "You appear to be offline. Check your connection and try again.",
+    unknown: () => "Something went wrong during the analysis. Try again in a moment.",
+  },
   issue: {
     "no-https": () => ({
       title: "The site isn't served over HTTPS.",
@@ -535,6 +578,14 @@ export function translateImpact(locale: Locale, code: IssueCode): string | undef
 
 export function translateRecommendation(locale: Locale, code: IssueCode): string {
   return DICTIONARIES[locale].recommendation[code];
+}
+
+export function translateAnalysisError(locale: Locale, error: AnalyzeError): string {
+  const dictionary = DICTIONARIES[locale].analysisError;
+  // An unrecognized code can reach here from a server newer than the
+  // loaded client bundle; falling back beats rendering "undefined".
+  const entry = dictionary[error.code] ?? dictionary.unknown;
+  return entry(error.retryAfterSeconds);
 }
 
 /**

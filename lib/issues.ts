@@ -132,7 +132,11 @@ export function deriveIssues(input: DeriveIssuesInput): Issue[] {
     });
   }
 
-  if (input.sitemapRobots && !input.sitemapRobots.hasSitemap) {
+  // Explicitly `=== false`, not a falsy check: hasSitemap is
+  // boolean | null, and null means the probe never reached the host —
+  // claiming "we couldn't find a sitemap" on that basis would be a
+  // finding about a site we never actually looked at.
+  if (input.sitemapRobots?.hasSitemap === false) {
     issues.push({ category: "seo", severity: "atencao", code: "no-sitemap" });
   }
 
