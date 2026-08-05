@@ -159,10 +159,17 @@ const pt: Dictionary = {
   impact: {
     "no-https": "Seu site aparece com o aviso \"não seguro\" no navegador do visitante. Isso passa desconfiança, principalmente se a pessoa for preencher algum formulário ou fazer uma compra.",
     "invalid-certificate": "O certificado de segurança do site tem um problema de configuração. Na maioria dos navegadores isso passa despercebido, mas em alguns aparelhos, apps ou navegadores mais rigorosos o site pode aparecer com alerta de segurança.",
+    "no-title": "A aba do navegador e os resultados de busca do Google mostram o site sem nenhum nome. Isso dificulta a pessoa reconhecer ou lembrar do site depois de encontrar num resultado de busca.",
+    "generic-title": "O título que aparece no Google pra esse site é genérico demais (tipo \"Home\"), sem dizer nada sobre o que o negócio oferece. Quem está buscando não tem motivo pra escolher esse resultado em vez do concorrente.",
+    "no-description": "Falta o textinho que aparece embaixo do link nos resultados do Google. Sem ele, o Google escolhe um trecho aleatório da página pra mostrar, o que deixa o resultado menos convidativo na hora de decidir em qual link clicar.",
+    "no-viewport": "Em celular, a página pode aparecer minúscula, exigindo que a pessoa dê zoom pra ler qualquer coisa. A maior parte de quem acessa a internet hoje faz isso pelo celular, então essa experiência ruim atinge boa parte dos visitantes.",
   },
   impactClause: {
     "no-https": "a insegurança da conexão",
     "invalid-certificate": "o problema no certificado de segurança",
+    "no-title": "a falta de um título que identifique o site nas buscas",
+    "generic-title": "um título genérico demais pra se destacar nas buscas",
+    "no-viewport": "a experiência ruim pra quem acessa pelo celular",
   },
   synthesizeImpact: (clauses) => {
     const joined = clauses.length > 1 ? `${clauses[0]} e ${clauses[1]}` : clauses[0];
@@ -263,10 +270,17 @@ const en: Dictionary = {
   impact: {
     "no-https": "Your site shows up with a \"not secure\" warning in the visitor's browser. That reads as suspicious, especially if someone's about to fill out a form or make a purchase.",
     "invalid-certificate": "The site's security certificate has a configuration problem. Most browsers quietly work around it, but on some devices, apps, or stricter browsers the site can show up with a security warning instead.",
+    "no-title": "The browser tab and Google's search results show the site with no name at all. That makes it harder for someone to recognize or remember the site after finding it in a search.",
+    "generic-title": "The title that shows up on Google for this site is too generic (like \"Home\"), and says nothing about what the business actually offers. Someone searching has no reason to pick this result over a competitor's.",
+    "no-description": "The short text that shows up under the link in Google's results is missing. Without it, Google picks a random snippet from the page instead, which makes the result less inviting when someone's deciding which link to click.",
+    "no-viewport": "On mobile, the page can show up tiny, forcing people to zoom in just to read anything. Most people browse the internet from a phone these days, so this bad experience hits a large share of visitors.",
   },
   impactClause: {
     "no-https": "the insecure connection",
     "invalid-certificate": "the security certificate problem",
+    "no-title": "the missing page title that would identify the site in search",
+    "generic-title": "a page title too generic to stand out in search",
+    "no-viewport": "the broken experience for mobile visitors",
   },
   synthesizeImpact: (clauses) => {
     const joined = clauses.length > 1 ? `${clauses[0]} and ${clauses[1]}` : clauses[0];
