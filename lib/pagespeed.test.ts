@@ -92,4 +92,74 @@ describe("runPageSpeed", () => {
 
     expect(result.lcpSeconds).toBeUndefined();
   });
+
+  it("extracts CLS, rounded to three decimals", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      fakeJsonResponse(200, {
+        lighthouseResult: {
+          categories: { performance: { score: 0.5 } },
+          audits: { "cumulative-layout-shift": { numericValue: 0.12345 } },
+        },
+      }),
+    );
+
+    const result = await runPageSpeed("example.com");
+
+    expect(result.clsValue).toBe(0.123);
+  });
+
+  it("leaves clsValue undefined when the audit is missing", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      fakeJsonResponse(200, { lighthouseResult: { categories: { performance: { score: 0.9 } } } }),
+    );
+
+    const result = await runPageSpeed("example.com");
+
+    expect(result.clsValue).toBeUndefined();
+  });
+
+  it("reports color-contrast issues when the audit score is below 1", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      fakeJsonResponse(200, {
+        lighthouseResult: {
+          categories: { accessibility: { score: 0.8 } },
+          audits: { "color-contrast": { score: 0 } },
+        },
+      }),
+    );
+
+    const result = await runPageSpeed("example.com");
+
+    expect(result.hasColorContrastIssues).toBe(true);
+  });
+
+  it("reports no color-contrast issues when the audit passes", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      fakeJsonResponse(200, {
+        lighthouseResult: {
+          categories: { accessibility: { score: 1 } },
+          audits: { "color-contrast": { score: 1 } },
+        },
+      }),
+    );
+
+    const result = await runPageSpeed("example.com");
+
+    expect(result.hasColorContrastIssues).toBe(false);
+  });
+
+  it("leaves hasColorContrastIssues undefined when the audit wasn't applicable (score: null)", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      fakeJsonResponse(200, {
+        lighthouseResult: {
+          categories: { accessibility: { score: 1 } },
+          audits: { "color-contrast": { score: null } },
+        },
+      }),
+    );
+
+    const result = await runPageSpeed("example.com");
+
+    expect(result.hasColorContrastIssues).toBeUndefined();
+  });
 });
