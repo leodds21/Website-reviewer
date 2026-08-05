@@ -30,8 +30,16 @@
   --font-body: var(--font-body), sans-serif;
 }
 
+/* A faint drafting-table grid across the whole canvas, not just inside
+   cards — the blueprint metaphor extends to the ground it sits on.
+   32px squares echo the corner marks' proportions; kept low-contrast
+   enough to read as texture, never competing with content. */
 body {
-  background: var(--color-bg);
+  background-color: var(--color-bg);
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--color-text) 5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--color-text) 5%, transparent) 1px, transparent 1px);
+  background-size: 32px 32px;
   color: var(--color-text);
   font-family: var(--font-body), sans-serif;
 }

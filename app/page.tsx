@@ -148,7 +148,8 @@ export default function Home() {
         </div>
 
         {stage === "idle" && (
-          <>
+          <div className="blueprint bg-white/60 p-5">
+            <Corners />
             <h1 className="mb-3 text-4xl leading-[1.05] tracking-tight">
               {t.headline[0]}
               <br />
@@ -180,7 +181,7 @@ export default function Home() {
             <p className="mt-6 text-[11px] leading-relaxed text-[var(--color-neutral-700)] italic">
               {t.privacyNote}
             </p>
-          </>
+          </div>
         )}
 
         {stage === "analyzing" && <LoadingSequence completedSteps={completedSteps} />}
