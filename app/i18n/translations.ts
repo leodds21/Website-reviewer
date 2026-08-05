@@ -165,6 +165,12 @@ const pt: Dictionary = {
     "no-viewport": "Em celular, a página pode aparecer minúscula, exigindo que a pessoa dê zoom pra ler qualquer coisa. A maior parte de quem acessa a internet hoje faz isso pelo celular, então essa experiência ruim atinge boa parte dos visitantes.",
     "missing-alt": "Sem a descrição alternativa, quem usa leitor de tela (pessoas com deficiência visual) não sabe o que aquelas imagens mostram — pra elas, é como se a imagem simplesmente não existisse. Também reduz a chance de essas imagens aparecerem nas buscas do Google.",
     "no-sitemap": "O sitemap é como um mapa que ajuda o Google a encontrar todas as páginas do site, principalmente as mais novas. Sem ele, uma página recém-publicada pode demorar bem mais pra aparecer nos resultados de busca.",
+    "low-performance": "Quanto mais devagar o site carrega, maior a chance de a pessoa desistir antes mesmo de ver o conteúdo. Velocidade de carregamento também é um dos fatores que o Google leva em conta pra decidir a posição do site nas buscas.",
+    // The seconds/percentage numbers are already shown in the
+    // finding's own title/description (see LOAD_IMPACT_BUCKETS,
+    // lib/issues.ts, cited from Google's CrUX-based analysis) — this
+    // doesn't restate them, just confirms it's not a guess.
+    "slow-load-impact": "Cada segundo a mais de espera aumenta a chance de a pessoa sair do site antes de ver qualquer coisa — o número acima não é uma estimativa aleatória, vem de uma pesquisa real sobre esse comportamento.",
   },
   impactClause: {
     "no-https": "a insegurança da conexão",
@@ -173,6 +179,8 @@ const pt: Dictionary = {
     "generic-title": "um título genérico demais pra se destacar nas buscas",
     "no-viewport": "a experiência ruim pra quem acessa pelo celular",
     "missing-alt": "as imagens sem descrição pra quem usa leitor de tela",
+    "low-performance": "a lentidão geral do carregamento",
+    "slow-load-impact": "o tempo de carregamento alto",
     // no-sitemap has no clause: it's always severity "atencao", never
     // "critico" (see deriveIssues), so it can never reach the
     // critical-only input synthesizeCriticalImpact consumes.
@@ -282,6 +290,8 @@ const en: Dictionary = {
     "no-viewport": "On mobile, the page can show up tiny, forcing people to zoom in just to read anything. Most people browse the internet from a phone these days, so this bad experience hits a large share of visitors.",
     "missing-alt": "Without alt text, screen reader users (people with visual impairments) have no idea what those images show — to them, it's as if the image simply isn't there. It also lowers the odds of those images showing up in Google search results.",
     "no-sitemap": "A sitemap is like a map that helps Google find every page on the site, especially the newest ones. Without it, a page you just published can take much longer to show up in search results.",
+    "low-performance": "The slower a site loads, the more likely someone is to give up before even seeing the content. Load speed is also one of the factors Google weighs when deciding where the site ranks in search results.",
+    "slow-load-impact": "Every extra second of waiting raises the odds someone leaves before seeing anything at all — the number above isn't a rough guess, it comes from real published research on this exact behavior.",
   },
   impactClause: {
     "no-https": "the insecure connection",
@@ -290,6 +300,8 @@ const en: Dictionary = {
     "generic-title": "a page title too generic to stand out in search",
     "no-viewport": "the broken experience for mobile visitors",
     "missing-alt": "images with no description for screen reader users",
+    "low-performance": "the overall slow load time",
+    "slow-load-impact": "the high load time",
   },
   synthesizeImpact: (clauses) => {
     const joined = clauses.length > 1 ? `${clauses[0]} and ${clauses[1]}` : clauses[0];
@@ -326,14 +338,25 @@ export function translateImpact(locale: Locale, code: IssueCode): string | undef
  * sentence for the "why fix this" spot right before the contact form —
  * not a per-item explanation, a synthesis. Picks the first 1-2 findings
  * that have a clause defined (in the order deriveIssues() pushed them,
- * which already runs security first) and hands them to the locale's
- * own sentence-builder, since word order and verb agreement aren't
- * portable across languages. Returns null when there's nothing to
- * summarize (no critical findings, or none with a clause yet).
+ * which already runs security first), capped at one per category —
+ * low-performance and slow-load-impact can both be critical at once
+ * (same underlying pagespeed check), and pairing their clauses would
+ * read as a redundant restatement rather than two distinct problems —
+ * and hands them to the locale's own sentence-builder, since word
+ * order and verb agreement aren't portable across languages. Returns
+ * null when there's nothing to summarize (no critical findings, or
+ * none with a clause yet).
  */
 export function synthesizeCriticalImpact(locale: Locale, criticalIssues: Issue[]): string | null {
   const dictionary = DICTIONARIES[locale];
+  const seenCategories = new Set<Issue["category"]>();
+
   const clauses = criticalIssues
+    .filter((issue) => {
+      if (seenCategories.has(issue.category)) return false;
+      seenCategories.add(issue.category);
+      return true;
+    })
     .map((issue) => dictionary.impactClause[issue.code])
     .filter((clause): clause is string => Boolean(clause))
     .slice(0, 2);
