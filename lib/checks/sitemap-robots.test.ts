@@ -6,13 +6,21 @@ import { checkSitemapRobots } from "./sitemap-robots";
 // test doesn't depend on real DNS, same as fetch itself.
 vi.mock("node:dns/promises", () => ({ lookup: vi.fn().mockResolvedValue([{ address: "93.184.216.34" }]) }));
 
+// A real ReadableStream body, not a stub: sitemapExistsAt reads through
+// readTextCapped (which streams rather than calling response.text(), so
+// a hostile server can't feed us an unbounded body), and that only
+// works against a genuine stream.
 function fakeResponse(status: number, body = ""): Response {
   return {
     status,
     headers: new Headers(),
     ok: status >= 200 && status < 300,
-    text: async () => body,
-    body: { cancel: vi.fn() },
+    body: new ReadableStream<Uint8Array>({
+      start(controller) {
+        if (body) controller.enqueue(new TextEncoder().encode(body));
+        controller.close();
+      },
+    }),
   } as unknown as Response;
 }
 

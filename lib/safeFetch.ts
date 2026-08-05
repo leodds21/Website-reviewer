@@ -3,6 +3,7 @@ import { BlockList, isIPv4, isIPv6 } from "node:net";
 
 const MAX_REDIRECTS = 5;
 const ALLOWED_PORTS = new Set(["", "80", "443"]);
+const ALLOWED_PROTOCOLS = new Set(["http:", "https:"]);
 
 const BLOCKED_HOSTNAMES = new Set(["localhost"]);
 
@@ -18,6 +19,7 @@ blockList.addSubnet("127.0.0.0", 8);
 blockList.addSubnet("169.254.0.0", 16);
 blockList.addSubnet("172.16.0.0", 12);
 blockList.addSubnet("192.168.0.0", 16);
+blockList.addAddress("::", "ipv6"); // unspecified — routes to localhost in practice
 blockList.addAddress("::1", "ipv6");
 blockList.addSubnet("fe80::", 10, "ipv6"); // link-local
 blockList.addSubnet("fc00::", 7, "ipv6"); // unique local
@@ -90,6 +92,14 @@ export class BlockedHostError extends Error {
  * (a database, an admin panel) that happen to share the same host.
  */
 async function assertHostAllowed(url: URL): Promise<void> {
+  // Checked on every hop, not just the entry URL: a redirect to
+  // `file:///etc/passwd` or `data:text/html,...` carries an empty
+  // hostname and port, so the host and port checks below both wave it
+  // through. Restricting the scheme is what actually stops it.
+  if (!ALLOWED_PROTOCOLS.has(url.protocol)) {
+    throw new BlockedHostError(`protocolo ${url.protocol}`);
+  }
+
   if (!ALLOWED_PORTS.has(url.port)) {
     throw new BlockedHostError(`${url.hostname}:${url.port}`);
   }
@@ -141,4 +151,51 @@ export async function safeFetch(url: string, init: RequestInit = {}): Promise<Re
   }
 
   throw new Error("Excesso de redirecionamentos.");
+}
+
+// Enough for the <head> and a healthy chunk of <body> on any real page
+// (a heavy page is ~1MB of HTML), while keeping a single hostile
+// response from being able to exhaust the server's memory.
+export const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
+
+/**
+ * response.text() on a response from a URL a stranger chose is an
+ * unbounded read: nothing stops that server from streaming gigabytes
+ * (or an endless body) and taking the process down with it. This reads
+ * at most maxBytes and then stops.
+ *
+ * Truncates rather than throwing, deliberately: every consumer here
+ * parses the beginning of the document (meta tags, an XML root
+ * element, an image sample), so a truncated read of a genuinely huge
+ * page still produces a correct-enough answer, where throwing would
+ * turn it into a failed check for no user benefit.
+ */
+export async function readTextCapped(response: Response, maxBytes: number = MAX_RESPONSE_BYTES): Promise<string> {
+  if (!response.body) return "";
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+
+  try {
+    while (total < maxBytes) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      total += value.byteLength;
+    }
+  } finally {
+    // Releases the connection back to the pool whether we stopped at
+    // the cap or read the whole body.
+    await reader.cancel().catch(() => {});
+  }
+
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return new TextDecoder("utf-8").decode(merged.subarray(0, maxBytes));
 }

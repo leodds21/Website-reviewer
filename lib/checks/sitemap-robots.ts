@@ -1,4 +1,4 @@
-import { safeFetch } from "../safeFetch";
+import { readTextCapped, safeFetch } from "../safeFetch";
 import { normalizeUrl } from "../url";
 import { CHECK_TIMEOUT_MS } from "../timeouts";
 
@@ -36,7 +36,9 @@ async function sitemapExistsAt(url: string, signal?: AbortSignal): Promise<boole
     // a real 404 for a missing sitemap — a bare status check reports
     // "found" for a sitemap that doesn't actually exist. A real one
     // starts with an XML declaration or one of its two root elements.
-    const text = await response.text();
+    // Only the first bytes matter — the root element is all this
+    // checks, so there's no reason to pull a large sitemap into memory.
+    const text = await readTextCapped(response, 1024);
     return /^\s*(<\?xml|<urlset|<sitemapindex)/i.test(text);
   } catch {
     return false;
