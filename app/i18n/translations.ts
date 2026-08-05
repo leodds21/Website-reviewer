@@ -105,6 +105,10 @@ const pt: Dictionary = {
       title: "O site não é servido em HTTPS.",
       description: "Navegadores marcam a conexão como não segura, e isso afasta visitante e cliente.",
     }),
+    "invalid-certificate": () => ({
+      title: "O certificado de segurança do site está incompleto.",
+      description: "O servidor não envia a cadeia de certificado completa. Navegadores costumam corrigir isso sozinhos e esconder o problema, mas é uma falha real de configuração.",
+    }),
     "no-title": () => ({
       title: "A página não tem título.",
       description: "O Google não sabe do que o site trata.",
@@ -191,6 +195,10 @@ const en: Dictionary = {
     "no-https": () => ({
       title: "The site isn't served over HTTPS.",
       description: "Browsers flag the connection as not secure, which drives visitors and customers away.",
+    }),
+    "invalid-certificate": () => ({
+      title: "The site's security certificate is incomplete.",
+      description: "The server isn't sending the full certificate chain. Browsers often patch this over and hide the problem, but it's a real configuration issue.",
     }),
     "no-title": () => ({
       title: "The page has no title.",

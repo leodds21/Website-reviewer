@@ -32,6 +32,32 @@ describe("deriveIssues", () => {
     );
     expect(messySite.filter((issue) => issue.severity === "critico").length).toBeGreaterThanOrEqual(3);
   });
+
+  it("flags invalid-certificate instead of no-https when the cert chain is broken", () => {
+    const issues = deriveIssues({
+      https: { passed: false, finalUrl: "https://x.com", redirectedFromHttp: false, certificateError: true },
+    });
+
+    expect(issues).toEqual([{ category: "security", severity: "critico", code: "invalid-certificate" }]);
+    expect(issues.some((issue) => issue.code === "no-https")).toBe(false);
+  });
+
+  it("produces no issues at all when every check is missing (nothing ran)", () => {
+    expect(deriveIssues({})).toEqual([]);
+  });
+
+  it("only derives issues from whatever checks actually ran", () => {
+    // Simulates a site whose broken certificate took down every other
+    // check too — only https succeeded, so only a security finding
+    // should come out, not fabricated "no title"/"no alt text" issues
+    // for checks that never got a chance to run.
+    const issues = deriveIssues({
+      https: { passed: false, finalUrl: "https://x.com", redirectedFromHttp: false, certificateError: true },
+    });
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0].category).toBe("security");
+  });
 });
 
 describe("deriveIssues — slow-load-impact", () => {
