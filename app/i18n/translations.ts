@@ -167,6 +167,14 @@ const pt: Dictionary = {
       title: `O site demora ${String(params?.seconds).replace(".", ",")}s pra carregar.`,
       description: `Nessa faixa, a chance de o visitante desistir antes da página carregar é pelo menos ${params?.bounceIncreasePercent}% maior.`,
     }),
+    "layout-shift": (params) => ({
+      title: `O site tem instabilidade visual no carregamento (CLS de ${params?.value}).`,
+      description: "Elementos da página se deslocam depois de carregados, o que pode fazer a pessoa clicar no lugar errado sem querer.",
+    }),
+    "color-contrast": () => ({
+      title: "Encontramos texto com contraste insuficiente.",
+      description: "Algum texto do site é difícil de ler por causa do contraste de cor entre o texto e o fundo.",
+    }),
   },
   impact: {
     "no-https": "Seu site aparece com o aviso \"não seguro\" no navegador do visitante. Isso passa desconfiança, principalmente se a pessoa for preencher algum formulário ou fazer uma compra.",
@@ -186,6 +194,8 @@ const pt: Dictionary = {
     // lib/issues.ts, cited from Google's CrUX-based analysis) — this
     // doesn't restate them, just confirms it's not a guess.
     "slow-load-impact": "Cada segundo a mais de espera aumenta a chance de a pessoa sair do site antes de ver qualquer coisa — o número acima não é uma estimativa aleatória, vem de uma pesquisa real sobre esse comportamento.",
+    "layout-shift": "Isso costuma acontecer quando uma imagem, anúncio ou bloco de texto carrega depois e empurra o resto da página — o que já era clicável muda de lugar bem na hora em que a pessoa ia interagir.",
+    "color-contrast": "Texto com pouco contraste é difícil de ler pra qualquer pessoa em ambiente claro ou com o brilho da tela baixo, e praticamente ilegível pra quem tem baixa visão.",
   },
   impactClause: {
     "no-https": "a insegurança da conexão",
@@ -200,6 +210,9 @@ const pt: Dictionary = {
     "missing-alt": "as imagens sem descrição pra quem usa leitor de tela",
     "low-performance": "a lentidão geral do carregamento",
     "slow-load-impact": "o tempo de carregamento alto",
+    "layout-shift": "a instabilidade visual durante o carregamento",
+    // color-contrast has no clause: always "atencao" (no per-element
+    // ratio to grade severity by), same reasoning as no-sitemap below.
     // no-sitemap has no clause: it's always severity "atencao", never
     // "critico" (see deriveIssues), so it can never reach the
     // critical-only input synthesizeCriticalImpact consumes.
@@ -311,6 +324,14 @@ const en: Dictionary = {
       title: `The site takes ${params?.seconds}s to load.`,
       description: `At that speed, the visitor's chance of leaving before the page loads is at least ${params?.bounceIncreasePercent}% higher.`,
     }),
+    "layout-shift": (params) => ({
+      title: `The site has visual instability while loading (CLS of ${params?.value}).`,
+      description: "Page elements shift around after loading, which can make someone click the wrong thing by accident.",
+    }),
+    "color-contrast": () => ({
+      title: "We found text with insufficient contrast.",
+      description: "Some text on the site is hard to read because of low color contrast between the text and the background.",
+    }),
   },
   impact: {
     "no-https": "Your site shows up with a \"not secure\" warning in the visitor's browser. That reads as suspicious, especially if someone's about to fill out a form or make a purchase.",
@@ -326,6 +347,8 @@ const en: Dictionary = {
     "no-sitemap": "A sitemap is like a map that helps Google find every page on the site, especially the newest ones. Without it, a page you just published can take much longer to show up in search results.",
     "low-performance": "The slower a site loads, the more likely someone is to give up before even seeing the content. Load speed is also one of the factors Google weighs when deciding where the site ranks in search results.",
     "slow-load-impact": "Every extra second of waiting raises the odds someone leaves before seeing anything at all — the number above isn't a rough guess, it comes from real published research on this exact behavior.",
+    "layout-shift": "This usually happens when an image, ad, or block of text loads late and pushes the rest of the page around — something that was already clickable moves right as someone's about to interact with it.",
+    "color-contrast": "Low-contrast text is hard to read for anyone in a bright environment or with low screen brightness, and nearly unreadable for people with low vision.",
   },
   impactClause: {
     "no-https": "the insecure connection",
@@ -336,6 +359,7 @@ const en: Dictionary = {
     "missing-alt": "images with no description for screen reader users",
     "low-performance": "the overall slow load time",
     "slow-load-impact": "the high load time",
+    "layout-shift": "the visual instability while loading",
   },
   synthesizeImpact: (clauses) => {
     const joined = clauses.length > 1 ? `${clauses[0]} and ${clauses[1]}` : clauses[0];

@@ -166,3 +166,74 @@ describe("deriveIssues — slow-load-impact", () => {
     );
   });
 });
+
+describe("deriveIssues — layout-shift (CLS)", () => {
+  const baseInput = {
+    https: { passed: true, finalUrl: "https://x.com", redirectedFromHttp: false },
+    metaTags: { hasViewport: true, hasTitle: true, title: "X", hasDescription: true, description: "Y" },
+    altImages: { sampledCount: 10, missingAltCount: 0, missingAltSrcs: [] },
+    sitemapRobots: { hasSitemap: true, hasRobotsTxt: true },
+  };
+
+  it("doesn't fire when clsValue is unavailable", () => {
+    const issues = deriveIssues({
+      ...baseInput,
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 90 } },
+    });
+
+    expect(issues.some((issue) => issue.code === "layout-shift")).toBe(false);
+  });
+
+  it("doesn't fire below Google's 0.1 'good' threshold", () => {
+    const issues = deriveIssues({
+      ...baseInput,
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 90 }, clsValue: 0.05 },
+    });
+
+    expect(issues.some((issue) => issue.code === "layout-shift")).toBe(false);
+  });
+
+  it("flags atencao between 0.1 and 0.25 ('needs improvement')", () => {
+    const issues = deriveIssues({
+      ...baseInput,
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 90 }, clsValue: 0.18 },
+    });
+
+    expect(issues).toContainEqual({ category: "performance", severity: "atencao", code: "layout-shift", params: { value: 0.18 } });
+  });
+
+  it("flags critico past 0.25 ('poor')", () => {
+    const issues = deriveIssues({
+      ...baseInput,
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 90 }, clsValue: 0.4 },
+    });
+
+    expect(issues).toContainEqual({ category: "performance", severity: "critico", code: "layout-shift", params: { value: 0.4 } });
+  });
+});
+
+describe("deriveIssues — color-contrast", () => {
+  it("doesn't fire when hasColorContrastIssues is undefined (audit not applicable)", () => {
+    const issues = deriveIssues({
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 90 } },
+    });
+
+    expect(issues.some((issue) => issue.code === "color-contrast")).toBe(false);
+  });
+
+  it("doesn't fire when hasColorContrastIssues is false", () => {
+    const issues = deriveIssues({
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 90 }, hasColorContrastIssues: false },
+    });
+
+    expect(issues.some((issue) => issue.code === "color-contrast")).toBe(false);
+  });
+
+  it("flags atencao when hasColorContrastIssues is true", () => {
+    const issues = deriveIssues({
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 90 }, hasColorContrastIssues: true },
+    });
+
+    expect(issues).toContainEqual({ category: "accessibility", severity: "atencao", code: "color-contrast" });
+  });
+});

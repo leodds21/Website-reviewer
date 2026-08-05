@@ -16,6 +16,8 @@ const CATEGORY_BY_CODE: Record<Issue["code"], Issue["category"]> = {
   "no-sitemap": "seo",
   "low-performance": "performance",
   "slow-load-impact": "performance",
+  "layout-shift": "performance",
+  "color-contrast": "accessibility",
 };
 
 function issue(code: Issue["code"]): Issue {
