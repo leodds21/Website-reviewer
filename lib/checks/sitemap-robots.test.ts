@@ -79,12 +79,34 @@ describe("checkSitemapRobots", () => {
     expect(result.hasSitemap).toBe(true);
   });
 
-  it("treats a network error as missing rather than throwing", async () => {
+  it("reports an unreachable probe as null, not as a confirmed absence", async () => {
+    // "The request failed" and "the server told us it isn't there" are
+    // different facts. Collapsing the first into the second is how a
+    // site nobody could reach ended up with a confident "no sitemap"
+    // finding against it.
     vi.mocked(fetch).mockRejectedValueOnce(new Error("network down")).mockResolvedValueOnce(fakeResponse(200));
 
     const result = await checkSitemapRobots("example.com");
 
-    expect(result.hasSitemap).toBe(false);
+    expect(result.hasSitemap).toBeNull();
     expect(result.hasRobotsTxt).toBe(true);
+  });
+
+  it("throws when neither probe could reach the host at all", async () => {
+    // A domain that doesn't resolve has to fail the whole check, so the
+    // report shows SEO as "não avaliado" instead of inventing findings
+    // about a site that was never reached.
+    vi.mocked(fetch).mockRejectedValue(new Error("getaddrinfo ENOTFOUND"));
+
+    await expect(checkSitemapRobots("este-dominio-nao-existe.example")).rejects.toThrow(/inacess/i);
+  });
+
+  it("still reports a real 404 as a confirmed absence", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(fakeResponse(404)).mockResolvedValueOnce(fakeResponse(404));
+
+    const result = await checkSitemapRobots("example.com");
+
+    expect(result.hasSitemap).toBe(false);
+    expect(result.hasRobotsTxt).toBe(false);
   });
 });

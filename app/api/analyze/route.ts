@@ -13,6 +13,7 @@ import { checkRateLimit } from "@/lib/rateLimit";
 import { isBlockedHost } from "@/lib/safeFetch";
 import { normalizeUrl } from "@/lib/url";
 import type { AnalyzeReport } from "@/lib/report";
+import type { AnalyzeError, AnalyzeErrorCode } from "@/lib/analyzeError";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,16 @@ type CheckResults = {
   sitemapRobots: SitemapRobotsCheckResult;
   pagespeed: PageSpeedResult;
 };
+
+/**
+ * Error responses keep their real HTTP status (429 with Retry-After,
+ * 400 for bad input) — the status is the honest signal for anything
+ * that isn't our own UI. The body carries a code rather than a
+ * sentence so the client can render it in the visitor's language.
+ */
+function errorResponse(error: AnalyzeError, status: number, headers?: Record<string, string>) {
+  return NextResponse.json(error, { status, headers });
+}
 
 function parseTargetUrl(input: string): URL | null {
   try {
@@ -72,22 +83,21 @@ export async function GET(request: Request) {
   const ip = request.headers.get("x-forwarded-for")?.split(",").pop()?.trim() ?? "unknown";
   const rateLimit = checkRateLimit(ip);
   if (rateLimit.limited) {
-    return NextResponse.json(
-      { error: "Muitas análises em pouco tempo. Tenta de novo mais tarde." },
-      { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } },
-    );
+    return errorResponse({ code: "rate-limited", retryAfterSeconds: rateLimit.retryAfterSeconds }, 429, {
+      "Retry-After": String(rateLimit.retryAfterSeconds),
+    });
   }
 
   const { searchParams } = new URL(request.url);
   const rawUrl = (searchParams.get("url") ?? "").trim();
 
   if (!rawUrl) {
-    return NextResponse.json({ error: "Informe uma URL." }, { status: 400 });
+    return errorResponse({ code: "missing-url" }, 400);
   }
 
   const targetUrl = parseTargetUrl(rawUrl);
   if (!targetUrl) {
-    return NextResponse.json({ error: "URL inválida." }, { status: 400 });
+    return errorResponse({ code: "invalid-url" }, 400);
   }
 
   const domain = targetUrl.hostname;
@@ -192,12 +202,21 @@ export async function GET(request: Request) {
         send("step", { step: outcome.key });
       }
 
+      if (request.signal.aborted) {
+        // The visitor left mid-analysis. Nothing to send, and caching
+        // the half-finished results would serve this degraded report
+        // to the *next* visitor for the full partial TTL.
+        close();
+        return;
+      }
+
       if (Object.keys(results).length === 0) {
-        // Deliberately generic: the real reason (a missing API key, the
-        // exact PageSpeed error body, an internal hostname a redirect
-        // resolved to) is exactly the kind of detail an SSRF/config
+        // A bare code, not a sentence: the real reason (a missing API
+        // key, the exact PageSpeed error body, an internal hostname a
+        // redirect resolved to) is exactly the detail an SSRF/config
         // guard exists to keep off the client.
-        send("failed", { error: "Não foi possível analisar o site. Tenta de novo em instantes." });
+        const failure: AnalyzeErrorCode = "analysis-failed";
+        send("failed", { code: failure });
       } else {
         const score = aggregateScore(results);
         const issues = deriveIssues(results);
@@ -223,8 +242,13 @@ export async function GET(request: Request) {
   return new Response(stream, {
     headers: {
       "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
+      "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive",
+      // Tells nginx-style reverse proxies not to buffer the response.
+      // Without it, a proxy can hold every step event until the stream
+      // closes, turning the live progress screen into a long freeze
+      // followed by everything at once.
+      "X-Accel-Buffering": "no",
     },
   });
 }

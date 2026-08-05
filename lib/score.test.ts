@@ -63,6 +63,25 @@ describe("aggregateScore", () => {
     expect(weakSeo.accessibility.score).toBe(Math.round((95 + 100 + 70) / 3));
   });
 
+  it("keeps an undetermined sitemap/robots probe out of the SEO average", () => {
+    // null means "we couldn't reach the host to find out", so it must
+    // contribute nothing — scoring it as 0, like a confirmed absence,
+    // would invent a penalty from a measurement we never made.
+    const undetermined = aggregateScore({
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 60 } },
+      sitemapRobots: { hasSitemap: null, hasRobotsTxt: null },
+    });
+
+    expect(undetermined.seo.score).toBe(60); // pagespeed's seo alone
+
+    const confirmedMissing = aggregateScore({
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 60 } },
+      sitemapRobots: { hasSitemap: false, hasRobotsTxt: false },
+    });
+
+    expect(confirmedMissing.seo.score).toBe(20); // média(60, 0, 0)
+  });
+
   it("marks every category indisponivel when no check ran at all", () => {
     const nothing = aggregateScore({});
 
