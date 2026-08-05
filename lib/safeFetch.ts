@@ -1,30 +1,69 @@
 import { lookup } from "node:dns/promises";
+import { BlockList, isIPv4, isIPv6 } from "node:net";
 
-const BLOCKED_HOSTNAMES = new Set(["localhost", "0.0.0.0", "::1"]);
 const MAX_REDIRECTS = 5;
+const ALLOWED_PORTS = new Set(["", "80", "443"]);
+
+const BLOCKED_HOSTNAMES = new Set(["localhost"]);
+
+// Loopback, link-local (includes the cloud metadata endpoint at
+// 169.254.169.254), CGNAT and private ranges, IPv4 and IPv6. Built on
+// node:net's BlockList rather than hand-rolled range math — it's the
+// platform's own, tested implementation of exactly this check.
+const blockList = new BlockList();
+blockList.addSubnet("0.0.0.0", 8);
+blockList.addSubnet("10.0.0.0", 8);
+blockList.addSubnet("100.64.0.0", 10); // CGNAT
+blockList.addSubnet("127.0.0.0", 8);
+blockList.addSubnet("169.254.0.0", 16);
+blockList.addSubnet("172.16.0.0", 12);
+blockList.addSubnet("192.168.0.0", 16);
+blockList.addAddress("::1", "ipv6");
+blockList.addSubnet("fe80::", 10, "ipv6"); // link-local
+blockList.addSubnet("fc00::", 7, "ipv6"); // unique local
+
+function stripBrackets(hostname: string): string {
+  return hostname.startsWith("[") && hostname.endsWith("]") ? hostname.slice(1, -1) : hostname;
+}
+
+// A DNS record (or a URL typed directly) can point at an IPv4-mapped
+// IPv6 address (::ffff:127.0.0.1, or its hex form ::ffff:7f00:1) to
+// slip a private IPv4 address past a check that only inspects the
+// IPv6 shape. Extracts the embedded IPv4 so it's checked too.
+function embeddedIPv4(host: string): string | null {
+  const dotted = host.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/i);
+  if (dotted) return dotted[1];
+
+  const hex = host.match(/^::ffff:([\da-f]{1,4}):([\da-f]{1,4})$/i);
+  if (hex) {
+    const high = parseInt(hex[1], 16);
+    const low = parseInt(hex[2], 16);
+    return `${(high >> 8) & 0xff}.${high & 0xff}.${(low >> 8) & 0xff}.${low & 0xff}`;
+  }
+
+  return null;
+}
 
 /**
- * Rejects hosts/IPs that would make a server-side fetch an SSRF vector:
- * loopback, link-local (includes the cloud metadata endpoint at
- * 169.254.169.254) and private ranges. Pure string/IP check — the DNS
- * side of this (a domain name that *resolves* to one of these) is
- * handled separately by assertHostAllowed, since that needs to be
- * async and this needs to stay synchronous for the fast literal-IP case.
+ * Rejects hosts/IPs that would make a server-side fetch an SSRF vector.
+ * Pure string/IP check — the DNS side of this (a domain name that
+ * *resolves* to one of these) is handled separately by
+ * assertHostAllowed, since that needs to be async and this needs to
+ * stay synchronous for the fast literal-IP case.
  */
 export function isBlockedHost(hostname: string): boolean {
-  if (BLOCKED_HOSTNAMES.has(hostname.toLowerCase())) return true;
+  const host = stripBrackets(hostname).toLowerCase();
+  if (BLOCKED_HOSTNAMES.has(host)) return true;
 
-  const ipv4 = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (!ipv4) return false;
+  if (isIPv4(host)) return blockList.check(host, "ipv4");
 
-  const [a, b] = [Number(ipv4[1]), Number(ipv4[2])];
-  return (
-    a === 127 ||
-    a === 10 ||
-    (a === 169 && b === 254) ||
-    (a === 192 && b === 168) ||
-    (a === 172 && b >= 16 && b <= 31)
-  );
+  if (isIPv6(host)) {
+    if (blockList.check(host, "ipv6")) return true;
+    const mapped = embeddedIPv4(host);
+    return mapped !== null && blockList.check(mapped, "ipv4");
+  }
+
+  return false;
 }
 
 export class BlockedHostError extends Error {
@@ -45,19 +84,27 @@ export class BlockedHostError extends Error {
  * itself, out of scope for this pass; this closes the much more common
  * case of a domain that's simply configured to point somewhere
  * internal.
+ *
+ * Also rejects any port other than 80/443/default — otherwise a public
+ * hostname is a free pass to probe internal services on other ports
+ * (a database, an admin panel) that happen to share the same host.
  */
-async function assertHostAllowed(hostname: string): Promise<void> {
-  if (isBlockedHost(hostname)) throw new BlockedHostError(hostname);
+async function assertHostAllowed(url: URL): Promise<void> {
+  if (!ALLOWED_PORTS.has(url.port)) {
+    throw new BlockedHostError(`${url.hostname}:${url.port}`);
+  }
+
+  if (isBlockedHost(url.hostname)) throw new BlockedHostError(url.hostname);
 
   let addresses: { address: string }[];
   try {
-    addresses = await lookup(hostname, { all: true });
+    addresses = await lookup(url.hostname, { all: true });
   } catch {
     return; // Let the real fetch surface the DNS failure — not our call to make.
   }
 
   const blocked = addresses.find((addr) => isBlockedHost(addr.address));
-  if (blocked) throw new BlockedHostError(`${hostname} (resolve para ${blocked.address})`);
+  if (blocked) throw new BlockedHostError(`${url.hostname} (resolve para ${blocked.address})`);
 }
 
 /**
@@ -71,17 +118,22 @@ async function assertHostAllowed(hostname: string): Promise<void> {
  */
 export async function safeFetch(url: string, init: RequestInit = {}): Promise<Response> {
   let currentUrl = new URL(url);
-  await assertHostAllowed(currentUrl.hostname);
+  await assertHostAllowed(currentUrl);
 
-  for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects++) {
+  for (let redirects = 0; redirects < MAX_REDIRECTS; redirects++) {
     const response = await fetch(currentUrl, { ...init, redirect: "manual" });
 
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get("location");
       if (!location) return response;
 
+      // Not consuming the redirect's body would leak the connection
+      // back to the pool as still-in-use under undici until GC — this
+      // is a redirect, nothing wants the body.
+      await response.body?.cancel();
+
       currentUrl = new URL(location, currentUrl);
-      await assertHostAllowed(currentUrl.hostname);
+      await assertHostAllowed(currentUrl);
       continue;
     }
 
