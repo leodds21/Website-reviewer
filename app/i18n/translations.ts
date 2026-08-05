@@ -72,7 +72,7 @@ const pt: Dictionary = {
   subheadline:
     "A gente encontra o seu em menos de um minuto: performance, SEO, acessibilidade e segurança, tudo junto.",
   analyzeLabel: "Analisar",
-  urlPlaceholder: "suasite.com.br",
+  urlPlaceholder: "seusite.com.br",
   runButton: "Rodar diagnóstico",
   privacyNote: "Não guardamos a URL nem o relatório depois. Roda, mostra, some.",
   loadingSubtitle: "Isso leva menos de um minuto, e são checagens de verdade rodando, não é decoração.",
