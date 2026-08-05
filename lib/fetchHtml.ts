@@ -1,7 +1,6 @@
 import { safeFetch } from "./safeFetch";
 import { normalizeUrl } from "./url";
-
-const TIMEOUT_MS = 8000;
+import { CHECK_TIMEOUT_MS } from "./timeouts";
 
 /**
  * Fetches a page's HTML once. checkMetaTags and checkAltImages used to
@@ -18,7 +17,7 @@ const TIMEOUT_MS = 8000;
  */
 export async function fetchHtml(url: string, signal?: AbortSignal): Promise<string> {
   const requestedUrl = normalizeUrl(url);
-  const timeout = AbortSignal.timeout(TIMEOUT_MS);
+  const timeout = AbortSignal.timeout(CHECK_TIMEOUT_MS);
   const response = await safeFetch(requestedUrl, {
     method: "GET",
     signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
