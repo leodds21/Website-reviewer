@@ -1,8 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { Severity } from "@/lib/score";
 
-export function ScoreRing({ score, size = 82 }: { score: number; size?: number }) {
+// Same severity → color mapping CategoryCard's bars and IssueList's
+// badges use — the ring, the bars, and the findings are all reporting
+// the same severity system, so they read as one visual language
+// instead of three different ones each picking their own color.
+const RING_COLOR: Record<Severity, string> = {
+  critico: "var(--color-severity-critico)",
+  atencao: "var(--color-severity-atencao)",
+  ok: "var(--color-severity-ok)",
+  indisponivel: "var(--color-neutral-200)",
+};
+
+export function ScoreRing({ score, severity, size = 82 }: { score: number; severity: Severity; size?: number }) {
   const radius = 42;
   const circumference = 2 * Math.PI * radius;
 
@@ -25,7 +37,7 @@ export function ScoreRing({ score, size = 82 }: { score: number; size?: number }
         cy={50}
         r={radius}
         fill="none"
-        stroke="var(--color-accent-700)"
+        stroke={RING_COLOR[severity]}
         strokeWidth={7}
         strokeLinecap="square"
         strokeDasharray={circumference}

@@ -22,7 +22,7 @@ export function ReportScreen({ report, onNextStep }: { report: AnalyzeReport; on
       </div>
 
       <div className="mb-2 flex items-center gap-4">
-        <ScoreRing score={report.score.overall} />
+        <ScoreRing score={report.score.overall} severity={report.score.overallSeverity} />
         <div>
           <div className="text-[38px] font-semibold leading-none tracking-tight">
             {report.score.overall}
