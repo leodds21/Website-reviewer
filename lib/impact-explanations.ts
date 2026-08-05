@@ -44,4 +44,9 @@ export const IMPACT_EXPLANATIONS: Partial<Record<IssueCode, ImpactExplanation>> 
   "no-viewport": {
     text: "Em celular, a página pode aparecer minúscula, exigindo que a pessoa dê zoom pra ler qualquer coisa. A maior parte de quem acessa a internet hoje faz isso pelo celular, então essa experiência ruim atinge boa parte dos visitantes.",
   },
+
+  // lib/checks/alt-images.ts
+  "missing-alt": {
+    text: "Sem a descrição alternativa, quem usa leitor de tela (pessoas com deficiência visual) não sabe o que aquelas imagens mostram — pra elas, é como se a imagem simplesmente não existisse. Também reduz a chance de essas imagens aparecerem nas buscas do Google.",
+  },
 };
