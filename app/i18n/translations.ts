@@ -41,6 +41,7 @@ type Dictionary = {
   messagePlaceholder: string;
   sendButton: string;
   sending: string;
+  sent: string;
   sendSuccess: string;
   sendError: string;
   formNotConfigured: string;
@@ -91,6 +92,7 @@ const pt: Dictionary = {
   messagePlaceholder: "Conte um pouco sobre o que precisa",
   sendButton: "Enviar",
   sending: "Enviando…",
+  sent: "Enviado",
   sendSuccess: "Recebido. Volto pra você em breve.",
   sendError: "Não foi possível enviar. Tenta de novo em instantes.",
   formNotConfigured: "Formulário não configurado.",
@@ -173,6 +175,7 @@ const en: Dictionary = {
   messagePlaceholder: "Tell us a bit about what you need",
   sendButton: "Send",
   sending: "Sending…",
+  sent: "Sent",
   sendSuccess: "Got it. I'll get back to you soon.",
   sendError: "Couldn't send it. Try again in a moment.",
   formNotConfigured: "Form not configured.",
