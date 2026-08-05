@@ -15,6 +15,12 @@ type Dictionary = {
   urlPlaceholder: string;
   runButton: string;
   privacyNote: string;
+  privacyLinkLabel: string;
+  close: string;
+  privacyPolicy: {
+    title: string;
+    sections: { label: string; text: string }[];
+  };
   loadingKicker: string;
   loadingHeadline: string;
   loadingSubtitle: string;
@@ -92,7 +98,38 @@ const pt: Dictionary = {
   analyzeLabel: "Analisar",
   urlPlaceholder: "seusite.com.br",
   runButton: "Rodar diagnóstico",
-  privacyNote: "Não guardamos a URL nem o relatório depois. Roda, mostra, some.",
+  privacyNote: "Não armazenamos a URL nem o relatório após a análise. Alguns serviços técnicos podem processar dados temporariamente.",
+  privacyLinkLabel: "Como tratamos seus dados",
+  close: "Fechar",
+  privacyPolicy: {
+    title: "Como tratamos seus dados",
+    sections: [
+      {
+        label: "O que enviamos",
+        text: "A URL que você digita é enviada ao nosso servidor pra rodar a análise, e essa mesma URL é repassada à API do Google PageSpeed Insights pra medir performance e acessibilidade.",
+      },
+      {
+        label: "Serviços externos",
+        text: "Usamos a API do Google PageSpeed Insights pra parte da análise, e o Formspree pra receber mensagens do formulário de contato, caso você preencha um.",
+      },
+      {
+        label: "Logs técnicos",
+        text: "Quando alguma checagem falha, registramos isso nos logs do servidor pra conseguir investigar o problema. Esses logs seguem a política de retenção da nossa hospedagem, que não controlamos diretamente.",
+      },
+      {
+        label: "Analytics e proteção contra abuso",
+        text: "Não usamos ferramentas de analytics nem cookies de rastreamento. Limitamos o número de análises por IP num período curto só pra evitar abuso — essa contagem fica na memória do servidor, não é salva em disco nem associada a uma identidade.",
+      },
+      {
+        label: "Tempo de retenção",
+        text: "Um relatório concluído fica em cache por até 6 horas (5 minutos se a análise ficou incompleta), só pra evitar repetir a mesma checagem à toa; depois disso, é descartado. Nada é salvo permanentemente.",
+      },
+      {
+        label: "Formulário de contato",
+        text: "Nome, e-mail e mensagem são enviados ao Formspree e chegam na nossa caixa de entrada. Não guardamos essas informações em nenhum banco de dados próprio.",
+      },
+    ],
+  },
   loadingKicker: "Analisando",
   loadingHeadline: "Rodando as checagens.",
   loadingSubtitle: "Isso leva menos de um minuto, e são checagens de verdade rodando, não é decoração.",
@@ -277,7 +314,38 @@ const en: Dictionary = {
   analyzeLabel: "Analyze",
   urlPlaceholder: "yoursite.com",
   runButton: "Run diagnosis",
-  privacyNote: "We don't keep the URL or the report afterward. It runs, it shows, it's gone.",
+  privacyNote: "We don't store the URL or the report after the analysis. Some technical services may process data temporarily.",
+  privacyLinkLabel: "How we handle your data",
+  close: "Close",
+  privacyPolicy: {
+    title: "How we handle your data",
+    sections: [
+      {
+        label: "What we send",
+        text: "The URL you type is sent to our server to run the analysis, and that same URL is passed on to Google's PageSpeed Insights API to measure performance and accessibility.",
+      },
+      {
+        label: "External services",
+        text: "We use Google's PageSpeed Insights API for part of the analysis, and Formspree to receive messages from the contact form, if you fill one out.",
+      },
+      {
+        label: "Technical logs",
+        text: "When a check fails, we log that server-side so we can investigate the problem. Those logs follow our hosting provider's own retention policy, which we don't control directly.",
+      },
+      {
+        label: "Analytics and abuse protection",
+        text: "We don't use analytics tools or tracking cookies. We limit how many analyses a single IP can run in a short window just to prevent abuse — that count lives in the server's memory, isn't written to disk, and isn't tied to an identity.",
+      },
+      {
+        label: "How long data may remain",
+        text: "A completed report is cached for up to 6 hours (5 minutes if the analysis was incomplete), just to avoid re-running the same check pointlessly; after that, it's discarded. Nothing is stored permanently.",
+      },
+      {
+        label: "Contact form",
+        text: "Name, email, and message are sent to Formspree and land in our inbox. We don't keep that information in any database of our own.",
+      },
+    ],
+  },
   loadingKicker: "Analyzing",
   loadingHeadline: "Running the checks.",
   loadingSubtitle: "This takes under a minute, and these are real checks running, not decoration.",
