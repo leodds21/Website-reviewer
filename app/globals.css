@@ -11,6 +11,7 @@
   --color-divider: color-mix(in srgb, #1d1f20 16%, transparent);
   --color-neutral-200: #e7e7ea;
   --color-neutral-600: #7a7a7d;
+  --color-neutral-700: #5d5d60;
 }
 
 @theme inline {
@@ -24,6 +25,7 @@
   --color-divider: var(--color-divider);
   --color-neutral-200: var(--color-neutral-200);
   --color-neutral-600: var(--color-neutral-600);
+  --color-neutral-700: var(--color-neutral-700);
   --font-heading: var(--font-heading), sans-serif;
   --font-body: var(--font-body), sans-serif;
 }

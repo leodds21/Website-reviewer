@@ -15,7 +15,7 @@ export function IssueList({ issues }: { issues: Issue[] }) {
   const hiddenCount = secondary.length - visibleSecondary.length;
 
   if (issues.length === 0) {
-    return <p className="text-[12.5px] text-[var(--color-neutral-600)]">{t.noIssues}</p>;
+    return <p className="text-[12.5px] text-[var(--color-neutral-700)]">{t.noIssues}</p>;
   }
 
   return (
@@ -46,7 +46,7 @@ export function IssueList({ issues }: { issues: Issue[] }) {
           return (
             <div key={`atencao-${index}`} className="border-l-2 border-[var(--color-divider)] pl-3">
               <div className="text-xs text-[var(--color-text)]/80">
-                □ {title} <i className="text-[var(--color-neutral-600)] not-italic">· {t.categories[issue.category]}</i>
+                □ {title} <i className="text-[var(--color-neutral-700)] not-italic">· {t.categories[issue.category]}</i>
               </div>
             </div>
           );
@@ -57,7 +57,7 @@ export function IssueList({ issues }: { issues: Issue[] }) {
         <button
           type="button"
           onClick={() => setExpanded(true)}
-          className="mt-3 text-[12.5px] text-[var(--color-accent)] hover:underline"
+          className="mt-3 text-[12.5px] text-[var(--color-accent-700)] hover:underline"
         >
           {t.showMore(hiddenCount)}
         </button>
