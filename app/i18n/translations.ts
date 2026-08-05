@@ -28,6 +28,8 @@ type Dictionary = {
   };
   scoreLabelOk: string;
   scoreLabelAttention: string;
+  scoreExplanationToggle: string;
+  scoreExplanation: string;
   categories: Record<"performance" | "seo" | "accessibility" | "security", string>;
   severity: Record<Severity, string>;
   whatWeFound: string;
@@ -95,6 +97,9 @@ const pt: Dictionary = {
   },
   scoreLabelOk: "Está bem",
   scoreLabelAttention: "Precisa de atenção",
+  scoreExplanationToggle: "Como calculamos esta nota",
+  scoreExplanation:
+    "A nota geral é a média simples das quatro categorias — Performance, SEO, Acessibilidade e Segurança — sem nenhuma valer mais que a outra. Cada categoria, por sua vez, já é a média das checagens que a compõem (Segurança, por exemplo, combina HTTPS, certificado e cabeçalhos de proteção). Uma categoria marcada \"não avaliado\" fica de fora da conta: normalmente é porque alguma checagem não conseguiu rodar, não porque está tudo bem por lá. \"Crítico\" e \"atenção\" indicam o quanto aquela categoria está abaixo do ideal; \"ok\" significa que não encontramos problema relevante nela.",
   categories: {
     performance: "Performance",
     seo: "SEO",
@@ -106,7 +111,7 @@ const pt: Dictionary = {
   points: (count) => `${count} ${count === 1 ? "ponto" : "pontos"}`,
   noIssues: "Não encontramos problema nenhum nas checagens que rodamos.",
   showMore: (count) => `Mostrar mais ${count} ${count === 1 ? "problema" : "problemas"} ⌄`,
-  nextStepButton: "Ver próximo passo →",
+  nextStepButton: "Ver como corrigir →",
   nextStepKicker: "Próximo passo",
   nextStepHeadline: "O relatório aponta. Resolver é outra etapa.",
   nextStepBodyTwo: "Se dois desses pontos já tão custando venda, vale mexer neles antes do resto.",
@@ -259,6 +264,9 @@ const en: Dictionary = {
   },
   scoreLabelOk: "Looking good",
   scoreLabelAttention: "Needs attention",
+  scoreExplanationToggle: "How we calculate this score",
+  scoreExplanation:
+    "The overall score is a simple average of the four categories — Performance, SEO, Accessibility, and Security — none weighted more than another. Each category is itself an average of the checks that make it up (Security, for instance, combines HTTPS, the certificate, and protection headers). A category marked \"not evaluated\" is left out of that average: usually because a check couldn't run, not because everything's fine there. \"Critical\" and \"attention\" show how far below ideal that category is; \"ok\" means we didn't find a relevant problem in it.",
   categories: {
     performance: "Performance",
     seo: "SEO",
@@ -270,7 +278,7 @@ const en: Dictionary = {
   points: (count) => `${count} ${count === 1 ? "point" : "points"}`,
   noIssues: "We didn't find any problems in the checks we ran.",
   showMore: (count) => `Show ${count} more ${count === 1 ? "problem" : "problems"} ⌄`,
-  nextStepButton: "See next step →",
+  nextStepButton: "See how to fix it →",
   nextStepKicker: "Next step",
   nextStepHeadline: "The report points it out. Fixing it is a separate step.",
   nextStepBodyTwo: "If two of these are already costing you sales, worth tackling them before the rest.",
