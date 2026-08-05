@@ -51,7 +51,7 @@ export function CategoryCard({
         </span>
         <span className="font-mono">
           {score === null ? (
-            <span className="text-[var(--color-neutral-600)] italic">{t.severity.indisponivel}</span>
+            <span className="text-[var(--color-neutral-700)] italic">{t.severity.indisponivel}</span>
           ) : (
             <>
               {score}{" "}
@@ -64,7 +64,8 @@ export function CategoryCard({
           )}
         </span>
       </div>
-      <div className="h-1.5 bg-[var(--color-neutral-200)]">
+      {/* Purely decorative: the score is already announced as text above. */}
+      <div className="h-1.5 bg-[var(--color-neutral-200)]" aria-hidden="true">
         <div
           className={`h-full transition-[width] duration-700 ease-out ${SEVERITY_BAR[severity]}`}
           style={{ width: `${width}%` }}
