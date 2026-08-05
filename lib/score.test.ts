@@ -41,4 +41,45 @@ describe("aggregateScore", () => {
     expect(weakSeo.seo.severity).toBe("critico");
     expect(weakSeo.accessibility.score).toBe(Math.round((95 + 100 + 70) / 3));
   });
+
+  it("marks every category indisponivel when no check ran at all", () => {
+    const nothing = aggregateScore({});
+
+    expect(nothing.performance).toEqual({ score: null, severity: "indisponivel" });
+    expect(nothing.seo).toEqual({ score: null, severity: "indisponivel" });
+    expect(nothing.accessibility).toEqual({ score: null, severity: "indisponivel" });
+    expect(nothing.security).toEqual({ score: null, severity: "indisponivel" });
+    expect(nothing.overall).toBe(0);
+  });
+
+  it("makes security indisponivel when https didn't run, even if pagespeed did", () => {
+    // best-practices alone isn't a security signal — it's a bonus on
+    // top of a confirmed https pass, never a standalone proxy for it.
+    const result = aggregateScore({
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 92, seo: 90 } },
+    });
+
+    expect(result.security).toEqual({ score: null, severity: "indisponivel" });
+    expect(result.performance.score).toBe(90);
+  });
+
+  it("computes overall from only the categories that have data (camara.rio-style: only security ran)", () => {
+    const onlySecurityRan = aggregateScore({
+      https: { passed: false, finalUrl: "https://x.com", redirectedFromHttp: false, certificateError: true },
+    });
+
+    expect(onlySecurityRan.security.score).toBe(0);
+    expect(onlySecurityRan.performance).toEqual({ score: null, severity: "indisponivel" });
+    expect(onlySecurityRan.overall).toBe(0); // only security contributed, and it's 0
+    expect(onlySecurityRan.overallSeverity).toBe("critico");
+  });
+
+  it("lets seo score from partial sources when metaTags is missing but pagespeed and sitemap ran", () => {
+    const result = aggregateScore({
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 60 } },
+      sitemapRobots: { hasSitemap: true, hasRobotsTxt: true },
+    });
+
+    expect(result.seo.score).toBe(Math.round((60 + 100) / 2));
+  });
 });
