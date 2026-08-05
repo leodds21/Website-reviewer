@@ -34,6 +34,16 @@ export function ReportScreen({ report, onNextStep }: { report: AnalyzeReport; on
         </div>
       </div>
 
+      <details className="group mb-1">
+        <summary className="flex w-fit cursor-pointer list-none items-center gap-1 text-[11.5px] text-[var(--color-accent-700)] hover:underline focus-visible:underline [&::-webkit-details-marker]:hidden">
+          {t.scoreExplanationToggle}
+          <span className="inline-block transition-transform group-open:rotate-180" aria-hidden="true">
+            ⌄
+          </span>
+        </summary>
+        <p className="mt-2 max-w-sm text-[12px] leading-relaxed text-[var(--color-text)]/70">{t.scoreExplanation}</p>
+      </details>
+
       <div className="mt-5 mb-5 flex flex-col gap-2.5">
         {CATEGORY_KEYS.map((key) => (
           <CategoryCard key={key} category={key} score={report.score[key].score} severity={report.score[key].severity} />
@@ -45,7 +55,7 @@ export function ReportScreen({ report, onNextStep }: { report: AnalyzeReport; on
       <button
         type="button"
         onClick={onNextStep}
-        className="mt-6 flex w-full items-center justify-center border border-[var(--color-accent)] bg-[var(--color-accent)] py-2.5 text-[14.5px] font-semibold text-white transition-colors hover:bg-[var(--color-accent-600)]"
+        className="mt-6 flex w-full items-center justify-center border border-[var(--color-accent-700)] bg-[var(--color-accent-700)] py-2.5 text-[14.5px] font-semibold text-white transition-colors hover:border-[var(--color-accent-800)] hover:bg-[var(--color-accent-800)] active:bg-[var(--color-accent-900)]"
       >
         {t.nextStepButton}
       </button>
