@@ -82,15 +82,36 @@ describe("GET /api/analyze", () => {
     expect(report.score.overall).toBeGreaterThan(0);
   });
 
-  it("emits an error event carrying the failure reason when a check rejects", async () => {
+  it("still sends done with a partial report when only some checks fail", async () => {
+    // A single failure doesn't take the whole report down — score.ts/
+    // issues.ts already treat a missing check as "not evaluated," so
+    // whatever did succeed is worth reporting (the camara.rio case this
+    // is modeled on: a broken cert kills every check that fetches page
+    // content, but https itself still comes back with a real finding).
     vi.mocked(runPageSpeed).mockRejectedValueOnce(new Error("PageSpeed API retornou 500: quota exceeded"));
 
-    const response = await GET(requestFor("route-test-fail.example", "route-test-fail.ip"));
+    const response = await GET(requestFor("route-test-partial.example", "route-test-partial.ip"));
     const events = await readSseEvents(response);
-    const error = events.find((event) => event.event === "error");
 
-    expect(error).toBeDefined();
-    expect((error!.data as { error: string }).error).toContain("PageSpeed API retornou 500");
+    expect(events.some((event) => event.event === "error")).toBe(false);
+    const done = events.find((event) => event.event === "done");
+    expect(done).toBeDefined();
+    const report = done!.data as { score: { performance: { score: number | null } } };
+    expect(report.score.performance.score).toBeNull();
+  });
+
+  it("emits an error event only when every single check fails", async () => {
+    vi.mocked(checkHttps).mockRejectedValueOnce(new Error("fetch failed"));
+    vi.mocked(checkMetaTags).mockRejectedValueOnce(new Error("fetch failed"));
+    vi.mocked(checkAltImages).mockRejectedValueOnce(new Error("fetch failed"));
+    vi.mocked(checkSitemapRobots).mockRejectedValueOnce(new Error("fetch failed"));
+    vi.mocked(runPageSpeed).mockRejectedValueOnce(new Error("fetch failed"));
+
+    const response = await GET(requestFor("route-test-total-fail.example", "route-test-total-fail.ip"));
+    const events = await readSseEvents(response);
+
+    expect(events).toHaveLength(1);
+    expect(events[0].event).toBe("error");
   });
 
   it("serves the second request for the same domain from cache, skipping the checks entirely", async () => {
