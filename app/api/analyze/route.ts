@@ -6,20 +6,14 @@ import { checkSitemapRobots, type SitemapRobotsCheckResult } from "@/lib/checks/
 import { runPageSpeed, type PageSpeedResult } from "@/lib/pagespeed";
 import { fetchHtml } from "@/lib/fetchHtml";
 import { getCached, setCached, FULL_TTL_MS, PARTIAL_TTL_MS } from "@/lib/cache";
-import { aggregateScore, type AggregatedScore } from "@/lib/score";
-import { deriveIssues, type Issue } from "@/lib/issues";
+import { aggregateScore } from "@/lib/score";
+import { deriveIssues } from "@/lib/issues";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { isBlockedHost } from "@/lib/safeFetch";
 import { normalizeUrl } from "@/lib/url";
+import type { AnalyzeReport } from "@/lib/report";
 
 export const dynamic = "force-dynamic";
-
-type AnalyzeReport = {
-  domain: string;
-  score: AggregatedScore;
-  issues: Issue[];
-  checkedAt: string;
-};
 
 type CheckResults = {
   https: HttpsCheckResult;
