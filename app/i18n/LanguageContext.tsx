@@ -41,6 +41,12 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     document.documentElement.lang = locale === "en" ? "en" : "pt-BR";
+    // layout.tsx is a Server Component rendered before anyone picks a
+    // language, so its <title> is fixed at build time and stayed
+    // Portuguese for English visitors. Syncing it here is the only
+    // place that knows the actual choice. Crawlers and link previews
+    // still get the static metadata, which is the intended default.
+    document.title = DICTIONARIES[locale].documentTitle;
   }, [locale]);
 
   function setLocale(next: Locale) {
