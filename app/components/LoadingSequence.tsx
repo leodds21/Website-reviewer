@@ -51,7 +51,7 @@ export function LoadingSequence({ completedSteps }: { completedSteps: StepKey[] 
       </h2>
       <p className="mb-4 text-[13px] text-[var(--color-text)]/70">{t.loadingSubtitle}</p>
 
-      <div className="h-px bg-[var(--color-divider)]" />
+      <div className="progress-track h-[3px]" />
 
       <ul className="mt-4 flex flex-col gap-2">
         {CATEGORY_GROUPS.filter((group) => group.steps.every((step) => completedSet.has(step))).map((group) => (

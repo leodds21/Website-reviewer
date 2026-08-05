@@ -72,3 +72,25 @@ h1, h2, h3, h4 {
 .fade-in-up {
   animation: fade-in-up 150ms ease-out;
 }
+
+/* Indeterminate progress bar: we never know how long a check will
+   take, so this doesn't fill toward a value — it just keeps moving,
+   the same "still working" signal as an OS progress bar with no ETA. */
+@keyframes progress-indeterminate {
+  0% { left: -35%; right: 100%; }
+  60% { left: 100%; right: -35%; }
+  100% { left: 100%; right: -35%; }
+}
+.progress-track {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-neutral-200);
+}
+.progress-track::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--color-accent);
+  animation: progress-indeterminate 1.4s ease-in-out infinite;
+}
