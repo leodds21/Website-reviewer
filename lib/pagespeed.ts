@@ -19,6 +19,19 @@ type PageSpeedApiResponse = {
   };
 };
 
+// Runs once per process (module load), not once per request — the
+// per-request failure below already happens on every single analysis
+// if the key is missing, which would spam the log instead of flagging
+// the misconfiguration. This is the one line meant to be seen once, at
+// boot, by whoever is watching deploy logs. Skipped under Vitest so
+// test runs (which don't set this env var) don't print it on every
+// import.
+if (!process.env.PAGESPEED_API_KEY && !process.env.VITEST) {
+  console.warn(
+    '[isdias] PAGESPEED_API_KEY não está configurada — toda análise vai reportar Performance (e parte de SEO/Acessibilidade/Segurança) como "não avaliado" até essa variável de ambiente ser definida.',
+  );
+}
+
 export type PageSpeedCategory = "performance" | "accessibility" | "best-practices" | "seo";
 
 export type PageSpeedResult = {
