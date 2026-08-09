@@ -130,28 +130,20 @@ const pt: Dictionary = {
     title: "Como tratamos seus dados",
     sections: [
       {
-        label: "O que enviamos",
-        text: "A URL que você digita é enviada ao nosso servidor pra rodar a análise, e essa mesma URL é repassada à API do Google PageSpeed Insights pra medir performance e acessibilidade.",
+        label: "O que coletamos",
+        text: "A URL que você analisa. Se você usar o formulário de contato, também seu nome, e-mail e mensagem.",
       },
       {
-        label: "Serviços externos",
-        text: "Usamos a API do Google PageSpeed Insights pra parte da análise, e o Formspree pra receber mensagens do formulário de contato, caso você preencha um.",
+        label: "Com quem compartilhamos",
+        text: "A URL vai para a API do Google PageSpeed Insights, que gera parte do relatório. Os dados do formulário de contato vão para o Formspree, que os encaminha pro nosso e-mail.",
       },
       {
-        label: "Logs técnicos",
-        text: "Quando alguma checagem falha, registramos isso nos logs do servidor pra conseguir investigar o problema. Esses logs seguem a política de retenção da nossa hospedagem, que não controlamos diretamente.",
+        label: "Por quanto tempo guardamos",
+        text: "O relatório fica em cache por até 6 horas e depois é descartado. Não guardamos os dados do formulário em nenhum banco de dados próprio.",
       },
       {
-        label: "Analytics e proteção contra abuso",
-        text: "Não usamos ferramentas de analytics nem cookies de rastreamento. Limitamos o número de análises por IP num período curto só pra evitar abuso — essa contagem fica na memória do servidor, não é salva em disco nem associada a uma identidade.",
-      },
-      {
-        label: "Tempo de retenção",
-        text: "Um relatório concluído fica em cache por até 6 horas (5 minutos se a análise ficou incompleta), só pra evitar repetir a mesma checagem à toa; depois disso, é descartado. Nada é salvo permanentemente.",
-      },
-      {
-        label: "Formulário de contato",
-        text: "Nome, e-mail e mensagem são enviados ao Formspree e chegam na nossa caixa de entrada. Não guardamos essas informações em nenhum banco de dados próprio.",
+        label: "Rastreamento",
+        text: "Não usamos cookies nem ferramentas de analytics. Seu IP só é usado, de forma temporária, pra limitar abusos — não fica associado a você.",
       },
     ],
   },
@@ -365,28 +357,20 @@ const en: Dictionary = {
     title: "How we handle your data",
     sections: [
       {
-        label: "What we send",
-        text: "The URL you type is sent to our server to run the analysis, and that same URL is passed on to Google's PageSpeed Insights API to measure performance and accessibility.",
+        label: "What we collect",
+        text: "The URL you analyze. If you use the contact form, also your name, email, and message.",
       },
       {
-        label: "External services",
-        text: "We use Google's PageSpeed Insights API for part of the analysis, and Formspree to receive messages from the contact form, if you fill one out.",
+        label: "Who we share it with",
+        text: "The URL goes to Google's PageSpeed Insights API, which generates part of the report. Contact form data goes to Formspree, which forwards it to our inbox.",
       },
       {
-        label: "Technical logs",
-        text: "When a check fails, we log that server-side so we can investigate the problem. Those logs follow our hosting provider's own retention policy, which we don't control directly.",
+        label: "How long we keep it",
+        text: "The report is cached for up to 6 hours, then discarded. We don't keep contact form data in any database of our own.",
       },
       {
-        label: "Analytics and abuse protection",
-        text: "We don't use analytics tools or tracking cookies. We limit how many analyses a single IP can run in a short window just to prevent abuse — that count lives in the server's memory, isn't written to disk, and isn't tied to an identity.",
-      },
-      {
-        label: "How long data may remain",
-        text: "A completed report is cached for up to 6 hours (5 minutes if the analysis was incomplete), just to avoid re-running the same check pointlessly; after that, it's discarded. Nothing is stored permanently.",
-      },
-      {
-        label: "Contact form",
-        text: "Name, email, and message are sent to Formspree and land in our inbox. We don't keep that information in any database of our own.",
+        label: "Tracking",
+        text: "We don't use cookies or analytics tools. Your IP is only used temporarily to limit abuse — it isn't tied to your identity.",
       },
     ],
   },
