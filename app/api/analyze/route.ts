@@ -17,6 +17,26 @@ import type { AnalyzeError, AnalyzeErrorCode } from "@/lib/analyzeError";
 
 export const dynamic = "force-dynamic";
 
+// Explicit, not just the default: this route uses node:net/node:dns
+// (lib/safeFetch.ts's SSRF blocklist), which don't exist on the Edge
+// runtime — if Next's default runtime choice ever changed, silently
+// switching runtimes here would break that protection outright rather
+// than failing loudly.
+export const runtime = "nodejs";
+
+// PAGESPEED_TIMEOUT_MS (lib/timeouts.ts) alone is 30s, and it's the
+// longest-running of the checks that run concurrently — so the
+// route's own worst-case wall-clock time is close to that, not the
+// sum of every check's timeout. Without an explicit ceiling here, a
+// slow-but-legitimate analysis can get killed by whatever the
+// platform's own default duration limit happens to be, which is
+// usually well under 30s — a real, likely-already-happening failure
+// mode in production, not just a hypothetical. 35s leaves a small
+// buffer over the known worst case for scoring/caching/stream
+// teardown, without requesting more time than the route can ever
+// actually use.
+export const maxDuration = 35;
+
 type CheckResults = {
   https: HttpsCheckResult;
   securityHeaders: SecurityHeadersCheckResult;
