@@ -1,3 +1,5 @@
+import { redis } from "./kv";
+
 export const FULL_TTL_MS = 6 * 60 * 60 * 1000;
 // A report where some checks failed to run shouldn't be trusted for as
 // long as a complete one — a transient failure (a slow site timing
@@ -11,6 +13,8 @@ const MAX_ENTRIES = 1000;
 
 type CacheEntry<T> = { data: T; expiresAt: number };
 
+// Only used by the in-memory fallback path — Redis expires keys on
+// its own (see setCached), so there's nothing to sweep there.
 const store = new Map<string, CacheEntry<unknown>>();
 
 function evictIfNeeded(): void {
@@ -33,13 +37,17 @@ function evictIfNeeded(): void {
 }
 
 /**
- * In-memory cache, no persistence — resets on every deploy/restart,
- * which is fine for the MVP: it only exists to avoid burning PageSpeed
- * quota on repeated analyses of the same site. Capped at MAX_ENTRIES
- * so a long-running process (or a burst of unique domains) can't grow
- * this without bound.
+ * Backed by Upstash Redis when configured (lib/kv.ts), an in-memory
+ * Map otherwise. Exists only to avoid burning PageSpeed quota on
+ * repeated analyses of the same site. The in-memory path resets on
+ * every deploy/restart and isn't shared across concurrent serverless
+ * instances — fine for local dev, not a real cache under real traffic.
  */
-export function getCached<T>(key: string): T | null {
+export async function getCached<T>(key: string): Promise<T | null> {
+  if (redis) {
+    return (await redis.get<T>(key)) ?? null;
+  }
+
   const entry = store.get(key);
   if (!entry) return null;
 
@@ -51,7 +59,14 @@ export function getCached<T>(key: string): T | null {
   return entry.data as T;
 }
 
-export function setCached<T>(key: string, data: T, ttlMs: number = FULL_TTL_MS): void {
+export async function setCached<T>(key: string, data: T, ttlMs: number = FULL_TTL_MS): Promise<void> {
+  if (redis) {
+    // px: Redis's own expiry, in milliseconds — no manual eviction
+    // needed, the key just stops existing on its own.
+    await redis.set(key, data, { px: ttlMs });
+    return;
+  }
+
   // Delete before set so a refreshed key moves to the end of the Map's
   // insertion order. Without it, re-analyzing a popular domain keeps
   // its original position, and eviction — which walks from the oldest

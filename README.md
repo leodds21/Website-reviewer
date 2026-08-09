@@ -19,7 +19,7 @@ Uma revisão de segurança feita à mão nesta base pegou duas falhas reais: a p
 
 ## Stack
 
-Next.js (App Router) + TypeScript + Tailwind. Sem banco de dados: cache de análise em memória, por domínio, por 6 horas.
+Next.js (App Router) + TypeScript + Tailwind. Sem banco de dados: cache de análise por domínio (6h) e rate limit por IP (10/hora), com Upstash Redis quando configurado (`UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN`) ou um `Map` em memória como fallback pra desenvolvimento local — em produção serverless, sem Redis configurado, o rate limit vale só por instância, não globalmente.
 
 ## Rodando localmente
 
@@ -28,7 +28,7 @@ npm install
 npm run dev
 ```
 
-Precisa de `PAGESPEED_API_KEY` (Google PageSpeed Insights API) e `NEXT_PUBLIC_FORMSPREE_ENDPOINT` num `.env.local` — veja `.env.example`.
+Precisa de `PAGESPEED_API_KEY` (Google PageSpeed Insights API) e `NEXT_PUBLIC_FORMSPREE_ENDPOINT` num `.env.local` — veja `.env.example`. `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` são opcionais (sem eles, cache e rate limit caem pro fallback em memória).
 
 ## Estrutura
 
