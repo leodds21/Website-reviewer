@@ -11,15 +11,23 @@ import type { NextConfig } from "next";
 // cross-origin scripts, no framing (the exact clickjacking protection
 // this app itself checks other sites for), no data exfiltration to an
 // arbitrary origin.
+// React/Next's dev-mode tooling (component stack reconstruction, Fast
+// Refresh) calls eval() — never in a production build, only here for
+// local development. Without this, `npm run dev` throws
+// "eval() is not supported... unsafe-eval" instead of actually
+// running, since the CSP applies identically in both modes otherwise.
+const isDev = process.env.NODE_ENV !== "production";
+
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
   "font-src 'self'",
   // The contact form fetches this directly from the browser — without
-  // it here, the CSP would silently break every submission.
-  "connect-src 'self' https://formspree.io",
+  // it here, the CSP would silently break every submission. ws:/wss:
+  // only added in dev, for Fast Refresh's hot-reload websocket.
+  `connect-src 'self' https://formspree.io${isDev ? " ws: wss:" : ""}`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
