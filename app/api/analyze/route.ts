@@ -81,7 +81,7 @@ export async function GET(request: Request) {
   // front of the app; an additional untrusted proxy in the chain would
   // still need its own handling.
   const ip = request.headers.get("x-forwarded-for")?.split(",").pop()?.trim() ?? "unknown";
-  const rateLimit = checkRateLimit(ip);
+  const rateLimit = await checkRateLimit(ip);
   if (rateLimit.limited) {
     return errorResponse({ code: "rate-limited", retryAfterSeconds: rateLimit.retryAfterSeconds }, 429, {
       "Retry-After": String(rateLimit.retryAfterSeconds),
@@ -139,7 +139,7 @@ export async function GET(request: Request) {
         }
       }
 
-      const cached = getCached<AnalyzeReport>(cacheKey);
+      const cached = await getCached<AnalyzeReport>(cacheKey);
       if (cached) {
         send("done", cached);
         close();
@@ -228,7 +228,7 @@ export async function GET(request: Request) {
         // page/metaTags/altImages split (one fetch, two derived
         // results) by checking sawFailure directly instead of key count.
         const isComplete = !sawFailure;
-        setCached(cacheKey, report, isComplete ? FULL_TTL_MS : PARTIAL_TTL_MS);
+        await setCached(cacheKey, report, isComplete ? FULL_TTL_MS : PARTIAL_TTL_MS);
         send("done", report);
       }
 
