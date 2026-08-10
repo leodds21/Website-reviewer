@@ -16,7 +16,7 @@ const barlowCondensed = Barlow_Condensed({
   subsets: ["latin"],
 });
 
-const title = "Isdias.dev, diagnóstico de site";
+const title = "lsdias.dev, diagnóstico de site";
 const description = "Performance, SEO, acessibilidade e segurança do seu site em menos de um minuto.";
 
 export const metadata: Metadata = {

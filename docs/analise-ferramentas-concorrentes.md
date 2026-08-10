@@ -1,11 +1,11 @@
-# Análise de ferramentas concorrentes — Isdias.dev
+# Análise de ferramentas concorrentes — lsdias.dev
 
-Documento de análise, sem nenhuma implementação. Objetivo: comparar o que o Isdias.dev já faz hoje contra as ferramentas de diagnóstico de site mais usadas do mercado, organizadas nas mesmas seis categorias em que foram apresentadas, e apontar o que valeria a pena considerar como adição futura.
+Documento de análise, sem nenhuma implementação. Objetivo: comparar o que o lsdias.dev já faz hoje contra as ferramentas de diagnóstico de site mais usadas do mercado, organizadas nas mesmas seis categorias em que foram apresentadas, e apontar o que valeria a pena considerar como adição futura.
 
-## Como o Isdias.dev funciona hoje (pra dar contexto às comparações)
+## Como o lsdias.dev funciona hoje (pra dar contexto às comparações)
 
 - **Uma URL, sem login, sem verificação de propriedade** — "roda, mostra, some". Isso já exclui de comparação direta qualquer ferramenta que exija ser dono/verificar o site (Google Search Console, Ahrefs Webmaster Tools).
-- **Só a página inicial é analisada**, não o site inteiro. Ferramentas que rastreiam várias páginas (Screaming Frog, Bing Site Scan, checkers de link quebrado) operam num nível que o Isdias.dev simplesmente não alcança hoje — não é uma lacuna pontual, é uma diferença de arquitetura.
+- **Só a página inicial é analisada**, não o site inteiro. Ferramentas que rastreiam várias páginas (Screaming Frog, Bing Site Scan, checkers de link quebrado) operam num nível que o lsdias.dev simplesmente não alcança hoje — não é uma lacuna pontual, é uma diferença de arquitetura.
 - **Checagens atuais**, uma por arquivo em `lib/checks/`:
   - `https.ts` — o site serve em HTTPS, segue redirecionamento de http→https, certificado válido (sem indício de nada além disso: não olha headers, não olha versão do TLS).
   - `meta-tags.ts` — presença de `<title>`, meta description, meta viewport, tudo via regex sobre o HTML já buscado (não é um DOM renderizado).
@@ -43,7 +43,7 @@ Documento de análise, sem nenhuma implementação. Objetivo: comparar o que o I
 ## 2. SEO e estrutura técnica
 
 ### Google Search Console
-**Não fazemos nada equivalente — e não dá pra fazer no modelo atual.** GSC exige que a pessoa seja dona do site e verifique a propriedade (DNS, arquivo, tag). Isso contraria diretamente o "roda, mostra, some" sem login que é a proposta do Isdias.dev.
+**Não fazemos nada equivalente — e não dá pra fazer no modelo atual.** GSC exige que a pessoa seja dona do site e verifique a propriedade (DNS, arquivo, tag). Isso contraria diretamente o "roda, mostra, some" sem login que é a proposta do lsdias.dev.
 
 **O que eles fazem diferente:** dados reais de indexação (quais páginas o Google efetivamente indexou), cliques e impressões nas buscas, Core Web Vitals de campo (dados reais de usuários via CrUX, não só simulação de laboratório).
 
