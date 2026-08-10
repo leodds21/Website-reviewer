@@ -63,7 +63,7 @@ export function useContactForm(options: { domain: string | undefined }) {
             name: contact.name,
             email: contact.email,
             message: contact.message,
-            _subject: `Isdias.dev: novo contato sobre ${options.domain}`,
+            _subject: `lsdias.dev: novo contato sobre ${options.domain}`,
             site: options.domain,
           }),
         });

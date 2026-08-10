@@ -117,7 +117,7 @@ type Dictionary = {
 };
 
 const pt: Dictionary = {
-  documentTitle: "Isdias.dev, diagnóstico de site",
+  documentTitle: "lsdias.dev, diagnóstico de site",
   tagline: "ferramenta de diagnóstico",
   headline: ["Todo site tem", "um ponto fraco."],
   subheadline:
@@ -202,8 +202,8 @@ const pt: Dictionary = {
     unknown: "Não foi possível enviar sua mensagem. Tenta de novo em instantes.",
   },
   reportHeading: (domain) => `Relatório de ${domain}`,
-  reportFooter: (domain) => `Isdias.dev · relatório referente a ${domain}`,
-  madeByLabel: "Feito por lsdias.dev",
+  reportFooter: (domain) => `lsdias.dev · relatório referente a ${domain}`,
+  madeByLabel: "Veja meu portfólio",
   opensNewTab: "abre em nova aba",
   analysisError: {
     "missing-url": () => "Informe o endereço de um site pra analisar.",
@@ -347,7 +347,7 @@ const pt: Dictionary = {
 };
 
 const en: Dictionary = {
-  documentTitle: "Isdias.dev, website diagnostics",
+  documentTitle: "lsdias.dev, website diagnostics",
   tagline: "diagnostic tool",
   headline: ["Every site has", "a weak spot."],
   subheadline: "We find yours in under a minute: performance, SEO, accessibility and security, all at once.",
@@ -431,8 +431,8 @@ const en: Dictionary = {
     unknown: "We couldn't send your message. Try again in a moment.",
   },
   reportHeading: (domain) => `Report for ${domain}`,
-  reportFooter: (domain) => `Isdias.dev · report for ${domain}`,
-  madeByLabel: "Made by lsdias.dev",
+  reportFooter: (domain) => `lsdias.dev · report for ${domain}`,
+  madeByLabel: "See my portfolio",
   opensNewTab: "opens in a new tab",
   analysisError: {
     "missing-url": () => "Enter the address of a site to analyze.",

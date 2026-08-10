@@ -1,4 +1,4 @@
-# Isdias.dev
+# lsdias.dev
 
 Ferramenta que analisa um site e devolve, em menos de um minuto, onde ele está pegando: performance, SEO, acessibilidade e segurança, tudo numa nota só.
 

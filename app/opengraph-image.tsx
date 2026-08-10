@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "Isdias.dev — todo site tem um ponto fraco";
+export const alt = "lsdias.dev — todo site tem um ponto fraco";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -24,7 +24,7 @@ export default function OpengraphImage() {
         }}
       >
         <div style={{ display: "flex", alignItems: "baseline", fontSize: 36, fontWeight: 600, marginBottom: 28 }}>
-          <span style={{ color: "#1d1f20" }}>Isdias</span>
+          <span style={{ color: "#1d1f20" }}>lsdias</span>
           <span style={{ color: "#416180" }}>.dev</span>
         </div>
         <div style={{ display: "flex", fontSize: 68, fontWeight: 700, lineHeight: 1.1, color: "#1d1f20", maxWidth: 950 }}>
