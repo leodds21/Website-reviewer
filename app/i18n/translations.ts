@@ -84,6 +84,8 @@ type Dictionary = {
   contactError: Record<ContactErrorCode, string>;
   reportHeading: (domain: string) => string;
   reportFooter: (domain: string) => string;
+  madeByLabel: string;
+  opensNewTab: string;
   // One entry per AnalyzeErrorCode: every way an analysis can fail has
   // its own wording, so the visitor is never told "something went
   // wrong" when we know exactly what went wrong. `retryAfterSeconds`
@@ -201,6 +203,8 @@ const pt: Dictionary = {
   },
   reportHeading: (domain) => `Relatório de ${domain}`,
   reportFooter: (domain) => `Isdias.dev · relatório referente a ${domain}`,
+  madeByLabel: "Feito por lsdias.dev",
+  opensNewTab: "abre em nova aba",
   analysisError: {
     "missing-url": () => "Informe o endereço de um site pra analisar.",
     "invalid-url": () => "Esse endereço não parece válido. Confere se está escrito certo, tipo seusite.com.br.",
@@ -428,6 +432,8 @@ const en: Dictionary = {
   },
   reportHeading: (domain) => `Report for ${domain}`,
   reportFooter: (domain) => `Isdias.dev · report for ${domain}`,
+  madeByLabel: "Made by lsdias.dev",
+  opensNewTab: "opens in a new tab",
   analysisError: {
     "missing-url": () => "Enter the address of a site to analyze.",
     "invalid-url": () => "That address doesn't look valid. Check the spelling, something like yoursite.com.",

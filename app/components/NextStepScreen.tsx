@@ -142,7 +142,25 @@ export function NextStepScreen({ report, topIssues }: { report: AnalyzeReport; t
         </form>
       )}
 
-      <p className="mt-4 text-[10.5px] text-[var(--color-neutral-700)]">{t.reportFooter(report.domain)}</p>
+      <p className="mt-4 text-[10.5px] text-[var(--color-neutral-700)]">
+        {t.reportFooter(report.domain)}{" "}
+        {/* Only place this link exists — the last screen of the flow,
+            after the visitor is done with the tool. target="_blank" +
+            rel="noopener noreferrer" means even an accidental click
+            can't navigate this tab away (and closes the tabnabbing
+            hole a bare target="_blank" would leave open — notable
+            given this app audits other sites for exactly that class
+            of oversight). */}
+        <a
+          href="https://lsdias.dev"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline decoration-[var(--color-divider)] underline-offset-2 hover:text-[var(--color-accent-700)] hover:decoration-[var(--color-accent-700)] focus-visible:decoration-[var(--color-accent-700)]"
+        >
+          {t.madeByLabel}
+          <span className="sr-only"> ({t.opensNewTab})</span>
+        </a>
+      </p>
     </div>
   );
 }
