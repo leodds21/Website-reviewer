@@ -12,7 +12,7 @@ export function Corners() {
 export function Brand() {
   return (
     <span className="text-lg font-semibold">
-      Isdias<span className="text-[var(--color-accent-700)]">.dev</span>
+      lsdias<span className="text-[var(--color-accent-700)]">.dev</span>
     </span>
   );
 }
