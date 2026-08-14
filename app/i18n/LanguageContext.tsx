@@ -11,41 +11,29 @@ type LanguageContextValue = {
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
-function isLocale(value: string | null): value is Locale {
-  return value === "pt" || value === "en";
+// LOCALE_STORAGE_KEY doubles as the cookie name proxy.ts and layout.tsx
+// use server-side — same concept, one shared constant.
+function writeLocaleCookie(locale: Locale) {
+  const oneYear = 60 * 60 * 24 * 365;
+  const secure = window.location.protocol === "https:" ? "; secure" : "";
+  document.cookie = `${LOCALE_STORAGE_KEY}=${locale}; path=/; max-age=${oneYear}; samesite=lax${secure}`;
 }
 
-export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  // Starts as "pt" so server and first client render match (no
-  // access to localStorage/navigator during SSR); synced to the
-  // real preference right after mount.
-  const [locale, setLocaleState] = useState<Locale>("pt");
-
-  useEffect(() => {
-    // localStorage can throw (Safari private mode, cookies/storage
-    // blocked by the user or an extension) — a read failure just means
-    // "no stored preference," not a reason to break the page.
-    let stored: string | null = null;
-    try {
-      stored = localStorage.getItem(LOCALE_STORAGE_KEY);
-    } catch {
-      // ignore, fall back to navigator.language below
-    }
-    const resolved = isLocale(stored) ? stored : navigator.language.toLowerCase().startsWith("en") ? "en" : "pt";
-    // One-time sync from an external system (localStorage/navigator)
-    // that isn't available during SSR — can't be done any other way
-    // without a hydration mismatch.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLocaleState(resolved);
-  }, []);
+export function LanguageProvider({
+  children,
+  initialLocale = "pt",
+}: {
+  children: React.ReactNode;
+  initialLocale?: Locale;
+}) {
+  // proxy.ts + layout.tsx already resolved the visitor's locale (from
+  // ?lang=, an existing cookie, or Accept-Language) before this ever
+  // renders, so the first client render starts correct instead of
+  // guessing "pt" and fixing itself after the fact.
+  const [locale, setLocaleState] = useState<Locale>(initialLocale);
 
   useEffect(() => {
     document.documentElement.lang = locale === "en" ? "en" : "pt-BR";
-    // layout.tsx is a Server Component rendered before anyone picks a
-    // language, so its <title> is fixed at build time and stayed
-    // Portuguese for English visitors. Syncing it here is the only
-    // place that knows the actual choice. Crawlers and link previews
-    // still get the static metadata, which is the intended default.
     document.title = DICTIONARIES[locale].documentTitle;
   }, [locale]);
 
@@ -54,8 +42,14 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     try {
       localStorage.setItem(LOCALE_STORAGE_KEY, next);
     } catch {
-      // Preference just won't persist across visits — not fatal.
+      // Safari private mode, storage blocked by the user/an extension —
+      // a write failure just means the choice won't persist, not fatal.
     }
+    // Without this, a manual toggle followed by a full reload lands back
+    // on the server-resolved locale (no ?lang=, no prior cookie) instead
+    // of what was just picked — localStorage alone isn't visible to
+    // layout.tsx, only a cookie is.
+    writeLocaleCookie(next);
   }
 
   const value = useMemo(() => ({ locale, setLocale, t: DICTIONARIES[locale] }), [locale]);
