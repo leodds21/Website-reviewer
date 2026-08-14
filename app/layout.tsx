@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 import { Barlow, Barlow_Condensed } from "next/font/google";
+import { cookies } from "next/headers";
 import { LanguageProvider } from "./i18n/LanguageContext";
+import {
+  DICTIONARIES,
+  LOCALE_STORAGE_KEY,
+  type Locale,
+} from "./i18n/translations";
 import { SITE_URL } from "@/lib/siteUrl";
 import "./globals.css";
 
@@ -16,25 +22,38 @@ const barlowCondensed = Barlow_Condensed({
   subsets: ["latin"],
 });
 
-const title = "lsdias.dev, diagnóstico de site";
-const description = "Performance, SEO, acessibilidade e segurança do seu site em menos de um minuto.";
+// proxy.ts resolves the visitor's locale (from ?lang=, an existing cookie,
+// or Accept-Language) and writes it to this same cookie before the request
+// gets here, so this always reflects that resolution rather than guessing.
+async function getLocaleFromCookies(): Promise<Locale> {
+  const cookieStore = await cookies();
+  return cookieStore.get(LOCALE_STORAGE_KEY)?.value === "en" ? "en" : "pt";
+}
 
-export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
-  title,
-  description,
-  openGraph: { title, description, type: "website" },
-  twitter: { card: "summary_large_image", title, description },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocaleFromCookies();
+  const title = DICTIONARIES[locale].documentTitle;
+  const description = DICTIONARIES[locale].subheadline;
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+  return {
+    metadataBase: new URL(SITE_URL),
+    title,
+    description,
+    openGraph: { title, description, type: "website" },
+    twitter: { card: "summary_large_image", title, description },
+  };
+}
+
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const locale = await getLocaleFromCookies();
+
   return (
     <html
-      lang="pt-BR"
+      lang={locale === "en" ? "en" : "pt-BR"}
       className={`${barlow.variable} ${barlowCondensed.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <LanguageProvider>{children}</LanguageProvider>
+        <LanguageProvider initialLocale={locale}>{children}</LanguageProvider>
       </body>
     </html>
   );
