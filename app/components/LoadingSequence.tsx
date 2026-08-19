@@ -2,9 +2,24 @@
 
 import { useLanguage } from "@/app/i18n/LanguageContext";
 
-export type StepKey = "https" | "securityHeaders" | "metaTags" | "altImages" | "sitemapRobots" | "pagespeed";
+export type StepKey =
+  | "https"
+  | "securityHeaders"
+  | "metaTags"
+  | "altImages"
+  | "sitemapRobots"
+  | "pagespeed"
+  | "brokenLinks";
 
-const REAL_STEP_KEYS: StepKey[] = ["https", "securityHeaders", "metaTags", "altImages", "sitemapRobots", "pagespeed"];
+const REAL_STEP_KEYS: StepKey[] = [
+  "https",
+  "securityHeaders",
+  "metaTags",
+  "altImages",
+  "sitemapRobots",
+  "pagespeed",
+  "brokenLinks",
+];
 
 type DisplayStepKey = "validating" | "performance" | "seo" | "accessibility" | "security" | "finishing";
 type StepStatus = "done" | "current" | "pending";
@@ -19,7 +34,7 @@ type StepStatus = "done" | "current" | "pending";
 const DISPLAY_STEPS: { key: DisplayStepKey; requires: StepKey[] }[] = [
   { key: "validating", requires: [] },
   { key: "performance", requires: ["pagespeed"] },
-  { key: "seo", requires: ["metaTags", "sitemapRobots"] },
+  { key: "seo", requires: ["metaTags", "sitemapRobots", "brokenLinks"] },
   { key: "accessibility", requires: ["altImages"] },
   { key: "security", requires: ["https", "securityHeaders"] },
   { key: "finishing", requires: [] },
