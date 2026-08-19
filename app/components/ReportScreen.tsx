@@ -7,8 +7,18 @@ import { IssueList } from "./IssueList";
 import { useLanguage } from "@/app/i18n/LanguageContext";
 import type { CategoryKey } from "@/app/i18n/translations";
 import type { AnalyzeReport } from "@/lib/report";
+import type { TechPlatform } from "@/lib/checks/techDetect";
 
 const CATEGORY_KEYS: CategoryKey[] = ["performance", "seo", "accessibility", "security"];
+
+// Proper nouns — same spelling in every locale, so this stays outside
+// the translation dictionary; only the sentence around it (t.platformDetected) is translated.
+const PLATFORM_NAMES: Record<TechPlatform, string> = {
+  wordpress: "WordPress",
+  wix: "Wix",
+  squarespace: "Squarespace",
+  shopify: "Shopify",
+};
 
 export function ReportScreen({ report, onNextStep }: { report: AnalyzeReport; onNextStep: () => void }) {
   const { t } = useLanguage();
@@ -23,7 +33,14 @@ export function ReportScreen({ report, onNextStep }: { report: AnalyzeReport; on
       <h1 className="sr-only">{t.reportHeading(report.domain)}</h1>
       <div className="mb-5 flex items-baseline justify-between">
         <Brand />
-        <span className="font-mono text-xs text-[var(--color-neutral-700)]">{report.domain}</span>
+        <div className="text-right">
+          <span className="font-mono text-xs text-[var(--color-neutral-700)]">{report.domain}</span>
+          {report.platform && (
+            <div className="font-mono text-[10px] text-[var(--color-neutral-700)]/70">
+              {t.platformDetected(PLATFORM_NAMES[report.platform])}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="mb-2 flex items-center gap-4">
