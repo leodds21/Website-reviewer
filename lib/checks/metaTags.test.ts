@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseMetaTags } from "./meta-tags";
+import { parseMetaTags } from "./metaTags";
 
 describe("parseMetaTags", () => {
   it("detects viewport, title and description when all are present", () => {
