@@ -18,6 +18,10 @@ const CATEGORY_BY_CODE: Record<Issue["code"], Issue["category"]> = {
   "slow-load-impact": "performance",
   "layout-shift": "performance",
   "color-contrast": "accessibility",
+  "slow-server-response": "performance",
+  "heading-order": "accessibility",
+  "missing-form-labels": "accessibility",
+  "broken-links": "seo",
 };
 
 function issue(code: Issue["code"]): Issue {
@@ -93,7 +97,7 @@ describe("translateAnalysisError", () => {
   });
 
   it("gives each failure its own wording rather than one generic message", () => {
-    const codes = ["offline", "timeout", "invalid-url", "analysis-failed", "missing-url"] as const;
+    const codes = ["offline", "timeout", "invalid-url", "blocked-url", "quota-exceeded", "analysis-failed", "missing-url"] as const;
     const messages = codes.map((code) => translateAnalysisError("pt", { code }));
 
     expect(new Set(messages).size).toBe(codes.length);

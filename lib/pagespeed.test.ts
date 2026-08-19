@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { runPageSpeed } from "./pagespeed";
+import { PageSpeedError, runPageSpeed } from "./pagespeed";
 
 function fakeJsonResponse(status: number, body: unknown): Response {
   return {
@@ -66,6 +66,15 @@ describe("runPageSpeed", () => {
     vi.mocked(fetch).mockResolvedValueOnce(fakeJsonResponse(403, { error: "quota exceeded" }));
 
     await expect(runPageSpeed("example.com")).rejects.toThrow(/403/);
+  });
+
+  it("throws a PageSpeedError carrying the real status, so callers can tell quota exhaustion (429) from other failures", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(fakeJsonResponse(429, { error: "quota exceeded" }));
+
+    const failure = await runPageSpeed("example.com").catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(PageSpeedError);
+    expect((failure as PageSpeedError).status).toBe(429);
   });
 
   it("extracts LCP in seconds from the largest-contentful-paint audit", async () => {
@@ -161,5 +170,90 @@ describe("runPageSpeed", () => {
     const result = await runPageSpeed("example.com");
 
     expect(result.hasColorContrastIssues).toBeUndefined();
+  });
+
+  it("extracts TTFB in whole milliseconds from the server-response-time audit", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      fakeJsonResponse(200, {
+        lighthouseResult: {
+          categories: { performance: { score: 0.5 } },
+          audits: { "server-response-time": { numericValue: 812.7 } },
+        },
+      }),
+    );
+
+    const result = await runPageSpeed("example.com");
+
+    expect(result.ttfbMs).toBe(813);
+  });
+
+  it("leaves ttfbMs undefined when the audit is missing", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      fakeJsonResponse(200, { lighthouseResult: { categories: { performance: { score: 0.9 } } } }),
+    );
+
+    const result = await runPageSpeed("example.com");
+
+    expect(result.ttfbMs).toBeUndefined();
+  });
+
+  it("reports heading-order issues when the audit score is below 1", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      fakeJsonResponse(200, {
+        lighthouseResult: {
+          categories: { accessibility: { score: 0.8 } },
+          audits: { "heading-order": { score: 0 } },
+        },
+      }),
+    );
+
+    const result = await runPageSpeed("example.com");
+
+    expect(result.hasHeadingOrderIssues).toBe(true);
+  });
+
+  it("leaves hasHeadingOrderIssues undefined when the audit wasn't applicable (score: null)", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      fakeJsonResponse(200, {
+        lighthouseResult: {
+          categories: { accessibility: { score: 1 } },
+          audits: { "heading-order": { score: null } },
+        },
+      }),
+    );
+
+    const result = await runPageSpeed("example.com");
+
+    expect(result.hasHeadingOrderIssues).toBeUndefined();
+  });
+
+  it("reports form-label issues when the label audit score is below 1", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      fakeJsonResponse(200, {
+        lighthouseResult: {
+          categories: { accessibility: { score: 0.8 } },
+          audits: { label: { score: 0 } },
+        },
+      }),
+    );
+
+    const result = await runPageSpeed("example.com");
+
+    expect(result.hasFormLabelIssues).toBe(true);
+  });
+
+  it("leaves hasFormLabelIssues undefined when the page has no forms (score: null)", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      fakeJsonResponse(200, {
+        lighthouseResult: {
+          categories: { accessibility: { score: 1 } },
+          audits: { label: { score: null } },
+        },
+      }),
+    );
+
+    const result = await runPageSpeed("example.com");
+
+    expect(result.hasFormLabelIssues).toBeUndefined();
   });
 });

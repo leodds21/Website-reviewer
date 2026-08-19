@@ -84,6 +84,10 @@ type Dictionary = {
   contactError: Record<ContactErrorCode, string>;
   reportHeading: (domain: string) => string;
   reportFooter: (domain: string) => string;
+  // Neutral fact, not a finding — platformName is a proper noun
+  // (WordPress, Wix...) so it's the same string in every locale; only
+  // the sentence around it is translated.
+  platformDetected: (platformName: string) => string;
   madeByLabel: string;
   opensNewTab: string;
   // One entry per AnalyzeErrorCode: every way an analysis can fail has
@@ -203,6 +207,7 @@ const pt: Dictionary = {
   },
   reportHeading: (domain) => `Relatório de ${domain}`,
   reportFooter: (domain) => `lsdias.dev · relatório referente a ${domain}`,
+  platformDetected: (platformName) => `Feito em ${platformName}`,
   madeByLabel: "Veja meu portfólio",
   opensNewTab: "abre em nova aba",
   analysisError: {
@@ -215,6 +220,7 @@ const pt: Dictionary = {
         : "Você fez muitas análises em pouco tempo. Tenta de novo mais tarde.",
     "analysis-failed": () =>
       "Não conseguimos acessar esse site. Ele pode estar fora do ar, bloqueando ferramentas de análise, ou o endereço pode estar errado.",
+    "quota-exceeded": () => "Atingimos o limite diário da ferramenta de análise. Tenta de novo amanhã.",
     timeout: () => "O site demorou demais pra responder e desistimos de esperar. Tenta de novo em instantes.",
     offline: () => "Você parece estar sem conexão. Confere sua internet e tenta de novo.",
     unknown: () => "Algo deu errado no meio da análise. Tenta de novo em instantes.",
@@ -280,6 +286,22 @@ const pt: Dictionary = {
       title: "Encontramos texto com contraste insuficiente.",
       description: "Algum texto do site é difícil de ler por causa do contraste de cor entre o texto e o fundo.",
     }),
+    "slow-server-response": (params) => ({
+      title: `O servidor demora ${params?.ms}ms pra começar a responder.`,
+      description: "É o tempo até o primeiro byte da resposta chegar, antes do navegador ter qualquer HTML pra processar.",
+    }),
+    "heading-order": () => ({
+      title: "Os títulos da página (H1, H2, H3...) não seguem uma ordem lógica.",
+      description: "Pular níveis de título atrapalha quem usa leitor de tela a entender a estrutura da página.",
+    }),
+    "missing-form-labels": () => ({
+      title: "Encontramos campo de formulário sem rótulo (label) associado.",
+      description: "Sem um rótulo, quem usa leitor de tela não sabe o que preencher em cada campo.",
+    }),
+    "broken-links": (params) => ({
+      title: `${params?.broken} de ${params?.checked} links testados na home estão quebrados.`,
+      description: "Um link quebrado é um beco sem saída pra quem clicou, e um sinal ruim pro Google sobre a manutenção do site.",
+    }),
   },
   impact: {
     "no-https": "Seu site aparece com o aviso \"não seguro\" no navegador do visitante. Isso passa desconfiança, principalmente se a pessoa for preencher algum formulário ou fazer uma compra.",
@@ -301,6 +323,10 @@ const pt: Dictionary = {
     "slow-load-impact": "Cada segundo a mais de espera aumenta a chance de a pessoa sair do site antes de ver qualquer coisa — o número acima não é uma estimativa aleatória, vem de uma pesquisa real sobre esse comportamento.",
     "layout-shift": "Isso costuma acontecer quando uma imagem, anúncio ou bloco de texto carrega depois e empurra o resto da página — o que já era clicável muda de lugar bem na hora em que a pessoa ia interagir.",
     "color-contrast": "Texto com pouco contraste é difícil de ler pra qualquer pessoa em ambiente claro ou com o brilho da tela baixo, e praticamente ilegível pra quem tem baixa visão.",
+    "slow-server-response": "Um servidor lento pra responder atrasa tudo que vem depois — mesmo que o resto da página seja rápido, a pessoa já esperou antes de qualquer coisa aparecer na tela.",
+    "heading-order": "Pra quem enxerga, isso é praticamente invisível. Pra quem usa leitor de tela, a ordem dos títulos funciona como um índice: pular níveis torna mais difícil entender do que trata cada parte da página.",
+    "missing-form-labels": "Sem rótulo, um formulário de contato ou orçamento pode ficar praticamente inutilizável pra quem usa leitor de tela — a pessoa ouve \"campo de texto\" sem saber se é nome, e-mail ou mensagem.",
+    "broken-links": "Cada link quebrado é uma pessoa que clicou esperando chegar em algum lugar e caiu numa página de erro — se acontece logo na home, é a primeira impressão do site. Também é um dos sinais que o Google usa pra avaliar a qualidade e manutenção de um site.",
   },
   impactClause: {
     "no-https": "a insegurança da conexão",
@@ -316,8 +342,11 @@ const pt: Dictionary = {
     "low-performance": "a lentidão geral do carregamento",
     "slow-load-impact": "o tempo de carregamento alto",
     "layout-shift": "a instabilidade visual durante o carregamento",
-    // color-contrast has no clause: always "atencao" (no per-element
-    // ratio to grade severity by), same reasoning as no-sitemap below.
+    "slow-server-response": "o tempo de resposta lento do servidor",
+    "broken-links": "os links quebrados na home",
+    // color-contrast/heading-order/missing-form-labels have no clause:
+    // always "atencao" (no per-element ratio to grade severity by),
+    // same reasoning as no-sitemap below.
     // no-sitemap has no clause: it's always severity "atencao", never
     // "critico" (see deriveIssues), so it can never reach the
     // critical-only input synthesizeCriticalImpact consumes.
@@ -343,6 +372,10 @@ const pt: Dictionary = {
     "slow-load-impact": "Priorizar o carregamento do conteúdo principal da página antes de qualquer coisa secundária.",
     "layout-shift": "Reservar o espaço de imagens, anúncios e blocos que carregam depois, pra eles não empurrarem o resto da página.",
     "color-contrast": "Ajustar as cores de texto e fundo pra aumentar o contraste nos trechos identificados.",
+    "slow-server-response": "Investigar o que está lento no backend (banco de dados, processamento, hospedagem) ou considerar cache/CDN pra servir a resposta mais rápido.",
+    "heading-order": "Reorganizar os títulos da página pra seguir uma hierarquia lógica (H1 seguido de H2, H2 seguido de H3, sem pular níveis).",
+    "missing-form-labels": "Associar um <label> a cada campo de formulário, ou usar aria-label quando um rótulo visível não for possível.",
+    "broken-links": "Corrigir ou remover os links quebrados encontrados, atualizando o destino ou apontando pra uma página que ainda existe.",
   },
 };
 
@@ -432,6 +465,7 @@ const en: Dictionary = {
   },
   reportHeading: (domain) => `Report for ${domain}`,
   reportFooter: (domain) => `lsdias.dev · report for ${domain}`,
+  platformDetected: (platformName) => `Built on ${platformName}`,
   madeByLabel: "See my portfolio",
   opensNewTab: "opens in a new tab",
   analysisError: {
@@ -444,6 +478,7 @@ const en: Dictionary = {
         : "You've run a lot of analyses in a short time. Try again later.",
     "analysis-failed": () =>
       "We couldn't reach that site. It may be down, blocking analysis tools, or the address may be wrong.",
+    "quota-exceeded": () => "We've hit the analysis tool's daily limit. Try again tomorrow.",
     timeout: () => "The site took too long to respond and we stopped waiting. Try again in a moment.",
     offline: () => "You appear to be offline. Check your connection and try again.",
     unknown: () => "Something went wrong during the analysis. Try again in a moment.",
@@ -509,6 +544,22 @@ const en: Dictionary = {
       title: "We found text with insufficient contrast.",
       description: "Some text on the site is hard to read because of low color contrast between the text and the background.",
     }),
+    "slow-server-response": (params) => ({
+      title: `The server takes ${params?.ms}ms to start responding.`,
+      description: "That's the time to first byte — before the browser has any HTML to work with at all.",
+    }),
+    "heading-order": () => ({
+      title: "Heading levels (H1, H2, H3...) aren't in a logical order.",
+      description: "Skipping heading levels makes it harder for screen reader users to understand the page's structure.",
+    }),
+    "missing-form-labels": () => ({
+      title: "We found a form field with no associated label.",
+      description: "Without a label, screen reader users don't know what to enter in each field.",
+    }),
+    "broken-links": (params) => ({
+      title: `${params?.broken} of ${params?.checked} links tested on the homepage are broken.`,
+      description: "A broken link is a dead end for whoever clicked it, and a bad signal to Google about how well-maintained the site is.",
+    }),
   },
   impact: {
     "no-https": "Your site shows up with a \"not secure\" warning in the visitor's browser. That reads as suspicious, especially if someone's about to fill out a form or make a purchase.",
@@ -526,6 +577,10 @@ const en: Dictionary = {
     "slow-load-impact": "Every extra second of waiting raises the odds someone leaves before seeing anything at all — the number above isn't a rough guess, it comes from real published research on this exact behavior.",
     "layout-shift": "This usually happens when an image, ad, or block of text loads late and pushes the rest of the page around — something that was already clickable moves right as someone's about to interact with it.",
     "color-contrast": "Low-contrast text is hard to read for anyone in a bright environment or with low screen brightness, and nearly unreadable for people with low vision.",
+    "slow-server-response": "A slow-to-respond server delays everything that follows — even if the rest of the page is fast, the visitor already waited before anything showed up on screen.",
+    "heading-order": "For sighted visitors this is nearly invisible. For screen reader users, heading order works like a table of contents: skipping levels makes it harder to understand what each part of the page is about.",
+    "missing-form-labels": "Without labels, a contact or quote form can be practically unusable for screen reader users — they hear \"text field\" with no way to tell if it's name, email, or message.",
+    "broken-links": "Every broken link is someone who clicked expecting to land somewhere and hit an error page instead — if it happens right on the homepage, that's the site's first impression. It's also one of the signals Google uses to judge how well-maintained a site is.",
   },
   impactClause: {
     "no-https": "the insecure connection",
@@ -537,6 +592,8 @@ const en: Dictionary = {
     "low-performance": "the overall slow load time",
     "slow-load-impact": "the high load time",
     "layout-shift": "the visual instability while loading",
+    "slow-server-response": "the slow server response time",
+    "broken-links": "the broken links on the homepage",
   },
   synthesizeImpact: (clauses) => {
     const joined = clauses.length > 1 ? `${clauses[0]} and ${clauses[1]}` : clauses[0];
@@ -559,6 +616,10 @@ const en: Dictionary = {
     "slow-load-impact": "Prioritize loading the page's main content before anything secondary.",
     "layout-shift": "Reserve space for images, ads, and blocks that load later, so they don't push the rest of the page around.",
     "color-contrast": "Adjust text and background colors to increase contrast in the flagged areas.",
+    "slow-server-response": "Investigate what's slow on the backend (database, processing, hosting) or consider caching/a CDN to serve the response faster.",
+    "heading-order": "Reorganize the page's headings to follow a logical hierarchy (H1 followed by H2, H2 followed by H3, without skipping levels).",
+    "missing-form-labels": "Associate a <label> with each form field, or use aria-label when a visible label isn't possible.",
+    "broken-links": "Fix or remove the broken links found, updating the destination or pointing to a page that still exists.",
   },
 };
 

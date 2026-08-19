@@ -237,3 +237,109 @@ describe("deriveIssues — color-contrast", () => {
     expect(issues).toContainEqual({ category: "accessibility", severity: "atencao", code: "color-contrast" });
   });
 });
+
+describe("deriveIssues — slow-server-response (TTFB)", () => {
+  it("doesn't fire when ttfbMs is unavailable", () => {
+    const issues = deriveIssues({
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 90 } },
+    });
+
+    expect(issues.some((issue) => issue.code === "slow-server-response")).toBe(false);
+  });
+
+  it("doesn't fire at or below the 800ms 'good' threshold", () => {
+    const issues = deriveIssues({
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 90 }, ttfbMs: 800 },
+    });
+
+    expect(issues.some((issue) => issue.code === "slow-server-response")).toBe(false);
+  });
+
+  it("flags atencao between 800ms and 1800ms ('needs improvement')", () => {
+    const issues = deriveIssues({
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 90 }, ttfbMs: 1200 },
+    });
+
+    expect(issues).toContainEqual({ category: "performance", severity: "atencao", code: "slow-server-response", params: { ms: 1200 } });
+  });
+
+  it("flags critico past 1800ms ('poor')", () => {
+    const issues = deriveIssues({
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 90 }, ttfbMs: 2500 },
+    });
+
+    expect(issues).toContainEqual({ category: "performance", severity: "critico", code: "slow-server-response", params: { ms: 2500 } });
+  });
+});
+
+describe("deriveIssues — heading-order", () => {
+  it("doesn't fire when hasHeadingOrderIssues is undefined (audit not applicable)", () => {
+    const issues = deriveIssues({
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 90 } },
+    });
+
+    expect(issues.some((issue) => issue.code === "heading-order")).toBe(false);
+  });
+
+  it("flags atencao when hasHeadingOrderIssues is true", () => {
+    const issues = deriveIssues({
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 90 }, hasHeadingOrderIssues: true },
+    });
+
+    expect(issues).toContainEqual({ category: "accessibility", severity: "atencao", code: "heading-order" });
+  });
+});
+
+describe("deriveIssues — missing-form-labels", () => {
+  it("doesn't fire when hasFormLabelIssues is undefined (no forms on the page)", () => {
+    const issues = deriveIssues({
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 90 } },
+    });
+
+    expect(issues.some((issue) => issue.code === "missing-form-labels")).toBe(false);
+  });
+
+  it("flags atencao when hasFormLabelIssues is true", () => {
+    const issues = deriveIssues({
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 90 }, hasFormLabelIssues: true },
+    });
+
+    expect(issues).toContainEqual({ category: "accessibility", severity: "atencao", code: "missing-form-labels" });
+  });
+});
+
+describe("deriveIssues — broken-links", () => {
+  it("doesn't fire when there are no broken links", () => {
+    const issues = deriveIssues({
+      brokenLinks: { checkedCount: 5, brokenCount: 0, brokenUrls: [] },
+    });
+
+    expect(issues.some((issue) => issue.code === "broken-links")).toBe(false);
+  });
+
+  it("flags atencao when at most half the checked links are broken", () => {
+    const issues = deriveIssues({
+      brokenLinks: { checkedCount: 4, brokenCount: 1, brokenUrls: ["https://x.com/a"] },
+    });
+
+    expect(issues).toContainEqual({
+      category: "seo",
+      severity: "atencao",
+      code: "broken-links",
+      params: { broken: 1, checked: 4 },
+    });
+  });
+
+  it("flags critico when more than half the checked links are broken", () => {
+    const issues = deriveIssues({
+      brokenLinks: { checkedCount: 4, brokenCount: 3, brokenUrls: ["https://x.com/a", "https://x.com/b", "https://x.com/c"] },
+    });
+
+    expect(issues).toContainEqual({
+      category: "seo",
+      severity: "critico",
+      code: "broken-links",
+      params: { broken: 3, checked: 4 },
+    });
+  });
+});
