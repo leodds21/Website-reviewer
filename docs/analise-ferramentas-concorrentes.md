@@ -1,17 +1,22 @@
 # Análise de ferramentas concorrentes — lsdias.dev
 
-Documento de análise, sem nenhuma implementação. Objetivo: comparar o que o lsdias.dev já faz hoje contra as ferramentas de diagnóstico de site mais usadas do mercado, organizadas nas mesmas seis categorias em que foram apresentadas, e apontar o que valeria a pena considerar como adição futura.
+Documento de análise. Objetivo original: comparar o que o lsdias.dev fazia contra as ferramentas de diagnóstico de site mais usadas do mercado, organizadas nas mesmas seis categorias em que foram apresentadas, e apontar o que valeria a pena considerar como adição futura.
+
+> **Atualizado após implementação.** A maior parte da síntese de prioridade original (seção final) já foi construída: headers de segurança, sinais extras do payload da PageSpeed (CLS, TTFB, contraste de cor, ordem de heading, rótulos de formulário), detecção simplificada de plataforma e checagem de links quebrados na home. Cada seção abaixo indica o que mudou; a análise original (o que era avaliação, não fato) foi preservada onde ainda vale como contexto.
 
 ## Como o lsdias.dev funciona hoje (pra dar contexto às comparações)
 
 - **Uma URL, sem login, sem verificação de propriedade** — "roda, mostra, some". Isso já exclui de comparação direta qualquer ferramenta que exija ser dono/verificar o site (Google Search Console, Ahrefs Webmaster Tools).
-- **Só a página inicial é analisada**, não o site inteiro. Ferramentas que rastreiam várias páginas (Screaming Frog, Bing Site Scan, checkers de link quebrado) operam num nível que o lsdias.dev simplesmente não alcança hoje — não é uma lacuna pontual, é uma diferença de arquitetura.
+- **Só a página inicial é analisada**, não o site inteiro. Ferramentas que rastreiam várias páginas (Screaming Frog, Bing Site Scan) operam num nível que o lsdias.dev simplesmente não alcança hoje — não é uma lacuna pontual, é uma diferença de arquitetura. A checagem de links quebrados (seção 6) é a exceção parcial: segue os links *que aparecem* na home, sem rastrear o resto do site.
 - **Checagens atuais**, uma por arquivo em `lib/checks/`:
-  - `https.ts` — o site serve em HTTPS, segue redirecionamento de http→https, certificado válido (sem indício de nada além disso: não olha headers, não olha versão do TLS).
-  - `meta-tags.ts` — presença de `<title>`, meta description, meta viewport, tudo via regex sobre o HTML já buscado (não é um DOM renderizado).
-  - `alt-images.ts` — amostra de imagens sem `alt`.
-  - `sitemap-robots.ts` — existência de `sitemap.xml` (validando que o corpo é XML de verdade, não um 200 com página de erro) e `robots.txt`.
-  - `pagespeed.ts` — reaproveita a API do Google PageSpeed Insights (Lighthouse por baixo dos panos): os 4 scores de categoria (performance, acessibilidade, boas práticas, SEO) e o LCP.
+  - `https.ts` — o site serve em HTTPS, segue redirecionamento de http→https, certificado válido (sem indício de nada além disso: não olha versão do TLS).
+  - `securityHeaders.ts` — lê HSTS, Content-Security-Policy e proteção contra clickjacking dos mesmos headers que `https.ts` já busca, sem requisição própria.
+  - `metaTags.ts` — presença de `<title>`, meta description, meta viewport, tudo via regex sobre o HTML já buscado (não é um DOM renderizado).
+  - `altImages.ts` — amostra de imagens sem `alt`.
+  - `sitemapRobots.ts` — existência de `sitemap.xml` (validando que o corpo é XML de verdade, não um 200 com página de erro) e `robots.txt`.
+  - `techDetect.ts` — reconhece WordPress/Wix/Squarespace/Shopify a partir do mesmo HTML da home, sem requisição própria. Não é um achado: vira um campo neutro no relatório (`report.platform`), fora da lista de problemas, porque rodar numa dessas plataformas não é em si um problema a corrigir.
+  - `brokenLinks.ts` — amostra de até 10 links da própria home, verificados em paralelo (timeout de 3s cada, via `safeFetch`).
+  - `pagespeed.ts` — reaproveita a API do Google PageSpeed Insights (Lighthouse por baixo dos panos): os 4 scores de categoria (performance, acessibilidade, boas práticas, SEO), LCP, CLS, TTFB, e as auditorias de contraste de cor, ordem de heading e rótulos de formulário.
 - **Tom do produto**: achados viram frase em linguagem simples pra dono de site não-técnico, não relatório de dev. Isso pesa nas recomendações abaixo — uma funcionalidade forte tecnicamente mas difícil de traduzir em "isso está te custando venda" vale menos aqui do que valeria numa ferramenta pra desenvolvedor.
 
 ---
@@ -19,9 +24,9 @@ Documento de análise, sem nenhuma implementação. Objetivo: comparar o que o l
 ## 1. Diagnóstico geral e performance
 
 ### Google PageSpeed Insights
-**Já fazemos.** É literalmente nossa fonte de dados — `lib/pagespeed.ts` chama a mesma API v5 (Lighthouse). Os 4 scores de categoria e o LCP que aparecem no relatório vêm de lá.
+**Já fazemos.** É literalmente nossa fonte de dados — `lib/pagespeed.ts` chama a mesma API v5 (Lighthouse). Os 4 scores de categoria, LCP, CLS e TTFB (`server-response-time`) que aparecem no relatório vêm de lá.
 
-**O que eles fazem diferente:** o PSI roda mobile *e* desktop lado a lado e expõe cada métrica de Core Web Vitals separadamente (LCP, CLS, INP, TTFB), além de uma lista de "oportunidades" específicas ("reduza JavaScript não utilizado", "otimize imagens", com o tamanho estimado de cada ganho). Hoje só extraímos os 4 scores agregados e o LCP desse payload — não é limitação de acesso, é limitação de aproveitamento: os outros dados já vêm na mesma resposta que já pagamos de cota.
+**O que eles fazem diferente:** o PSI roda mobile *e* desktop lado a lado e expõe INP separadamente, além de uma lista de "oportunidades" específicas ("reduza JavaScript não utilizado", "otimize imagens", com o tamanho estimado de cada ganho). Isso ainda não é extraído — não é limitação de acesso, é limitação de aproveitamento: os dados já vêm na mesma resposta que já pagamos de cota, mas exigiriam um novo formato de achado (uma lista de recomendações técnicas, não um código+parâmetros único) pra caber no modelo atual de `lib/issues.ts`.
 
 ### Lighthouse
 **Já fazemos.** É o motor por trás do PageSpeed Insights que já usamos — mesma engine, não há nada novo aqui a considerar.
@@ -62,22 +67,22 @@ Documento de análise, sem nenhuma implementação. Objetivo: comparar o que o l
 **Avaliação:** fora de escopo, mesmo motivo do Search Console.
 
 ### Screaming Frog
-**Não fazemos nada diretamente equivalente**, mas conceitualmente nosso check de meta-tags é uma versão em miniatura de uma fração pequena do que ele cobre.
+**Fazemos parcialmente** — a checagem de links quebrados (seção 6) cobre a versão de uma página só do que ele faz; meta-tags cobre uma fração pequena do resto.
 
-**O que eles fazem diferente:** ferramenta desktop com crawl completo — links quebrados, redirects em cadeia, títulos e descriptions duplicados entre páginas do mesmo site, problemas de canonical.
+**O que eles fazem diferente:** ferramenta desktop com crawl completo — links quebrados em todo o site, redirects em cadeia, títulos e descriptions duplicados entre páginas do mesmo site, problemas de canonical.
 
-**Avaliação:** uma das ideias mais fortes da lista inteira pra médio prazo. "3 páginas do seu site têm o mesmo título" ou "seu site tem 5 links quebrados" são achados extremamente fáceis de explicar e com forte apelo de geração de lead — mas dependem de rastrear mais de uma página, que é a mesma mudança arquitetural citada acima.
+**Avaliação:** a parte de "links quebrados" já saiu do médio prazo pro presente, limitada à home. O resto (duplicação de título/description entre páginas, canonical, links quebrados no site inteiro) continua dependendo de rastrear mais de uma página — mesma mudança arquitetural de sempre, ainda não feita.
 
 ---
 
 ## 3. Acessibilidade
 
 ### WAVE
-**Fazemos parcialmente** — nosso check de alt-text cobre uma fração pequena do que o WAVE cobre.
+**Fazemos parcialmente** — contraste de cor, ordem de heading e rótulos de formulário (via auditorias específicas do Lighthouse, extraídas em `lib/pagespeed.ts`) mais a amostra de alt-text (`altImages.ts`) cobrem uma fatia real do que o WAVE cobre.
 
-**O que eles fazem diferente:** contraste de cor, hierarquia de heading, rótulos de formulário, estrutura semântica/ARIA — tudo isso analisando a página já renderizada (via extensão de navegador), não regex sobre o HTML cru.
+**O que eles fazem diferente:** estrutura semântica/ARIA mais ampla, analisando a página já renderizada (via extensão de navegador), não regex sobre o HTML cru nem auditorias do Lighthouse.
 
-**Avaliação:** **a adição mais forte de todo o documento.** Contraste de cor insuficiente é um problema visualmente óbvio até pra quem não é técnico ("esse texto cinza claro no fundo branco é difícil de ler"), e boa parte do trabalho pesado já está feito: o Lighthouse (que já chamamos) calcula auditorias específicas como `color-contrast`, `heading-order` e rótulos de formulário como parte do próprio accessibility score — hoje só usamos o número agregado, não as auditorias individuais que o compõem.
+**Avaliação:** a adição mais forte apontada no documento original já foi feita. `color-contrast`, `heading-order` e `label` eram auditorias que o Lighthouse já calculava dentro do accessibility score que já chamávamos — só faltava extrair e virar achado próprio. O que resta (estrutura semântica/ARIA mais ampla) exigiria um parser de DOM de verdade, não regex — fora de escopo por ora, mesmo motivo do axe DevTools abaixo.
 
 ### axe DevTools
 **Fazemos indiretamente** — o Lighthouse usa o motor axe-core por baixo dos panos pro accessibility score.
@@ -94,16 +99,14 @@ Já coberto na seção de performance — mesma ferramenta, mesmo ponto.
 ## 4. Segurança
 
 ### Mozilla HTTP Observatory
-**Não fazemos nada equivalente.** Nosso check de segurança hoje se resume a "serve em HTTPS + certificado válido".
+**Fazemos parcialmente.** `securityHeaders.ts` lê HSTS, Content-Security-Policy e proteção contra clickjacking (X-Frame-Options ou `frame-ancestors` na CSP) da mesma resposta que o check de HTTPS já busca — sem chamada externa nova.
 
-**O que eles fazem diferente:** avaliam a presença de headers de segurança (Content-Security-Policy, HSTS, X-Frame-Options, Referrer-Policy, Permissions-Policy) e dão uma nota de A a F.
+**O que eles fazem diferente:** nota de A a F, e mais headers (Referrer-Policy, Permissions-Policy, Cross-Origin-*), com peso e explicação por header.
 
-**Avaliação: forte candidata a adição.** Os headers já vêm de graça na mesma resposta HTTP que o check de HTTPS já busca hoje — é ler `response.headers`, sem chamada externa nova, sem API key nova, sem custo de cota. Baixo esforço de implementação pra um conjunto de achados totalmente novo.
+**Avaliação:** o núcleo da recomendação original (ler headers de segurança sem custo de requisição extra) já está implementado e alimentando o score de segurança e a lista de achados. Ampliar pra Referrer-Policy/Permissions-Policy é uma extensão pequena do mesmo arquivo, se algum dia valer a pena.
 
 ### SecurityHeaders
-**Não fazemos nada equivalente** — mesma lacuna do Mozilla Observatory, escopo essencialmente idêntico (nota pros headers HTTP).
-
-**Avaliação:** mesma recomendação do item anterior. Não faz sentido cobrir os dois separadamente — implementar a leitura de headers já cobre o território de ambos.
+Mesmo escopo do Mozilla Observatory acima — coberto pelo mesmo `securityHeaders.ts`.
 
 ### SSL Labs Server Test
 **Fazemos parcialmente** — verificamos se o certificado é válido (sem erro de cadeia), mas não avaliamos a qualidade da configuração TLS em si.
@@ -124,11 +127,11 @@ Já coberto na seção de performance — mesma ferramenta, mesmo ponto.
 ## 5. Tecnologias utilizadas
 
 ### Wappalyzer / BuiltWith / WhatRuns
-**Não fazemos nada equivalente.**
+**Fazemos parcialmente.** `techDetect.ts` reconhece WordPress, Wix, Squarespace e Shopify a partir do mesmo HTML que `fetchHtml` já busca, sem chamada nova — via `<meta name="generator">` e hosts de asset conhecidos (`wp-content`, `static.wixstatic.com`, `static1.squarespace.com`, `cdn.shopify.com`).
 
-**O que eles fazem diferente:** identificam CMS, framework, ferramenta de analytics, hospedagem e bibliotecas JS a partir de fingerprints — headers HTTP, scripts carregados, cookies, meta tags específicas (ex: `<meta name="generator" content="WordPress...">`).
+**O que eles fazem diferente:** cobertura de milhares de fingerprints (framework JS, ferramenta de analytics, hospedagem, bibliotecas), não só os quatro construtores de site mais comuns.
 
-**Avaliação: candidata interessante e de baixo custo.** Boa parte da detecção mais comum (WordPress, Wix, Squarespace, Shopify, Google Analytics/Tag Manager) dá pra fazer com o mesmo HTML que já buscamos hoje via `fetchHtml`, sem nenhuma chamada nova. Também tem valor direto de geração de lead: "seu site foi feito em uma plataforma que não recebe mais atualização" é um gancho de conversa natural. Não precisamos da cobertura de milhares de fingerprints do Wappalyzer — só os mais comuns entre o público-alvo do produto.
+**Avaliação:** decisão de produto tomada de forma diferente da sugestão original — em vez de virar um "achado" (a análise original sugeria o gancho "seu site roda numa plataforma sem atualização", mas isso exigiria saber a versão instalada *e* a mais recente pra comparar, o que essa checagem não faz), a plataforma detectada aparece como informação neutra no relatório (`report.platform`, mostrada como "Feito em WordPress" etc.), fora da lista de problemas. Rodar em WordPress não é em si um problema a corrigir, e apresentar como se fosse contrariaria o tom honesto do produto.
 
 ---
 
@@ -142,23 +145,23 @@ Já coberto na seção de performance — mesma ferramenta, mesmo ponto.
 **Avaliação:** baixa prioridade. Validação estrita tende a gerar muito ruído técnico — a maioria dos sites reais "funciona" mesmo com erros de validação, porque navegadores são tolerantes — e não é um achado fácil de traduzir pra "isso está custando venda pro seu negócio". Foge do tom do produto.
 
 ### Broken Link Checker / Dr. Link Check
-**Não fazemos nada diretamente equivalente** — hoje só verificamos a existência de `sitemap.xml`/`robots.txt`, não seguimos os links que aparecem na própria página.
+**Fazemos parcialmente.** `brokenLinks.ts` verifica até 10 links extraídos da própria home, em paralelo (timeout de 3s por link, via `safeFetch` — reaproveita as mesmas proteções de SSRF de todo o resto do produto). Um link 4xx/5xx conta como quebrado; falha de rede vira "não verificado", nunca "quebrado" — se nenhum link da amostra puder ser checado, a checagem inteira falha em vez de arriscar um falso "0 quebrados".
 
-**O que eles fazem diferente:** rastreiam todos os links (internos e externos) do site e reportam os que dão erro (404, timeout).
+**O que eles fazem diferente:** rastreiam todos os links (internos e externos) do site inteiro, não só os que aparecem na home, e sem limite de amostra.
 
-**Avaliação: candidata de médio prazo, boa mesmo numa versão limitada.** Checar só os links que aparecem na própria home (sem crawl recursivo pro resto do site) já é viável na arquitetura atual — o HTML da home já é buscado via `fetchHtml`. "3 links quebrados na sua página inicial" é um achado extremamente concreto e fácil de vender. Precisa de cuidado com o custo (N requisições extras por análise, dentro do timeout) e reaproveitar as mesmas proteções de SSRF que já existem em `safeFetch`.
+**Avaliação:** a versão limitada (só a home, amostra pequena) que a análise original já apontava como viável foi implementada. Continua fora do produto: seguir os links pra outras páginas do site e rastrear a partir delas — isso é a mesma mudança arquitetural "uma página → o site inteiro" citada em Screaming Frog/Bing Site Scan.
 
 ---
 
 ## Síntese: prioridade sugerida (esforço × valor de geração de lead)
 
-Ordenado do que parece mais barato/valioso pro que parece mais caro/de menor retorno — só análise, nenhuma decisão de implementação tomada:
+Lista original, ordenada do que parecia mais barato/valioso pro que parecia mais caro/de menor retorno. Os quatro primeiros itens já foram implementados — mantidos aqui, marcados, como registro de que a priorização se confirmou na prática:
 
-1. **Headers de segurança** (equivalente a Mozilla Observatory/SecurityHeaders) — zero requisição nova, os headers já vêm na resposta que o check de HTTPS já busca hoje.
-2. **Aproveitar mais o payload do PageSpeed que já recebemos** — CLS, TTFB e auditorias específicas de acessibilidade (contraste de cor, hierarquia de heading, rótulos de formulário) já estão na resposta da API que já pagamos de cota; hoje só usamos os 4 scores agregados e o LCP.
-3. **Detecção de tecnologia simplificada** (tipo Wappalyzer, mas só pros fingerprints mais comuns) — o HTML da home já é buscado, é questão de reconhecer padrões nele.
-4. **Links quebrados só na home** (sem crawl do site inteiro) — poucas requisições extras, achado com forte apelo de venda.
-5. **Crawl multi-página** (títulos/descriptions duplicados, links quebrados em todo o site, ao estilo Screaming Frog/Bing Site Scan) — potencial alto, mas é mudança de arquitetura grande (de "uma página" pra "um site"), não um ajuste pontual.
-6. **TLS aprofundado** (tipo SSL Labs), **scan de malware** (tipo Sucuri), **validação W3C de HTML/CSS** — prioridade baixa: ou o esforço de implementação é desproporcional ao ganho (TLS, malware), ou o achado não converte bem em algo que um dono de site não-técnico entenda como problema real (validação W3C).
+1. ~~**Headers de segurança**~~ **✅ feito** (`lib/checks/securityHeaders.ts`) — zero requisição nova, os headers vêm na resposta que o check de HTTPS já busca.
+2. ~~**Aproveitar mais o payload do PageSpeed que já recebemos**~~ **✅ feito** (`lib/pagespeed.ts`) — CLS, TTFB e as auditorias de contraste de cor, hierarquia de heading e rótulos de formulário agora saem da mesma resposta que já pagávamos de cota.
+3. ~~**Detecção de tecnologia simplificada**~~ **✅ feito** (`lib/checks/techDetect.ts`) — com uma diferença da sugestão original: vira campo neutro no relatório, não um achado com severidade (ver seção 5).
+4. ~~**Links quebrados só na home**~~ **✅ feito** (`lib/checks/brokenLinks.ts`) — amostra de 10 links, timeout de 3s cada, em paralelo.
+5. **Crawl multi-página** (títulos/descriptions duplicados, links quebrados em todo o site, ao estilo Screaming Frog/Bing Site Scan) — potencial alto, mas é mudança de arquitetura grande (de "uma página" pra "um site"), não um ajuste pontual. Ainda não feito.
+6. **TLS aprofundado** (tipo SSL Labs), **scan de malware** (tipo Sucuri), **validação W3C de HTML/CSS** — prioridade baixa: ou o esforço de implementação é desproporcional ao ganho (TLS, malware), ou o achado não converte bem em algo que um dono de site não-técnico entenda como problema real (validação W3C). Ainda não feito, e provavelmente não vale a pena.
 
 **Fora de escopo por incompatibilidade de modelo** (exigem ser dono/verificar o site — contraria o "roda, mostra, some" sem login): Google Search Console, Ahrefs Webmaster Tools.
