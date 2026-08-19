@@ -1,5 +1,7 @@
 # lsdias.dev
 
+**[scan.lsdias.dev](https://scan.lsdias.dev)** — demo ao vivo.
+
 Ferramenta que analisa um site e devolve, em menos de um minuto, onde ele está pegando: performance, SEO, acessibilidade e segurança, tudo numa nota só.
 
 ## De onde veio
