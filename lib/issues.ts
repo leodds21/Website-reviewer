@@ -1,9 +1,10 @@
 import type { PageSpeedResult } from "./pagespeed";
 import type { HttpsCheckResult } from "./checks/https";
-import type { MetaTagsCheckResult } from "./checks/meta-tags";
-import type { AltImagesCheckResult } from "./checks/alt-images";
-import type { SitemapRobotsCheckResult } from "./checks/sitemap-robots";
-import type { SecurityHeadersCheckResult } from "./checks/security-headers";
+import type { MetaTagsCheckResult } from "./checks/metaTags";
+import type { AltImagesCheckResult } from "./checks/altImages";
+import type { SitemapRobotsCheckResult } from "./checks/sitemapRobots";
+import type { SecurityHeadersCheckResult } from "./checks/securityHeaders";
+import type { BrokenLinksCheckResult } from "./checks/brokenLinks";
 
 export type IssueCategory = "performance" | "seo" | "accessibility" | "security";
 export type IssueSeverity = "critico" | "atencao";
@@ -23,7 +24,11 @@ export type IssueCode =
   | "low-performance"
   | "slow-load-impact"
   | "layout-shift"
-  | "color-contrast";
+  | "color-contrast"
+  | "slow-server-response"
+  | "heading-order"
+  | "missing-form-labels"
+  | "broken-links";
 
 export type Issue = {
   category: IssueCategory;
@@ -52,6 +57,14 @@ const LOAD_IMPACT_BUCKETS = [
 const CLS_NEEDS_IMPROVEMENT_THRESHOLD = 0.1;
 const CLS_POOR_THRESHOLD = 0.25;
 
+// Google's own published Core Web Vitals thresholds for Time to First
+// Byte (web.dev/articles/ttfb): "good" is at or below 800ms, "poor" is
+// past 1800ms. This is the server's own response time, before the
+// browser has any HTML — distinct from LCP, which also counts
+// everything the browser does after the first byte arrives.
+const TTFB_NEEDS_IMPROVEMENT_THRESHOLD_MS = 800;
+const TTFB_POOR_THRESHOLD_MS = 1800;
+
 export type DeriveIssuesInput = {
   pagespeed?: PageSpeedResult;
   https?: HttpsCheckResult;
@@ -59,6 +72,7 @@ export type DeriveIssuesInput = {
   metaTags?: MetaTagsCheckResult;
   altImages?: AltImagesCheckResult;
   sitemapRobots?: SitemapRobotsCheckResult;
+  brokenLinks?: BrokenLinksCheckResult;
 };
 
 /**
@@ -140,6 +154,16 @@ export function deriveIssues(input: DeriveIssuesInput): Issue[] {
     issues.push({ category: "seo", severity: "atencao", code: "no-sitemap" });
   }
 
+  if (input.brokenLinks && input.brokenLinks.brokenCount > 0) {
+    const ratio = input.brokenLinks.brokenCount / input.brokenLinks.checkedCount;
+    issues.push({
+      category: "seo",
+      severity: ratio > 0.5 ? "critico" : "atencao",
+      code: "broken-links",
+      params: { broken: input.brokenLinks.brokenCount, checked: input.brokenLinks.checkedCount },
+    });
+  }
+
   if (input.pagespeed) {
     const performanceScore = input.pagespeed.scores.performance;
     if (typeof performanceScore === "number" && performanceScore < 80) {
@@ -179,6 +203,25 @@ export function deriveIssues(input: DeriveIssuesInput): Issue[] {
       // missing-alt, there's no proportional signal to grade severity
       // by, so this stays "atencao" rather than guessing at "critico".
       issues.push({ category: "accessibility", severity: "atencao", code: "color-contrast" });
+    }
+
+    if (typeof input.pagespeed.ttfbMs === "number" && input.pagespeed.ttfbMs > TTFB_NEEDS_IMPROVEMENT_THRESHOLD_MS) {
+      issues.push({
+        category: "performance",
+        severity: input.pagespeed.ttfbMs > TTFB_POOR_THRESHOLD_MS ? "critico" : "atencao",
+        code: "slow-server-response",
+        params: { ms: input.pagespeed.ttfbMs },
+      });
+    }
+
+    if (input.pagespeed.hasHeadingOrderIssues) {
+      // Same pass/fail shape as color-contrast: Lighthouse gives no
+      // count of affected headings, so this stays "atencao".
+      issues.push({ category: "accessibility", severity: "atencao", code: "heading-order" });
+    }
+
+    if (input.pagespeed.hasFormLabelIssues) {
+      issues.push({ category: "accessibility", severity: "atencao", code: "missing-form-labels" });
     }
   }
 

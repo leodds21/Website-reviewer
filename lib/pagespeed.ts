@@ -3,6 +3,22 @@ import { PAGESPEED_TIMEOUT_MS } from "./timeouts";
 
 const PAGESPEED_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed";
 
+/**
+ * Carries the response status alongside the message, so a caller can
+ * tell "Google's quota for this key ran out" (429) apart from "the URL
+ * we sent was rejected" or "the key itself is bad" (4xx) without
+ * re-parsing the message string.
+ */
+export class PageSpeedError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "PageSpeedError";
+  }
+}
+
 // Only the handful of fields this file actually reads out of Google's
 // much larger Lighthouse response — not a full schema.
 type PageSpeedApiResponse = {
@@ -11,10 +27,16 @@ type PageSpeedApiResponse = {
     audits?: {
       "largest-contentful-paint"?: { numericValue?: number };
       "cumulative-layout-shift"?: { numericValue?: number };
+      // Time to First Byte, in ms — how long the server itself took to
+      // start responding, before the browser had any HTML to work with.
+      "server-response-time"?: { numericValue?: number };
       // Lighthouse audit scores are 0-1 pass/fail here (not a
       // percentage like the category scores), or null when the audit
-      // doesn't apply to this page at all (e.g. no text found).
+      // doesn't apply to this page at all (e.g. no text found, or no
+      // <form> elements for "label").
       "color-contrast"?: { score?: number | null };
+      "heading-order"?: { score?: number | null };
+      label?: { score?: number | null };
     };
   };
 };
@@ -53,6 +75,16 @@ export type PageSpeedResult = {
   // page at all (score: null) — distinct from "no problem found"
   // (score: 1, false).
   hasColorContrastIssues?: boolean;
+  // Time to First Byte, in whole milliseconds. Google's own published
+  // thresholds (not ours) are cited where this becomes a finding, in
+  // lib/issues.ts.
+  ttfbMs?: number;
+  // Undefined when the heading-order audit wasn't applicable (e.g. no
+  // headings on the page at all).
+  hasHeadingOrderIssues?: boolean;
+  // Undefined when the page has no <form> elements for the "label"
+  // audit to check in the first place.
+  hasFormLabelIssues?: boolean;
 };
 
 /**
@@ -83,7 +115,7 @@ export async function runPageSpeed(url: string, signal?: AbortSignal): Promise<P
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(`PageSpeed API retornou ${response.status}: ${body}`);
+    throw new PageSpeedError(`PageSpeed API retornou ${response.status}: ${body}`, response.status);
   }
 
   const data = (await response.json()) as PageSpeedApiResponse;
@@ -105,6 +137,15 @@ export async function runPageSpeed(url: string, signal?: AbortSignal): Promise<P
   const contrastScore = data.lighthouseResult?.audits?.["color-contrast"]?.score;
   const hasColorContrastIssues = typeof contrastScore === "number" ? contrastScore < 1 : undefined;
 
+  const rawTtfb = data.lighthouseResult?.audits?.["server-response-time"]?.numericValue;
+  const ttfbMs = typeof rawTtfb === "number" ? Math.round(rawTtfb) : undefined;
+
+  const headingOrderScore = data.lighthouseResult?.audits?.["heading-order"]?.score;
+  const hasHeadingOrderIssues = typeof headingOrderScore === "number" ? headingOrderScore < 1 : undefined;
+
+  const formLabelScore = data.lighthouseResult?.audits?.label?.score;
+  const hasFormLabelIssues = typeof formLabelScore === "number" ? formLabelScore < 1 : undefined;
+
   return {
     scores: {
       performance: scoreOf("performance"),
@@ -115,5 +156,8 @@ export async function runPageSpeed(url: string, signal?: AbortSignal): Promise<P
     lcpSeconds,
     clsValue,
     hasColorContrastIssues,
+    ttfbMs,
+    hasHeadingOrderIssues,
+    hasFormLabelIssues,
   };
 }

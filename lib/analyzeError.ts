@@ -14,6 +14,10 @@ export type AnalyzeErrorCode =
   | "invalid-url"
   | "blocked-url"
   | "rate-limited"
+  // Distinct from "rate-limited": that's our own per-IP limit, this is
+  // Google's PageSpeed quota for our API key running out — a different
+  // problem the visitor can't do anything about by waiting an hour.
+  | "quota-exceeded"
   | "analysis-failed"
   | "timeout"
   | "offline"
