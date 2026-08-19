@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { checkSitemapRobots } from "./sitemap-robots";
+import { checkSitemapRobots } from "./sitemapRobots";
 
 // checkSitemapRobots goes through safeFetch, which resolves DNS to
 // check for a blocked IP before every request — mocked here so the

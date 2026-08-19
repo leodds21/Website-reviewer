@@ -13,7 +13,7 @@ export type HttpsCheckResult = {
   // does serve TLS, it's just not one a client should trust.
   certificateError?: boolean;
   // Present whenever the request actually got a response — lets
-  // parseSecurityHeaders (lib/checks/security-headers.ts) read HSTS/
+  // parseSecurityHeaders (lib/checks/securityHeaders.ts) read HSTS/
   // CSP/frame protections off the same fetch instead of requesting
   // the page again just for its headers.
   headers?: Headers;
