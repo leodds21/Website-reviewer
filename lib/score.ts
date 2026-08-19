@@ -1,9 +1,10 @@
 import type { PageSpeedResult } from "./pagespeed";
 import type { HttpsCheckResult } from "./checks/https";
-import type { MetaTagsCheckResult } from "./checks/meta-tags";
-import type { AltImagesCheckResult } from "./checks/alt-images";
-import type { SitemapRobotsCheckResult } from "./checks/sitemap-robots";
-import type { SecurityHeadersCheckResult } from "./checks/security-headers";
+import type { MetaTagsCheckResult } from "./checks/metaTags";
+import type { AltImagesCheckResult } from "./checks/altImages";
+import type { SitemapRobotsCheckResult } from "./checks/sitemapRobots";
+import type { SecurityHeadersCheckResult } from "./checks/securityHeaders";
+import type { BrokenLinksCheckResult } from "./checks/brokenLinks";
 
 export type Severity = "critico" | "atencao" | "ok" | "indisponivel";
 
@@ -33,6 +34,17 @@ function average(values: number[]): number {
 function altImagesScore(result: AltImagesCheckResult): number {
   if (result.sampledCount === 0) return 100;
   return ((result.sampledCount - result.missingAltCount) / result.sampledCount) * 100;
+}
+
+// Zero checked links (no <a href> on the page at all) scores as clean,
+// same reasoning as altImagesScore above — nothing was found broken
+// because there was nothing to break. checkBrokenLinks itself throws
+// rather than returning checkedCount: 0 when links existed but none
+// could be verified (see lib/checks/brokenLinks.ts), so that ambiguous
+// case never reaches this function as a fabricated 100.
+function brokenLinksScore(result: BrokenLinksCheckResult): number {
+  if (result.checkedCount === 0) return 100;
+  return ((result.checkedCount - result.brokenCount) / result.checkedCount) * 100;
 }
 
 function categoryScore(score: number): CategoryScore {
@@ -75,6 +87,7 @@ export type AggregateScoreInput = {
   metaTags?: MetaTagsCheckResult;
   altImages?: AltImagesCheckResult;
   sitemapRobots?: SitemapRobotsCheckResult;
+  brokenLinks?: BrokenLinksCheckResult;
 };
 
 /**
@@ -108,6 +121,7 @@ export function aggregateScore(input: AggregateScoreInput): AggregatedScore {
     // robots.txt matters for the same reason sitemap.xml does — it's
     // how crawlers are told what to do with the site.
     booleanSignal(input.sitemapRobots?.hasRobotsTxt),
+    input.brokenLinks ? brokenLinksScore(input.brokenLinks) : null,
   ]);
 
   const accessibility = categoryFrom([

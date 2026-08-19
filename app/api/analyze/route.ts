@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { checkHttps, type HttpsCheckResult } from "@/lib/checks/https";
-import { parseSecurityHeaders, type SecurityHeadersCheckResult } from "@/lib/checks/security-headers";
-import { parseMetaTags, type MetaTagsCheckResult } from "@/lib/checks/meta-tags";
-import { parseAltImages, type AltImagesCheckResult } from "@/lib/checks/alt-images";
-import { checkSitemapRobots, type SitemapRobotsCheckResult } from "@/lib/checks/sitemap-robots";
-import { runPageSpeed, type PageSpeedResult } from "@/lib/pagespeed";
+import { parseSecurityHeaders, type SecurityHeadersCheckResult } from "@/lib/checks/securityHeaders";
+import { parseMetaTags, type MetaTagsCheckResult } from "@/lib/checks/metaTags";
+import { parseAltImages, type AltImagesCheckResult } from "@/lib/checks/altImages";
+import { checkSitemapRobots, type SitemapRobotsCheckResult } from "@/lib/checks/sitemapRobots";
+import { detectTech, type TechPlatform } from "@/lib/checks/techDetect";
+import { checkBrokenLinks, type BrokenLinksCheckResult } from "@/lib/checks/brokenLinks";
+import { PageSpeedError, runPageSpeed, type PageSpeedResult } from "@/lib/pagespeed";
 import { fetchHtml } from "@/lib/fetchHtml";
 import { getCached, setCached, FULL_TTL_MS, PARTIAL_TTL_MS } from "@/lib/cache";
 import { aggregateScore } from "@/lib/score";
@@ -44,6 +46,7 @@ type CheckResults = {
   altImages: AltImagesCheckResult;
   sitemapRobots: SitemapRobotsCheckResult;
   pagespeed: PageSpeedResult;
+  brokenLinks: BrokenLinksCheckResult;
 };
 
 /**
@@ -56,14 +59,21 @@ function errorResponse(error: AnalyzeError, status: number, headers?: Record<str
   return NextResponse.json(error, { status, headers });
 }
 
-function parseTargetUrl(input: string): URL | null {
+type ParsedTargetUrl = { ok: true; url: URL } | { ok: false; reason: "invalid" | "blocked" };
+
+// Malformed input and a URL that's syntactically fine but points at a
+// blocked host (SSRF guard) are different problems for the visitor —
+// "you typed it wrong" versus "that kind of address isn't allowed" —
+// so callers get enough to pick the right AnalyzeErrorCode instead of
+// collapsing both into one generic "invalid".
+function parseTargetUrl(input: string): ParsedTargetUrl {
   try {
     const url = new URL(normalizeUrl(input));
-    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
-    if (isBlockedHost(url.hostname)) return null;
-    return url;
+    if (url.protocol !== "http:" && url.protocol !== "https:") return { ok: false, reason: "invalid" };
+    if (isBlockedHost(url.hostname)) return { ok: false, reason: "blocked" };
+    return { ok: true, url };
   } catch {
-    return null;
+    return { ok: false, reason: "invalid" };
   }
 }
 
@@ -115,10 +125,11 @@ export async function GET(request: Request) {
     return errorResponse({ code: "missing-url" }, 400);
   }
 
-  const targetUrl = parseTargetUrl(rawUrl);
-  if (!targetUrl) {
-    return errorResponse({ code: "invalid-url" }, 400);
+  const parsedUrl = parseTargetUrl(rawUrl);
+  if (!parsedUrl.ok) {
+    return errorResponse({ code: parsedUrl.reason === "blocked" ? "blocked-url" : "invalid-url" }, 400);
   }
+  const targetUrl = parsedUrl.url;
 
   const domain = targetUrl.hostname;
   const target = targetUrl.toString();
@@ -167,17 +178,37 @@ export async function GET(request: Request) {
       }
 
       const results: Partial<CheckResults> = {};
+      let platform: TechPlatform | null = null;
       let sawFailure = false;
+      // Only meaningful when every check fails (see the "analysis-failed"
+      // branch below) — a PageSpeed failure alone just leaves the
+      // performance category "indisponível," like any other partial
+      // failure, no top-level error needed for that case.
+      let pagespeedError: unknown;
+      // brokenLinks derives from the same `pageFetch` promise as the
+      // "page" task (see `tasks` below): when fetchHtml itself fails,
+      // that rejection forwards unchanged into brokenLinks too, so the
+      // exact same Error object would otherwise get logged twice for
+      // one root cause. Tracked by reference, not by task key, so it
+      // stays correct if another derived task is added later.
+      const loggedErrors = new Set<unknown>();
 
       // https gets the raw user input (not the https-forced `target`)
       // since its whole job is testing whether a plain-http request
       // gets upgraded — feeding it an already-https URL made "site
       // doesn't serve HTTPS at all" nearly unreachable as a finding.
+      const pageFetch = fetchHtml(target, abortController.signal);
+
       const tasks = {
         https: checkHttps(rawUrl, abortController.signal),
-        page: fetchHtml(target, abortController.signal),
+        page: pageFetch,
         sitemapRobots: checkSitemapRobots(target, abortController.signal),
         pagespeed: runPageSpeed(target, abortController.signal),
+        // Waits on the same fetch page/metaTags/altImages already use
+        // (see the "page" outcome below) instead of fetching the page a
+        // second time — only the up-to-10 link checks themselves are
+        // new requests, against links the site's own home page links to.
+        brokenLinks: pageFetch.then((html) => checkBrokenLinks(html, target, abortController.signal)),
       };
 
       for await (const outcome of settleInOrder(tasks)) {
@@ -185,7 +216,11 @@ export async function GET(request: Request) {
           sawFailure = true;
           // Logged server-side only — the client gets a generic
           // message (see below), never this raw detail.
-          console.error(`Checagem "${outcome.key}" falhou para ${target}:`, outcome.error);
+          if (!loggedErrors.has(outcome.error)) {
+            loggedErrors.add(outcome.error);
+            console.error(`Checagem "${outcome.key}" falhou para ${target}:`, outcome.error);
+          }
+          if (outcome.key === "pagespeed") pagespeedError = outcome.error;
           continue;
         }
 
@@ -195,6 +230,7 @@ export async function GET(request: Request) {
           // traffic against the (third-party) site being analyzed.
           results.metaTags = parseMetaTags(outcome.value);
           results.altImages = parseAltImages(outcome.value);
+          platform = detectTech(outcome.value).platform;
           send("step", { step: "metaTags" });
           send("step", { step: "altImages" });
           continue;
@@ -234,13 +270,19 @@ export async function GET(request: Request) {
         // A bare code, not a sentence: the real reason (a missing API
         // key, the exact PageSpeed error body, an internal hostname a
         // redirect resolved to) is exactly the detail an SSRF/config
-        // guard exists to keep off the client.
-        const failure: AnalyzeErrorCode = "analysis-failed";
+        // guard exists to keep off the client. The one exception worth
+        // telling apart is Google's quota running out (429) — "tenta
+        // de novo amanhã" is a real, actionable answer where "unknown
+        // failure" isn't.
+        const failure: AnalyzeErrorCode =
+          pagespeedError instanceof PageSpeedError && pagespeedError.status === 429
+            ? "quota-exceeded"
+            : "analysis-failed";
         send("failed", { code: failure });
       } else {
         const score = aggregateScore(results);
         const issues = deriveIssues(results);
-        const report: AnalyzeReport = { domain, score, issues, checkedAt: new Date().toISOString() };
+        const report: AnalyzeReport = { domain, score, issues, platform, checkedAt: new Date().toISOString() };
         // A report where some checks failed to run shouldn't be
         // trusted as long as a complete one — a transient failure
         // (a slow site timing out) shouldn't lock every visitor into a

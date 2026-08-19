@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { checkHttps } from "@/lib/checks/https";
-import { checkSitemapRobots } from "@/lib/checks/sitemap-robots";
-import { runPageSpeed } from "@/lib/pagespeed";
+import { checkSitemapRobots } from "@/lib/checks/sitemapRobots";
+import { PageSpeedError, runPageSpeed } from "@/lib/pagespeed";
 import { fetchHtml } from "@/lib/fetchHtml";
 import * as cache from "@/lib/cache";
 import { GET } from "./route";
@@ -12,8 +12,14 @@ import { GET } from "./route";
 // tests. metaTags/altImages aren't mocked at all: they're pure parsers
 // now, exercised for real against the HTML fetchHtml resolves with.
 vi.mock("@/lib/checks/https", () => ({ checkHttps: vi.fn() }));
-vi.mock("@/lib/checks/sitemap-robots", () => ({ checkSitemapRobots: vi.fn() }));
-vi.mock("@/lib/pagespeed", () => ({ runPageSpeed: vi.fn() }));
+vi.mock("@/lib/checks/sitemapRobots", () => ({ checkSitemapRobots: vi.fn() }));
+// PageSpeedError comes through for real (via importOriginal) — only
+// runPageSpeed itself is a mock — so tests can throw an actual
+// PageSpeedError and exercise the route's `instanceof` check on it.
+vi.mock("@/lib/pagespeed", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/pagespeed")>()),
+  runPageSpeed: vi.fn(),
+}));
 vi.mock("@/lib/fetchHtml", () => ({ fetchHtml: vi.fn() }));
 
 const HAPPY_HTML = `<html><head>
@@ -78,10 +84,11 @@ describe("GET /api/analyze", () => {
     expect(body.error).toBeUndefined();
   });
 
-  it("returns 400 for a URL that resolves to a blocked host, before running any check", async () => {
+  it("returns blocked-url, distinct from invalid-url, for a URL that resolves to a blocked host, before running any check", async () => {
     const response = await GET(requestFor("localhost", "route-test-blocked.ip"));
 
     expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe("blocked-url");
     expect(checkHttps).not.toHaveBeenCalled();
   });
 
@@ -107,7 +114,7 @@ describe("GET /api/analyze", () => {
     const done = events.find((event) => event.event === "done");
 
     expect(steps.map((s) => (s.data as { step: string }).step).sort()).toEqual(
-      ["altImages", "https", "metaTags", "pagespeed", "securityHeaders", "sitemapRobots"].sort(),
+      ["altImages", "brokenLinks", "https", "metaTags", "pagespeed", "securityHeaders", "sitemapRobots"].sort(),
     );
     expect(done).toBeDefined();
     const report = done!.data as { domain: string; score: { overall: number } };
@@ -126,6 +133,26 @@ describe("GET /api/analyze", () => {
     expect(report.issues.some((issue) => issue.code === "no-clickjacking-protection")).toBe(true);
     expect(report.issues.some((issue) => issue.code === "no-hsts")).toBe(false);
     expect(report.issues.some((issue) => issue.code === "no-csp")).toBe(false);
+  });
+
+  it("reports platform: null when the page matches no known site-builder", async () => {
+    const response = await GET(requestFor("route-test-noplatform.example", "route-test-noplatform.ip"));
+    const events = await readSseEvents(response);
+
+    const done = events.find((event) => event.event === "done")!;
+    expect((done.data as { platform: unknown }).platform).toBeNull();
+  });
+
+  it("derives the platform from the same page fetch metaTags/altImages already use, no extra request", async () => {
+    vi.mocked(fetchHtml).mockClear();
+    vi.mocked(fetchHtml).mockResolvedValueOnce('<html><head><meta name="generator" content="WordPress 6.4"></head></html>');
+
+    const response = await GET(requestFor("route-test-wordpress.example", "route-test-wordpress.ip"));
+    const events = await readSseEvents(response);
+
+    expect(fetchHtml).toHaveBeenCalledTimes(1);
+    const done = events.find((event) => event.event === "done")!;
+    expect((done.data as { platform: unknown }).platform).toBe("wordpress");
   });
 
   it("still sends done with a partial report when only some checks fail", async () => {
@@ -164,6 +191,31 @@ describe("GET /api/analyze", () => {
     const serialized = JSON.stringify(events[0].data);
     expect(serialized).not.toContain("internal detail");
     expect(serialized).not.toContain("PAGESPEED_API_KEY");
+  });
+
+  it("emits quota-exceeded, not the generic analysis-failed, when every check fails and PageSpeed's own failure was a 429", async () => {
+    vi.mocked(checkHttps).mockRejectedValueOnce(new Error("fetch failed"));
+    vi.mocked(fetchHtml).mockRejectedValueOnce(new Error("fetch failed"));
+    vi.mocked(checkSitemapRobots).mockRejectedValueOnce(new Error("fetch failed"));
+    vi.mocked(runPageSpeed).mockRejectedValueOnce(new PageSpeedError("PageSpeed API retornou 429: quota exceeded", 429));
+
+    const response = await GET(requestFor("route-test-quota.example", "route-test-quota.ip"));
+    const events = await readSseEvents(response);
+
+    expect(events).toHaveLength(1);
+    expect((events[0].data as { code: string }).code).toBe("quota-exceeded");
+  });
+
+  it("still emits analysis-failed when PageSpeed fails with a non-quota status, even if every check fails", async () => {
+    vi.mocked(checkHttps).mockRejectedValueOnce(new Error("fetch failed"));
+    vi.mocked(fetchHtml).mockRejectedValueOnce(new Error("fetch failed"));
+    vi.mocked(checkSitemapRobots).mockRejectedValueOnce(new Error("fetch failed"));
+    vi.mocked(runPageSpeed).mockRejectedValueOnce(new PageSpeedError("PageSpeed API retornou 400: bad url", 400));
+
+    const response = await GET(requestFor("route-test-non-quota.example", "route-test-non-quota.ip"));
+    const events = await readSseEvents(response);
+
+    expect((events[0].data as { code: string }).code).toBe("analysis-failed");
   });
 
   it("returns 429 with a rate-limited code and the wait time in the body", async () => {

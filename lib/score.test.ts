@@ -82,6 +82,26 @@ describe("aggregateScore", () => {
     expect(confirmedMissing.seo.score).toBe(20); // média(60, 0, 0)
   });
 
+  it("blends brokenLinks into the SEO average, scored by the reachable ratio", () => {
+    const result = aggregateScore({
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 100 } },
+      brokenLinks: { checkedCount: 4, brokenCount: 1, brokenUrls: ["https://x.com/dead"] },
+    });
+
+    expect(result.seo.score).toBe(Math.round((100 + 75) / 2)); // média(100, 3/4*100)
+  });
+
+  it("scores brokenLinks as clean when the page had no links to check", () => {
+    // Same reasoning as altImagesScore: nothing was found broken
+    // because there was nothing on the page to break.
+    const result = aggregateScore({
+      pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 60 } },
+      brokenLinks: { checkedCount: 0, brokenCount: 0, brokenUrls: [] },
+    });
+
+    expect(result.seo.score).toBe(80); // média(60, 100)
+  });
+
   it("marks every category indisponivel when no check ran at all", () => {
     const nothing = aggregateScore({});
 
