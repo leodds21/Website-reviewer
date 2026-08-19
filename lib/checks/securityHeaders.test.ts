@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseSecurityHeaders } from "./security-headers";
+import { parseSecurityHeaders } from "./securityHeaders";
 
 describe("parseSecurityHeaders", () => {
   it("reports everything missing when no security headers are present", () => {

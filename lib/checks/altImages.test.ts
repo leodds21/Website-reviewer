@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAltImages } from "./alt-images";
+import { parseAltImages } from "./altImages";
 
 describe("parseAltImages", () => {
   it("counts images with a non-empty alt as fine", () => {
