@@ -287,6 +287,19 @@ describe("GET /api/analyze", () => {
     expect(checkHttps).toHaveBeenCalled();
   });
 
+  it("ends the stream with a failed event, not a dropped connection, when something unexpected throws", async () => {
+    const setCachedSpy = vi.spyOn(cache, "setCached").mockRejectedValueOnce(new Error("boom"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const response = await GET(requestFor("route-test-unexpected.example", "route-test-unexpected.ip"));
+    const events = await readSseEvents(response);
+
+    expect(events.at(-1)).toEqual({ event: "failed", data: { code: "analysis-failed" } });
+
+    setCachedSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
+
   it("caches a complete report with the full TTL and a partial one with the short TTL", async () => {
     const setCachedSpy = vi.spyOn(cache, "setCached");
 
