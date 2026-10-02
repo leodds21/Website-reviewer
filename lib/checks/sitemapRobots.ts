@@ -1,6 +1,7 @@
 import { readTextCapped, safeFetch } from "../safeFetch";
 import { normalizeUrl } from "../url";
 import { CHECK_TIMEOUT_MS } from "../timeouts";
+import { HttpStatusError, isBotBlockStatus } from "../httpStatus";
 
 export type SitemapRobotsCheckResult = {
   // null means "we couldn't determine this", never "it's missing" — a
@@ -19,25 +20,33 @@ async function fetchWithTimeout(url: string, signal?: AbortSignal): Promise<Resp
   });
 }
 
-async function robotsTxtExistsAt(url: string, signal?: AbortSignal): Promise<boolean | null> {
+// found is null whenever we don't actually know: the request never
+// completed, or the server refused an automated client (a 403 from a
+// firewall is not "this file doesn't exist"). blockedStatus remembers
+// the refusal so the caller can say *why* it doesn't know.
+type ProbeResult = { found: boolean | null; blockedStatus?: number };
+
+async function robotsTxtExistsAt(url: string, signal?: AbortSignal): Promise<ProbeResult> {
   try {
     const response = await fetchWithTimeout(url, signal);
     await response.body?.cancel(); // status is all we need, never read the body
-    return response.ok;
+    if (isBotBlockStatus(response.status)) return { found: null, blockedStatus: response.status };
+    return { found: response.ok };
   } catch {
     // The request never completed (DNS failure, refused connection,
     // TLS error, timeout). The server didn't tell us the file is
     // missing — we simply don't know.
-    return null;
+    return { found: null };
   }
 }
 
-async function sitemapExistsAt(url: string, signal?: AbortSignal): Promise<boolean | null> {
+async function sitemapExistsAt(url: string, signal?: AbortSignal): Promise<ProbeResult> {
   try {
     const response = await fetchWithTimeout(url, signal);
     if (!response.ok) {
       await response.body?.cancel();
-      return false;
+      if (isBotBlockStatus(response.status)) return { found: null, blockedStatus: response.status };
+      return { found: false };
     }
     // Many hosts respond 200 with an HTML "not found" page instead of
     // a real 404 for a missing sitemap — a bare status check reports
@@ -46,9 +55,9 @@ async function sitemapExistsAt(url: string, signal?: AbortSignal): Promise<boole
     // Only the first bytes matter — the root element is all this
     // checks, so there's no reason to pull a large sitemap into memory.
     const text = await readTextCapped(response, 1024);
-    return /^\s*(<\?xml|<urlset|<sitemapindex)/i.test(text);
+    return { found: /^\s*(<\?xml|<urlset|<sitemapindex)/i.test(text) };
   } catch {
-    return null;
+    return { found: null };
   }
 }
 
@@ -68,14 +77,18 @@ export async function checkSitemapRobots(url: string, signal?: AbortSignal): Pro
   const requestedUrl = normalizeUrl(url);
   const origin = new URL(requestedUrl).origin;
 
-  const [hasSitemap, hasRobotsTxt] = await Promise.all([
+  const [sitemap, robots] = await Promise.all([
     sitemapExistsAt(`${origin}/sitemap.xml`, signal),
     robotsTxtExistsAt(`${origin}/robots.txt`, signal),
   ]);
 
-  if (hasSitemap === null && hasRobotsTxt === null) {
+  if (sitemap.found === null && robots.found === null) {
+    const blockedStatus = sitemap.blockedStatus ?? robots.blockedStatus;
+    if (blockedStatus !== undefined) {
+      throw new HttpStatusError(blockedStatus, `Origem recusou a checagem: ${origin} respondeu ${blockedStatus}`);
+    }
     throw new Error(`Origem inacessível: ${origin}`);
   }
 
-  return { hasSitemap, hasRobotsTxt };
+  return { hasSitemap: sitemap.found, hasRobotsTxt: robots.found };
 }

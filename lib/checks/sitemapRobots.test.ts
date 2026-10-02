@@ -101,6 +101,21 @@ describe("checkSitemapRobots", () => {
     await expect(checkSitemapRobots("este-dominio-nao-existe.example")).rejects.toThrow(/inacess/i);
   });
 
+  it("reports a firewall refusal (403) as unknown, not as a missing file", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(fakeResponse(403)).mockResolvedValueOnce(fakeResponse(200));
+
+    const result = await checkSitemapRobots("example.com");
+
+    expect(result.hasSitemap).toBeNull();
+    expect(result.hasRobotsTxt).toBe(true);
+  });
+
+  it("throws an HttpStatusError carrying the status when both probes are refused", async () => {
+    vi.mocked(fetch).mockResolvedValue(fakeResponse(403));
+
+    await expect(checkSitemapRobots("example.com")).rejects.toMatchObject({ name: "HttpStatusError", status: 403 });
+  });
+
   it("still reports a real 404 as a confirmed absence", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(fakeResponse(404)).mockResolvedValueOnce(fakeResponse(404));
 

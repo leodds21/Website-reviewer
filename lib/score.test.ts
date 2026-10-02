@@ -105,10 +105,10 @@ describe("aggregateScore", () => {
   it("marks every category indisponivel when no check ran at all", () => {
     const nothing = aggregateScore({});
 
-    expect(nothing.performance).toEqual({ score: null, severity: "indisponivel" });
-    expect(nothing.seo).toEqual({ score: null, severity: "indisponivel" });
-    expect(nothing.accessibility).toEqual({ score: null, severity: "indisponivel" });
-    expect(nothing.security).toEqual({ score: null, severity: "indisponivel" });
+    expect(nothing.performance).toMatchObject({ score: null, severity: "indisponivel" });
+    expect(nothing.seo).toMatchObject({ score: null, severity: "indisponivel" });
+    expect(nothing.accessibility).toMatchObject({ score: null, severity: "indisponivel" });
+    expect(nothing.security).toMatchObject({ score: null, severity: "indisponivel" });
     expect(nothing.overall).toBe(0);
   });
 
@@ -119,7 +119,7 @@ describe("aggregateScore", () => {
       pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 92, seo: 90 } },
     });
 
-    expect(result.security).toEqual({ score: null, severity: "indisponivel" });
+    expect(result.security).toMatchObject({ score: null, severity: "indisponivel" });
     expect(result.performance.score).toBe(90);
   });
 
@@ -129,9 +129,71 @@ describe("aggregateScore", () => {
     });
 
     expect(onlySecurityRan.security.score).toBe(0);
-    expect(onlySecurityRan.performance).toEqual({ score: null, severity: "indisponivel" });
+    expect(onlySecurityRan.performance).toMatchObject({ score: null, severity: "indisponivel" });
     expect(onlySecurityRan.overall).toBe(0); // only security contributed, and it's 0
     expect(onlySecurityRan.overallSeverity).toBe("critico");
+  });
+
+  it("says why a category couldn't be measured, preferring the most explanatory reason", () => {
+    const result = aggregateScore(
+      { https: { passed: true, finalUrl: "https://x.com", redirectedFromHttp: false } },
+      { pagespeed: "timeout", page: "blocked", sitemapRobots: "blocked", brokenLinks: "blocked" },
+    );
+
+    expect(result.performance).toEqual({ score: null, severity: "indisponivel", reason: "timeout" });
+    // accessibility draws on pagespeed (timeout) and the page (blocked): blocked wins.
+    expect(result.accessibility).toEqual({ score: null, severity: "indisponivel", reason: "blocked" });
+  });
+
+  it("flags a category partial when it scored but some of its sources failed", () => {
+    const result = aggregateScore(
+      {
+        https: { passed: true, finalUrl: "https://x.com", redirectedFromHttp: false },
+        sitemapRobots: { hasSitemap: true, hasRobotsTxt: true },
+      },
+      { pagespeed: "quota", page: "blocked", brokenLinks: "blocked" },
+    );
+
+    expect(result.seo).toMatchObject({ score: 100, partial: true });
+    expect(result.security).toMatchObject({ score: 100, partial: true });
+  });
+
+  it("scores seo and accessibility from Lighthouse's audits when our fetch of the page was refused", () => {
+    const result = aggregateScore(
+      {
+        pagespeed: {
+          scores: { performance: 70, accessibility: 80, "best-practices": 90, seo: 60 },
+          hasTitle: true,
+          hasDescription: false,
+          hasViewport: true,
+          imagesHaveAlt: true,
+        },
+      },
+      { page: "blocked", brokenLinks: "blocked", sitemapRobots: "blocked" },
+    );
+
+    expect(result.seo.score).toBe(Math.round((60 + 100 + 0) / 3));
+    // image-alt from Lighthouse is pass/fail and already inside its
+    // accessibility score, so it doesn't count again here.
+    expect(result.accessibility.score).toBe(Math.round((80 + 100) / 2));
+  });
+
+  it("does not flag a complete category as partial", () => {
+    const result = aggregateScore(
+      { pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 90 } } },
+      { page: "blocked" },
+    );
+
+    expect(result.performance).toMatchObject({ score: 90, partial: false });
+  });
+
+  it("does not call a failed https check partial: it's a complete answer on its own", () => {
+    const result = aggregateScore(
+      { https: { passed: false, finalUrl: "http://x.com", redirectedFromHttp: false } },
+      { pagespeed: "timeout" },
+    );
+
+    expect(result.security).toMatchObject({ score: 0, partial: false });
   });
 
   it("lets seo score from partial sources when metaTags is missing but pagespeed and sitemap ran", () => {

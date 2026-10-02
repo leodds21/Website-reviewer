@@ -2,12 +2,17 @@ import type { AltImagesCheckResult } from "./checks/altImages";
 import type { BrokenLinksCheckResult } from "./checks/brokenLinks";
 import type { CheckResults } from "./checkResults";
 import type { SecurityHeadersCheckResult } from "./checks/securityHeaders";
+import { primaryReason, type CheckFailures, type CheckKey, type FailureReason } from "./checkFailure";
 
 export type Severity = "critico" | "atencao" | "ok" | "indisponivel";
 
+// A category always carries an answer: a score (flagged partial when
+// some of its sources failed, so the UI can say "medido em parte"), or
+// the reason it couldn't be measured at all, so the UI never has to
+// show a bare "não avaliado".
 export type CategoryScore =
-  | { score: number; severity: Exclude<Severity, "indisponivel"> }
-  | { score: null; severity: "indisponivel" };
+  | { score: number; severity: Exclude<Severity, "indisponivel">; partial: boolean }
+  | { score: null; severity: "indisponivel"; reason: FailureReason };
 
 export type AggregatedScore = {
   overall: number;
@@ -44,11 +49,6 @@ function brokenLinksScore(result: BrokenLinksCheckResult): number {
   return ((result.checkedCount - result.brokenCount) / result.checkedCount) * 100;
 }
 
-function categoryScore(score: number): CategoryScore {
-  const rounded = Math.round(score);
-  return { score: rounded, severity: severityFor(rounded) };
-}
-
 // A pass/fail signal as a score component: present is 100, absent is
 // 0, and "we couldn't determine it" contributes nothing at all rather
 // than being scored as a failure.
@@ -65,16 +65,35 @@ function securityHeadersScore(result: SecurityHeadersCheckResult): number {
   return (signals.filter(Boolean).length / signals.length) * 100;
 }
 
-// A category with no available component at all (every check it draws
-// on failed to run) is "indisponivel" — not a fabricated 0 or 100.
-// Filters out only the components whose source check actually ran;
-// this is also how a category degrades gracefully when *some* but not
-// all of its sources are missing (e.g. seo still scores from
+// Averages only the components whose source check actually ran; null
+// when none did. This is how a category degrades gracefully when *some*
+// but not all of its sources are missing (e.g. seo still scores from
 // pagespeed+sitemap alone if metaTags failed to fetch).
-function categoryFrom(components: (number | null)[]): CategoryScore {
+function averageOf(components: (number | null)[]): number | null {
   const available = components.filter((value): value is number => value !== null);
-  if (available.length === 0) return { score: null, severity: "indisponivel" };
-  return categoryScore(average(available));
+  return available.length === 0 ? null : average(available);
+}
+
+// Which checks each category draws on — what "partial" and the
+// unavailable reason are computed from.
+const CATEGORY_SOURCES = {
+  performance: ["pagespeed"],
+  seo: ["pagespeed", "page", "sitemapRobots", "brokenLinks"],
+  accessibility: ["pagespeed", "page"],
+  security: ["https", "pagespeed"],
+} satisfies Record<string, CheckKey[]>;
+
+// A category with no available component at all is "indisponivel",
+// never a fabricated 0 or 100, and says why. With no recorded failure
+// among its sources, the checks ran but didn't yield this number
+// (Lighthouse can skip a single category), hence "measurement-failed".
+function finalize(score: number | null, sources: CheckKey[], failures: CheckFailures): CategoryScore {
+  const reasons = sources.map((key) => failures[key]);
+  if (score === null) {
+    return { score: null, severity: "indisponivel", reason: primaryReason(reasons) ?? "measurement-failed" };
+  }
+  const rounded = Math.round(score);
+  return { score: rounded, severity: severityFor(rounded), partial: reasons.some(Boolean) };
 }
 
 /**
@@ -93,13 +112,16 @@ function categoryFrom(components: (number | null)[]): CategoryScore {
  * calling this at all when literally every check failed, so overall
  * is never itself indisponivel in practice.
  */
-export function aggregateScore(input: Partial<CheckResults>): AggregatedScore {
-  const performance = categoryFrom([input.pagespeed?.scores.performance ?? null]);
+export function aggregateScore(input: Partial<CheckResults>, failures: CheckFailures = {}): AggregatedScore {
+  const performance = finalize(input.pagespeed?.scores.performance ?? null, CATEGORY_SOURCES.performance, failures);
 
-  const seo = categoryFrom([
+  // Our own HTML parse when we got the page; Lighthouse's audit of the
+  // same thing when our fetch was refused but Google's wasn't.
+  const lighthouse = input.pagespeed;
+  const seo = averageOf([
     input.pagespeed?.scores.seo ?? null,
-    input.metaTags ? (input.metaTags.hasTitle ? 100 : 0) : null,
-    input.metaTags ? (input.metaTags.hasDescription ? 100 : 0) : null,
+    booleanSignal(input.metaTags ? input.metaTags.hasTitle : lighthouse?.hasTitle),
+    booleanSignal(input.metaTags ? input.metaTags.hasDescription : lighthouse?.hasDescription),
     // `?? null` rather than a truthiness check: hasSitemap/hasRobotsTxt
     // are boolean | null, and a null (we couldn't reach the host to
     // find out) has to stay out of the average instead of scoring 0
@@ -111,9 +133,13 @@ export function aggregateScore(input: Partial<CheckResults>): AggregatedScore {
     input.brokenLinks ? brokenLinksScore(input.brokenLinks) : null,
   ]);
 
-  const accessibility = categoryFrom([
+  const accessibility = averageOf([
     input.pagespeed?.scores.accessibility ?? null,
-    input.metaTags ? (input.metaTags.hasViewport ? 100 : 0) : null,
+    booleanSignal(input.metaTags ? input.metaTags.hasViewport : lighthouse?.hasViewport),
+    // No Lighthouse fallback here: its image-alt audit is pass/fail, so
+    // one undescribed image would count as a flat 0 (our own sample is
+    // proportional), and Lighthouse's accessibility score above already
+    // accounts for it. It still produces the finding (lib/issues.ts).
     input.altImages ? altImagesScore(input.altImages) : null,
   ]);
 
@@ -123,26 +149,34 @@ export function aggregateScore(input: Partial<CheckResults>): AggregatedScore {
   // drives security straight to 0 regardless of best-practices
   // (everything else about a site is moot if it's not served securely);
   // a missing https check makes the whole category indisponivel, not a
-  // guess based on best-practices alone.
+  // guess based on best-practices alone. A failed https check is a
+  // complete answer on its own, so nothing else missing makes it partial.
   const security = !input.https
-    ? categoryFrom([])
+    ? finalize(null, CATEGORY_SOURCES.security, failures)
     : !input.https.passed
-      ? categoryScore(0)
-      : categoryFrom([
-          100,
-          input.pagespeed?.scores["best-practices"] ?? null,
-          input.securityHeaders ? securityHeadersScore(input.securityHeaders) : null,
-        ]);
+      ? finalize(0, [], failures)
+      : finalize(
+          averageOf([
+            100,
+            input.pagespeed?.scores["best-practices"] ?? null,
+            input.securityHeaders ? securityHeadersScore(input.securityHeaders) : null,
+          ]),
+          CATEGORY_SOURCES.security,
+          failures,
+        );
 
-  const categories = [performance, seo, accessibility, security];
-  const overallCategory = categoryFrom(categories.map((category) => category.score));
+  const categories = {
+    performance,
+    seo: finalize(seo, CATEGORY_SOURCES.seo, failures),
+    accessibility: finalize(accessibility, CATEGORY_SOURCES.accessibility, failures),
+    security,
+  };
+  const overall = averageOf(Object.values(categories).map((category) => category.score));
+  const roundedOverall = overall === null ? null : Math.round(overall);
 
   return {
-    overall: overallCategory.score ?? 0,
-    overallSeverity: overallCategory.severity,
-    performance,
-    seo,
-    accessibility,
-    security,
+    overall: roundedOverall ?? 0,
+    overallSeverity: roundedOverall === null ? "indisponivel" : severityFor(roundedOverall),
+    ...categories,
   };
 }

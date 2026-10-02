@@ -256,4 +256,28 @@ describe("runPageSpeed", () => {
 
     expect(result.hasFormLabelIssues).toBeUndefined();
   });
+
+  it("reads Lighthouse's pass/fail for the page basics our own HTML checks cover", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      fakeJsonResponse(200, {
+        lighthouseResult: {
+          categories: { seo: { score: 0.7 } },
+          audits: {
+            "document-title": { score: 1 },
+            "meta-description": { score: 0 },
+            viewport: { score: 1 },
+            "image-alt": { score: null },
+          },
+        },
+      }),
+    );
+
+    const result = await runPageSpeed("example.com");
+
+    expect(result.hasTitle).toBe(true);
+    expect(result.hasDescription).toBe(false);
+    expect(result.hasViewport).toBe(true);
+    // null = not applicable (no images): unknown, not a pass or a fail.
+    expect(result.imagesHaveAlt).toBeUndefined();
+  });
 });

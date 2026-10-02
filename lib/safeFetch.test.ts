@@ -142,6 +142,17 @@ describe("safeFetch", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
+  it("identifies itself with a real user agent and accept headers, keeping any the caller set", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(fakeResponse(200, { url: "https://example.com/" }));
+
+    await safeFetch("https://example.com/", { headers: { Accept: "text/plain" } });
+
+    const headers = new Headers(vi.mocked(fetch).mock.calls[0][1]?.headers);
+    expect(headers.get("user-agent")).toMatch(/lsdiasScan/);
+    expect(headers.get("accept-language")).toMatch(/pt-BR/);
+    expect(headers.get("accept")).toBe("text/plain");
+  });
+
   it("follows a redirect to an allowed host", async () => {
     vi.mocked(fetch)
       .mockResolvedValueOnce(fakeResponse(302, { location: "https://example.com/final" }))

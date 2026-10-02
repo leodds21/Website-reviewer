@@ -1,6 +1,7 @@
 import { safeFetch } from "../safeFetch";
 import { normalizeUrl } from "../url";
 import { CHECK_TIMEOUT_MS } from "../timeouts";
+import { HttpStatusError, isBotBlockStatus } from "../httpStatus";
 
 export type HttpsCheckResult = {
   passed: boolean;
@@ -42,21 +43,59 @@ function isCertificateError(error: unknown): boolean {
  * the one place that needs to start unencrypted to see whether the
  * site upgrades the connection itself.
  */
+async function fetchFinal(url: string, signal?: AbortSignal): Promise<Response> {
+  const timeout = AbortSignal.timeout(CHECK_TIMEOUT_MS);
+  const response = await safeFetch(url, {
+    method: "GET",
+    signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+  });
+  // Only the final URL and the headers matter here — leaving the body
+  // unread would hold the connection open in undici's pool until GC.
+  await response.body?.cancel();
+  return response;
+}
+
+/**
+ * The plain-http request was refused (a firewall answering 403 before
+ * any redirect), so it can't tell us whether the site upgrades to
+ * HTTPS. Asks https:// directly instead: a response of any status over
+ * a trusted connection proves the site serves HTTPS. Without this, a
+ * site with HTTPS and HSTS got a critical "no HTTPS" finding.
+ */
+async function checkHttpsDirectly(httpUrl: string, refusedStatus: number, signal?: AbortSignal): Promise<HttpsCheckResult> {
+  const httpsUrl = new URL(httpUrl);
+  httpsUrl.protocol = "https:";
+
+  let response: Response;
+  try {
+    response = await fetchFinal(httpsUrl.toString(), signal);
+  } catch (error) {
+    if (isCertificateError(error)) {
+      return { passed: false, finalUrl: httpsUrl.toString(), redirectedFromHttp: false, certificateError: true };
+    }
+    // Refused over http and unreachable over https: we genuinely don't
+    // know, so no verdict rather than a "no HTTPS" guess.
+    throw new HttpStatusError(refusedStatus, `HTTP recusado (${refusedStatus}) e HTTPS inacessível: ${httpsUrl.host}`);
+  }
+
+  return {
+    passed: response.url.startsWith("https://"),
+    finalUrl: response.url,
+    redirectedFromHttp: false,
+    headers: response.headers,
+  };
+}
+
 export async function checkHttps(url: string, signal?: AbortSignal): Promise<HttpsCheckResult> {
   const requestedUrl = normalizeUrl(url, "http");
-  const timeout = AbortSignal.timeout(CHECK_TIMEOUT_MS);
 
   try {
-    const response = await safeFetch(requestedUrl, {
-      method: "GET",
-      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
-    });
-
-    // Only the final URL and the headers matter here — leaving the body
-    // unread would hold the connection open in undici's pool until GC.
-    await response.body?.cancel();
-
+    const response = await fetchFinal(requestedUrl, signal);
     const finalUrl = response.url;
+
+    if (finalUrl.startsWith("http://") && isBotBlockStatus(response.status)) {
+      return await checkHttpsDirectly(finalUrl, response.status, signal);
+    }
 
     return {
       passed: finalUrl.startsWith("https://"),

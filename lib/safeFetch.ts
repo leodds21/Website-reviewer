@@ -1,11 +1,31 @@
 import { lookup } from "node:dns/promises";
 import { BlockList, isIPv4, isIPv6 } from "node:net";
+import { SITE_URL } from "./siteUrl";
 
 const MAX_REDIRECTS = 5;
 const ALLOWED_PORTS = new Set(["", "80", "443"]);
 const ALLOWED_PROTOCOLS = new Set(["http:", "https:"]);
 
 const BLOCKED_HOSTNAMES = new Set(["localhost"]);
+
+// Sent on every request to a target site. Node's default user agent
+// ("node"/"undici") and missing Accept headers are what many firewalls
+// reject outright, before looking at anything else. This says honestly
+// who we are, in the conventional crawler format, rather than posing
+// as a browser.
+const DEFAULT_HEADERS: Record<string, string> = {
+  "User-Agent": `Mozilla/5.0 (compatible; lsdiasScan/1.0; +${SITE_URL})`,
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+};
+
+function withDefaultHeaders(init: RequestInit): RequestInit {
+  const headers = new Headers(init.headers);
+  for (const [name, value] of Object.entries(DEFAULT_HEADERS)) {
+    if (!headers.has(name)) headers.set(name, value);
+  }
+  return { ...init, headers };
+}
 
 // Loopback, link-local (includes the cloud metadata endpoint at
 // 169.254.169.254), CGNAT and private ranges, IPv4 and IPv6. Built on
@@ -129,9 +149,10 @@ async function assertHostAllowed(url: URL): Promise<void> {
 export async function safeFetch(url: string, init: RequestInit = {}): Promise<Response> {
   let currentUrl = new URL(url);
   await assertHostAllowed(currentUrl);
+  const requestInit = withDefaultHeaders(init);
 
   for (let redirects = 0; redirects < MAX_REDIRECTS; redirects++) {
-    const response = await fetch(currentUrl, { ...init, redirect: "manual" });
+    const response = await fetch(currentUrl, { ...requestInit, redirect: "manual" });
 
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get("location");

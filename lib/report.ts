@@ -10,5 +10,9 @@ export type AnalyzeReport = {
   // away. Deliberately not an Issue: which platform a site runs on
   // isn't a problem to fix, just a neutral fact about it.
   platform: TechPlatform | null;
+  // True when the site (or Google's Lighthouse run against it) refused
+  // automated access. Optional: reports cached before this field existed
+  // simply don't have it, and read as not blocked.
+  blocked?: boolean;
   checkedAt: string;
 };
