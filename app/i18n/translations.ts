@@ -220,6 +220,10 @@ const pt: Dictionary = {
         : "Você fez muitas análises em pouco tempo. Tenta de novo mais tarde.",
     "analysis-failed": () =>
       "Não conseguimos acessar esse site. Ele pode estar fora do ar, bloqueando ferramentas de análise, ou o endereço pode estar errado.",
+    "site-blocked": () =>
+      "Esse site recusa ferramentas automáticas de análise, então não deu pra medir nada daqui. Isso não quer dizer que ele tenha problema.",
+    "site-unreachable": () =>
+      "Não conseguimos chegar até esse site. Confere se o endereço está certo e se ele está no ar.",
     "quota-exceeded": () => "Atingimos o limite diário da ferramenta de análise. Tenta de novo amanhã.",
     timeout: () => "O site demorou demais pra responder e desistimos de esperar. Tenta de novo em instantes.",
     offline: () => "Você parece estar sem conexão. Confere sua internet e tenta de novo.",
@@ -478,6 +482,9 @@ const en: Dictionary = {
         : "You've run a lot of analyses in a short time. Try again later.",
     "analysis-failed": () =>
       "We couldn't reach that site. It may be down, blocking analysis tools, or the address may be wrong.",
+    "site-blocked": () =>
+      "This site refuses automated analysis tools, so we couldn't measure anything from here. That doesn't mean something is wrong with it.",
+    "site-unreachable": () => "We couldn't reach this site. Check that the address is right and that the site is up.",
     "quota-exceeded": () => "We've hit the analysis tool's daily limit. Try again tomorrow.",
     timeout: () => "The site took too long to respond and we stopped waiting. Try again in a moment.",
     offline: () => "You appear to be offline. Check your connection and try again.",
