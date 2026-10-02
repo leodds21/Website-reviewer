@@ -1,4 +1,4 @@
-import type { Issue, IssueCategory, IssueCode } from "@/lib/issues";
+import type { Issue, IssueCode } from "@/lib/issues";
 import type { Severity } from "@/lib/score";
 import type { AnalyzeError, AnalyzeErrorCode } from "@/lib/analyzeError";
 import type { ContactErrorCode } from "@/app/hooks/useContactForm";
@@ -691,4 +691,3 @@ export function synthesizeCriticalImpact(locale: Locale, criticalIssues: Issue[]
 
 export type { Dictionary };
 export type CategoryKey = keyof Dictionary["categories"];
-export type { IssueCategory };
