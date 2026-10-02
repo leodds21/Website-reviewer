@@ -39,10 +39,24 @@ blockList.addSubnet("127.0.0.0", 8);
 blockList.addSubnet("169.254.0.0", 16);
 blockList.addSubnet("172.16.0.0", 12);
 blockList.addSubnet("192.168.0.0", 16);
-blockList.addAddress("::", "ipv6"); // unspecified — routes to localhost in practice
-blockList.addAddress("::1", "ipv6");
+// Reserved/special-purpose ranges: nothing public lives there, and some
+// (benchmarking, protocol assignments) can be routed internally.
+blockList.addSubnet("192.0.0.0", 24); // IETF protocol assignments
+blockList.addSubnet("192.0.2.0", 24); // TEST-NET-1
+blockList.addSubnet("198.18.0.0", 15); // benchmarking
+blockList.addSubnet("198.51.100.0", 24); // TEST-NET-2
+blockList.addSubnet("203.0.113.0", 24); // TEST-NET-3
+blockList.addSubnet("224.0.0.0", 4); // multicast
+blockList.addSubnet("240.0.0.0", 4); // reserved, incl. 255.255.255.255 broadcast
+blockList.addSubnet("::", 96, "ipv6"); // unspecified, loopback and IPv4-compatible (::127.0.0.1)
 blockList.addSubnet("fe80::", 10, "ipv6"); // link-local
 blockList.addSubnet("fc00::", 7, "ipv6"); // unique local
+blockList.addSubnet("ff00::", 8, "ipv6"); // multicast
+// Prefixes that embed an IPv4 address (NAT64, 6to4): a gateway can turn
+// 64:ff9b::7f00:1 into 127.0.0.1, so the embedded address can't be
+// trusted to be public. Neither is how a normal public site is reached.
+blockList.addSubnet("64:ff9b::", 96, "ipv6");
+blockList.addSubnet("2002::", 16, "ipv6");
 
 function stripBrackets(hostname: string): string {
   return hostname.startsWith("[") && hostname.endsWith("]") ? hostname.slice(1, -1) : hostname;
@@ -110,8 +124,13 @@ export class BlockedHostError extends Error {
  * Also rejects any port other than 80/443/default — otherwise a public
  * hostname is a free pass to probe internal services on other ports
  * (a database, an admin panel) that happen to share the same host.
+ *
+ * Returns the addresses it validated (empty for a literal IP or when
+ * DNS failed), so a caller that controls its own connection — the
+ * screenshot browser — can pin the hostname to them and close the
+ * rebinding gap for that host.
  */
-async function assertHostAllowed(url: URL): Promise<void> {
+export async function assertHostAllowed(url: URL): Promise<string[]> {
   // Checked on every hop, not just the entry URL: a redirect to
   // `file:///etc/passwd` or `data:text/html,...` carries an empty
   // hostname and port, so the host and port checks below both wave it
@@ -130,11 +149,12 @@ async function assertHostAllowed(url: URL): Promise<void> {
   try {
     addresses = await lookup(url.hostname, { all: true });
   } catch {
-    return; // Let the real fetch surface the DNS failure — not our call to make.
+    return []; // Let the real fetch surface the DNS failure — not our call to make.
   }
 
   const blocked = addresses.find((addr) => isBlockedHost(addr.address));
   if (blocked) throw new BlockedHostError(`${url.hostname} (resolve para ${blocked.address})`);
+  return addresses.map((addr) => addr.address);
 }
 
 /**

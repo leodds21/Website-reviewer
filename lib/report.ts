@@ -1,6 +1,7 @@
 import type { AggregatedScore } from "./score";
 import type { Issue } from "./issues";
 import type { TechPlatform } from "./checks/techDetect";
+import type { WebsiteScreenshots } from "./screenshots/types";
 
 export type AnalyzeReport = {
   domain: string;
@@ -14,5 +15,9 @@ export type AnalyzeReport = {
   // automated access. Optional: reports cached before this field existed
   // simply don't have it, and read as not blocked.
   blocked?: boolean;
+  // Desktop and mobile captures of the first viewport, each either an
+  // image or the reason it couldn't be taken. Optional for the same
+  // reason as `blocked`: older cached reports don't have it.
+  screenshots?: WebsiteScreenshots;
   checkedAt: string;
 };
