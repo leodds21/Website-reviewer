@@ -136,7 +136,11 @@ export function aggregateScore(input: Partial<CheckResults>, failures: CheckFail
   const accessibility = averageOf([
     input.pagespeed?.scores.accessibility ?? null,
     booleanSignal(input.metaTags ? input.metaTags.hasViewport : lighthouse?.hasViewport),
-    input.altImages ? altImagesScore(input.altImages) : booleanSignal(lighthouse?.imagesHaveAlt),
+    // No Lighthouse fallback here: its image-alt audit is pass/fail, so
+    // one undescribed image would count as a flat 0 (our own sample is
+    // proportional), and Lighthouse's accessibility score above already
+    // accounts for it. It still produces the finding (lib/issues.ts).
+    input.altImages ? altImagesScore(input.altImages) : null,
   ]);
 
   // Security has no meaning at all without the https check specifically

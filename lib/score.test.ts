@@ -173,7 +173,9 @@ describe("aggregateScore", () => {
     );
 
     expect(result.seo.score).toBe(Math.round((60 + 100 + 0) / 3));
-    expect(result.accessibility.score).toBe(Math.round((80 + 100 + 100) / 3));
+    // image-alt from Lighthouse is pass/fail and already inside its
+    // accessibility score, so it doesn't count again here.
+    expect(result.accessibility.score).toBe(Math.round((80 + 100) / 2));
   });
 
   it("does not flag a complete category as partial", () => {
