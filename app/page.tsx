@@ -10,6 +10,10 @@ import { useStageFocus } from "./hooks/useStageFocus";
 
 export default function Home() {
   const [url, setUrl] = useState("");
+  // Which way the visitor reached the last screen: "see how to fix it"
+  // after a normal report, or "request a manual review" after a site
+  // that blocked the automated checks.
+  const [manualReview, setManualReview] = useState(false);
   const { stage, setStage, completedSteps, report, error, startAnalysis } = useAnalysis();
   const stageRef = useStageFocus<HTMLDivElement>(stage);
 
@@ -34,9 +38,23 @@ export default function Home() {
 
         {stage === "analyzing" && <LoadingSequence completedSteps={completedSteps} />}
 
-        {stage === "report" && report && <ReportScreen report={report} onNextStep={() => setStage("next-step")} />}
+        {stage === "report" && report && (
+          <ReportScreen
+            report={report}
+            onNextStep={() => {
+              setManualReview(false);
+              setStage("next-step");
+            }}
+            onManualAnalysis={() => {
+              setManualReview(true);
+              setStage("next-step");
+            }}
+          />
+        )}
 
-        {stage === "next-step" && report && <NextStepScreen report={report} topIssues={topIssues} />}
+        {stage === "next-step" && report && (
+          <NextStepScreen report={report} topIssues={topIssues} manualReview={manualReview} />
+        )}
       </div>
     </main>
   );
