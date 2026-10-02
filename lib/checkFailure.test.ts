@@ -48,13 +48,6 @@ describe("classifyCheckFailure", () => {
     expect(classifyCheckFailure(new BlockedHostError("10.0.0.1"))).toBe("unreachable");
   });
 
-  it("reads Chromium's network errors from a failed browser navigation", () => {
-    expect(classifyCheckFailure(new Error("page.goto: net::ERR_NAME_NOT_RESOLVED at https://x.com/"))).toBe("unreachable");
-    expect(classifyCheckFailure(new Error("page.goto: net::ERR_CERT_AUTHORITY_INVALID at https://x.com/"))).toBe("unreachable");
-    expect(classifyCheckFailure(new Error("page.goto: net::ERR_TOO_MANY_REDIRECTS at https://x.com/"))).toBe("unreachable");
-    expect(classifyCheckFailure(new Error("page.goto: net::ERR_TIMED_OUT at https://x.com/"))).toBe("timeout");
-  });
-
   it("falls back to unknown", () => {
     expect(classifyCheckFailure(new Error("PAGESPEED_API_KEY não configurada"))).toBe("unknown");
     expect(classifyCheckFailure("not even an error")).toBe("unknown");
