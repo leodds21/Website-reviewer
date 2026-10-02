@@ -45,7 +45,14 @@ function evictIfNeeded(): void {
  */
 export async function getCached<T>(key: string): Promise<T | null> {
   if (redis) {
-    return (await redis.get<T>(key)) ?? null;
+    try {
+      return (await redis.get<T>(key)) ?? null;
+    } catch (error) {
+      // Cache is an optimization, not a requirement: a dead Redis
+      // (deleted database, bad token, quota) must degrade to the
+      // in-memory path below, not take the whole analysis down with it.
+      console.error("cache: Redis read failed, falling back to memory", error);
+    }
   }
 
   const entry = store.get(key);
@@ -63,8 +70,12 @@ export async function setCached<T>(key: string, data: T, ttlMs: number = FULL_TT
   if (redis) {
     // px: Redis's own expiry, in milliseconds — no manual eviction
     // needed, the key just stops existing on its own.
-    await redis.set(key, data, { px: ttlMs });
-    return;
+    try {
+      await redis.set(key, data, { px: ttlMs });
+      return;
+    } catch (error) {
+      console.error("cache: Redis write failed, falling back to memory", error);
+    }
   }
 
   // Delete before set so a refreshed key moves to the end of the Map's
