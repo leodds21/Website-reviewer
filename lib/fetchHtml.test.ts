@@ -47,6 +47,12 @@ describe("fetchHtml", () => {
     expect(requestedUrl.toString()).toBe("https://example.com/");
   });
 
+  it("rejects a non-2xx response instead of parsing a bot wall or error page as the site", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({ ...fakeHtmlResponse("<title>Just a moment...</title>"), status: 403, ok: false } as Response);
+
+    await expect(fetchHtml("example.com")).rejects.toThrow(/403/);
+  });
+
   it("rejects a blocked host without making any request", async () => {
     await expect(fetchHtml("http://localhost/")).rejects.toThrow();
     expect(fetch).not.toHaveBeenCalled();
