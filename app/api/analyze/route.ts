@@ -17,8 +17,6 @@ import { isBlockedHost } from "@/lib/safeFetch";
 import { normalizeUrl } from "@/lib/url";
 import type { AnalyzeReport } from "@/lib/report";
 import type { CheckResults } from "@/lib/checkResults";
-import { captureWebsiteScreenshots } from "@/lib/screenshots/captureWebsiteScreenshots";
-import type { WebsiteScreenshots } from "@/lib/screenshots/types";
 import type { AnalyzeError, AnalyzeErrorCode } from "@/lib/analyzeError";
 
 export const dynamic = "force-dynamic";
@@ -202,22 +200,10 @@ export async function GET(request: Request) {
           // second time — only the up-to-10 link checks themselves are
           // new requests, against links the site's own home page links to.
           brokenLinks: pageFetch.then((html) => checkBrokenLinks(html, target, abortController.signal)),
-          // Runs alongside everything else with its own time budget, so
-          // it adds little to the total wait. Resolves with per-viewport
-          // "failed" entries rather than rejecting: a page that can't be
-          // captured never takes the rest of the report down.
-          screenshots: captureWebsiteScreenshots(target, abortController.signal),
         };
-        let screenshots: WebsiteScreenshots | undefined;
 
         for await (const outcome of settleInOrder(tasks)) {
           if ("error" in outcome) {
-            if (outcome.key === "screenshots") {
-              // Not expected (captureWebsiteScreenshots never rejects);
-              // the report just ships without a preview.
-              console.error(`Capturas falharam para ${target}:`, outcome.error);
-              continue;
-            }
             failures[outcome.key] = classifyCheckFailure(outcome.error);
             // Logged server-side only — the client gets a generic
             // message (see below), never this raw detail.
@@ -255,12 +241,6 @@ export async function GET(request: Request) {
               results.securityHeaders = parseSecurityHeaders(outcome.value.headers);
             }
             send("step", { step: "securityHeaders" });
-            continue;
-          }
-
-          if (outcome.key === "screenshots") {
-            screenshots = outcome.value;
-            send("step", { step: "screenshots" });
             continue;
           }
 
@@ -302,7 +282,6 @@ export async function GET(request: Request) {
             // Drives the "este site recusa ferramentas automáticas" note
             // and the manual-analysis offer in the report.
             blocked: Object.values(failures).includes("blocked"),
-            screenshots,
             checkedAt: new Date().toISOString(),
           };
           // A report where some checks failed to run shouldn't be
@@ -311,9 +290,7 @@ export async function GET(request: Request) {
           // degraded report for the full 6h TTL. "Complete" ignores the
           // page/metaTags/altImages split (one fetch, two derived
           // results) by checking failures directly instead of key count.
-          // A missing preview is as worth retrying soon as a failed check.
-          const previewComplete = screenshots !== undefined && Object.values(screenshots).every((shot) => shot.status === "success");
-          const isComplete = Object.keys(failures).length === 0 && previewComplete;
+          const isComplete = Object.keys(failures).length === 0;
           await setCached(cacheKey, report, isComplete ? FULL_TTL_MS : PARTIAL_TTL_MS);
           send("done", report);
         }
