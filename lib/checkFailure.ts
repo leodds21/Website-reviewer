@@ -33,6 +33,12 @@ export type CheckFailures = Partial<Record<CheckKey, FailureReason>>;
 const LIGHTHOUSE_STATUS = /Status code:\s*(\d{3})/i;
 const LIGHTHOUSE_LOAD_FAILURE = /FAILED_DOCUMENT_REQUEST|DNS_FAILURE|ERRORED_DOCUMENT_REQUEST/;
 
+// Chromium's own network errors, as Playwright reports a failed
+// navigation ("net::ERR_NAME_NOT_RESOLVED at https://..."). Includes
+// ERR_BLOCKED_BY_CLIENT: our request guard refusing where the site led.
+const BROWSER_TIMEOUT = /net::ERR_(TIMED_OUT|CONNECTION_TIMED_OUT)/;
+const BROWSER_NETWORK_FAILURE = /net::ERR_[A-Z_]+/;
+
 function classifyPageSpeed(error: PageSpeedError): FailureReason {
   if (error.status === 429) return "quota";
 
@@ -55,6 +61,8 @@ export function classifyCheckFailure(error: unknown): FailureReason {
   // refusing where the site pointed us. Either way, nothing to analyze.
   if (error instanceof TypeError || name === "BlockedHostError") return "unreachable";
   if (error instanceof Error && /inacess/i.test(error.message)) return "unreachable";
+  if (error instanceof Error && BROWSER_TIMEOUT.test(error.message)) return "timeout";
+  if (error instanceof Error && BROWSER_NETWORK_FAILURE.test(error.message)) return "unreachable";
 
   return "unknown";
 }
