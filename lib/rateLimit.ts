@@ -86,6 +86,14 @@ async function checkRateLimitRedis(ip: string, now: number): Promise<RateLimitRe
  * real in production.
  */
 export async function checkRateLimit(ip: string, now: number = Date.now()): Promise<RateLimitResult> {
-  if (redis) return checkRateLimitRedis(ip, now);
+  if (redis) {
+    try {
+      return await checkRateLimitRedis(ip, now);
+    } catch (error) {
+      // Fail open to the per-instance limit rather than 500 every
+      // request: an unreachable Redis shouldn't take the site down.
+      console.error("rateLimit: Redis failed, falling back to memory", error);
+    }
+  }
   return checkRateLimitInMemory(ip, now);
 }

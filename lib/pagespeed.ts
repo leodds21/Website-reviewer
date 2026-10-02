@@ -54,7 +54,7 @@ if (!process.env.PAGESPEED_API_KEY && !process.env.VITEST) {
   );
 }
 
-export type PageSpeedCategory = "performance" | "accessibility" | "best-practices" | "seo";
+type PageSpeedCategory = "performance" | "accessibility" | "best-practices" | "seo";
 
 export type PageSpeedResult = {
   // Partial, not a 0 fallback, when a category is missing from the

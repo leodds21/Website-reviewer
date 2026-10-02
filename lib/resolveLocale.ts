@@ -1,8 +1,5 @@
 import type { Locale } from "@/app/i18n/translations";
 
-// LOCALE_STORAGE_KEY (from app/i18n/translations.ts) doubles as both the
-// localStorage key the client already used and the cookie name proxy.ts
-// sets — one shared concept instead of two parallel constants.
 function isLocale(value: string | null | undefined): value is Locale {
   return value === "pt" || value === "en";
 }
