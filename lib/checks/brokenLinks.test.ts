@@ -43,6 +43,15 @@ describe("checkBrokenLinks", () => {
     expect(result.brokenCount).toBe(1);
   });
 
+  it.each([401, 403, 429, 999])("treats a %i response as unknown, not broken (bot walls and rate limits)", async (status) => {
+    vi.mocked(fetch).mockResolvedValueOnce(fakeResponse(200)).mockResolvedValueOnce(fakeResponse(status));
+
+    const result = await checkBrokenLinks('<a href="/a">A</a><a href="https://linkedin.com/in/x">B</a>', "https://example.com/");
+
+    expect(result.checkedCount).toBe(1);
+    expect(result.brokenCount).toBe(0);
+  });
+
   it("resolves a relative href against the page's own URL", async () => {
     vi.mocked(fetch).mockResolvedValue(fakeResponse(200));
 

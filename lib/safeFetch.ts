@@ -156,7 +156,7 @@ export async function safeFetch(url: string, init: RequestInit = {}): Promise<Re
 // Enough for the <head> and a healthy chunk of <body> on any real page
 // (a heavy page is ~1MB of HTML), while keeping a single hostile
 // response from being able to exhaust the server's memory.
-export const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
+const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 
 /**
  * response.text() on a response from a URL a stranger chose is an

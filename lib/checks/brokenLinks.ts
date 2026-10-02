@@ -53,12 +53,18 @@ function extractLinkUrls(html: string, baseUrl: string): string[] {
   return urls;
 }
 
-// true/false only when the request actually got a response — a
-// network failure (DNS, timeout, connection refused) means we don't
-// know whether the link works, so it comes back null rather than a
-// guess in either direction (same rule as sitemap-robots.ts's probes,
-// for the same reason: a "false" born from a failed request would read
-// as a confirmed-broken link we never actually reached).
+// Statuses a live page returns to an automated client it doesn't want
+// (login walls, bot protection, rate limits; 999 is LinkedIn's own).
+// They say nothing about whether the link works for a real visitor.
+const BOT_BLOCK_STATUSES = new Set([401, 403, 429, 999]);
+
+// true/false only when the request actually got a usable answer — a
+// network failure (DNS, timeout, connection refused) or a bot-block
+// response means we don't know whether the link works, so it comes
+// back null rather than a guess in either direction (same rule as
+// sitemapRobots.ts's probes, for the same reason: a "false" born from
+// a request that never got a real answer would read as a
+// confirmed-broken link, e.g. a perfectly good LinkedIn profile).
 async function isReachable(url: string, signal?: AbortSignal): Promise<boolean | null> {
   const timeout = AbortSignal.timeout(LINK_CHECK_TIMEOUT_MS);
   try {
@@ -67,6 +73,7 @@ async function isReachable(url: string, signal?: AbortSignal): Promise<boolean |
       signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
     });
     await response.body?.cancel().catch(() => {});
+    if (BOT_BLOCK_STATUSES.has(response.status)) return null;
     return response.status < 400;
   } catch {
     return null;

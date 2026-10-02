@@ -1,10 +1,7 @@
-import type { PageSpeedResult } from "./pagespeed";
-import type { HttpsCheckResult } from "./checks/https";
-import type { MetaTagsCheckResult } from "./checks/metaTags";
 import type { AltImagesCheckResult } from "./checks/altImages";
-import type { SitemapRobotsCheckResult } from "./checks/sitemapRobots";
-import type { SecurityHeadersCheckResult } from "./checks/securityHeaders";
 import type { BrokenLinksCheckResult } from "./checks/brokenLinks";
+import type { CheckResults } from "./checkResults";
+import type { SecurityHeadersCheckResult } from "./checks/securityHeaders";
 
 export type Severity = "critico" | "atencao" | "ok" | "indisponivel";
 
@@ -21,7 +18,7 @@ export type AggregatedScore = {
   security: CategoryScore;
 };
 
-export function severityFor(score: number): Exclude<Severity, "indisponivel"> {
+function severityFor(score: number): Exclude<Severity, "indisponivel"> {
   if (score < 50) return "critico";
   if (score < 80) return "atencao";
   return "ok";
@@ -80,16 +77,6 @@ function categoryFrom(components: (number | null)[]): CategoryScore {
   return categoryScore(average(available));
 }
 
-export type AggregateScoreInput = {
-  pagespeed?: PageSpeedResult;
-  https?: HttpsCheckResult;
-  securityHeaders?: SecurityHeadersCheckResult;
-  metaTags?: MetaTagsCheckResult;
-  altImages?: AltImagesCheckResult;
-  sitemapRobots?: SitemapRobotsCheckResult;
-  brokenLinks?: BrokenLinksCheckResult;
-};
-
 /**
  * Combines PageSpeed's Lighthouse categories with our own checks into
  * the four categories the report shows. Performance is Lighthouse's
@@ -106,7 +93,7 @@ export type AggregateScoreInput = {
  * calling this at all when literally every check failed, so overall
  * is never itself indisponivel in practice.
  */
-export function aggregateScore(input: AggregateScoreInput): AggregatedScore {
+export function aggregateScore(input: Partial<CheckResults>): AggregatedScore {
   const performance = categoryFrom([input.pagespeed?.scores.performance ?? null]);
 
   const seo = categoryFrom([

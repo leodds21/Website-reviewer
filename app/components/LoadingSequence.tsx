@@ -1,6 +1,7 @@
 "use client";
 
 import { useLanguage } from "@/app/i18n/LanguageContext";
+import { useSmoothProgress } from "@/app/hooks/useSmoothProgress";
 
 export type StepKey =
   | "https"
@@ -11,15 +12,22 @@ export type StepKey =
   | "pagespeed"
   | "brokenLinks";
 
-const REAL_STEP_KEYS: StepKey[] = [
-  "https",
-  "securityHeaders",
-  "metaTags",
-  "altImages",
-  "sitemapRobots",
-  "pagespeed",
-  "brokenLinks",
-];
+// Roughly how long each check takes relative to the others, so the bar
+// advances with the real work instead of in equal sevenths: PageSpeed
+// (a full Lighthouse run on Google's side) is most of the wait, the
+// rest finish within a second or two of each other.
+const STEP_WEIGHT: Record<StepKey, number> = {
+  https: 7,
+  securityHeaders: 3,
+  metaTags: 8,
+  altImages: 4,
+  sitemapRobots: 8,
+  brokenLinks: 10,
+  pagespeed: 60,
+};
+
+const REAL_STEP_KEYS = Object.keys(STEP_WEIGHT) as StepKey[];
+const TOTAL_WEIGHT = REAL_STEP_KEYS.reduce((sum, key) => sum + STEP_WEIGHT[key], 0);
 
 type DisplayStepKey = "validating" | "performance" | "seo" | "accessibility" | "security" | "finishing";
 type StepStatus = "done" | "current" | "pending";
@@ -85,7 +93,11 @@ export function LoadingSequence({ completedSteps }: { completedSteps: StepKey[] 
   const firstPendingIndex = items.findIndex((item) => item.status === "pending");
   if (firstPendingIndex !== -1) items[firstPendingIndex] = { ...items[firstPendingIndex], status: "current" };
 
-  const progressPercent = Math.round((completedSteps.length / REAL_STEP_KEYS.length) * 100);
+  const realPercent =
+    (REAL_STEP_KEYS.filter((key) => completedSet.has(key)).reduce((sum, key) => sum + STEP_WEIGHT[key], 0) /
+      TOTAL_WEIGHT) *
+    100;
+  const progressPercent = useSmoothProgress(realPercent);
 
   return (
     <div role="status" aria-live="polite">
@@ -95,12 +107,18 @@ export function LoadingSequence({ completedSteps }: { completedSteps: StepKey[] 
       <h1 className="mb-2 text-2xl tracking-tight">{t.loadingHeadline}</h1>
       <p className="mb-5 text-[13px] leading-relaxed text-[var(--color-text)]/80">{t.loadingSubtitle}</p>
 
-      <div className="mb-1.5 flex items-baseline justify-end">
-        <span className="font-mono text-[11px] tabular-nums text-[var(--color-neutral-700)]">{progressPercent}%</span>
-      </div>
-      <div className="progress-track mb-6 h-[3px]">
-        <div className="progress-fill" style={{ width: `${progressPercent}%` }}>
-          <span className="progress-shimmer" />
+      {/* Hidden from assistive tech: the value changes every frame, and
+          the step list below is what announces real progress. */}
+      <div aria-hidden="true">
+        <div className="mb-1.5 flex items-baseline justify-end">
+          <span className="font-mono text-[11px] tabular-nums text-[var(--color-neutral-700)]">
+            {Math.floor(progressPercent)}%
+          </span>
+        </div>
+        <div className="progress-track mb-6 h-[3px]">
+          <div className="progress-fill" style={{ width: `${progressPercent}%` }}>
+            <span className="progress-shimmer" />
+          </div>
         </div>
       </div>
 
