@@ -38,6 +38,14 @@ const nextConfig: NextConfig = {
   // information-disclosure category as a server banner.
   poweredByHeader: false,
 
+  // The screenshot step's serverless Chromium ships as brotli archives
+  // that the package reads from disk at runtime, never imports, so file
+  // tracing can't see them; without this the function deploys without a
+  // browser. (The package itself is already external by Next's default.)
+  outputFileTracingIncludes: {
+    "/api/analyze": ["./node_modules/@sparticuz/chromium/bin/**"],
+  },
+
   async headers() {
     return [
       {
