@@ -18,17 +18,3 @@ export const PAGESPEED_TIMEOUT_MS = 50000;
 // against a link the site itself put on the page, not the full page
 // load the other checks wait on.
 export const LINK_CHECK_TIMEOUT_MS = 3000;
-
-// The whole screenshot step (browser launch, both captures, encoding).
-// It runs alongside PageSpeed, inside the route's 60s maxDuration, so
-// it must finish well within it; past this, the report ships without
-// the preview rather than the visitor waiting on it.
-export const SCREENSHOT_TIMEOUT_MS = 30000;
-
-// Navigation up to DOMContentLoaded. Not "networkidle": analytics,
-// chat widgets and websockets keep many real sites from ever going idle.
-export const SCREENSHOT_NAVIGATION_TIMEOUT_MS = 15000;
-
-// After DOMContentLoaded, how long to give the window "load" event, web
-// fonts and above-the-fold images before capturing whatever is there.
-export const SCREENSHOT_SETTLE_TIMEOUT_MS = 4000;
