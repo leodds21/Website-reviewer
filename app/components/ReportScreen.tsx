@@ -20,8 +20,21 @@ const PLATFORM_NAMES: Record<TechPlatform, string> = {
   shopify: "Shopify",
 };
 
-export function ReportScreen({ report, onNextStep }: { report: AnalyzeReport; onNextStep: () => void }) {
+export function ReportScreen({
+  report,
+  onNextStep,
+  onManualAnalysis,
+}: {
+  report: AnalyzeReport;
+  onNextStep: () => void;
+  onManualAnalysis: () => void;
+}) {
   const { t } = useLanguage();
+  const measuredCategories = CATEGORY_KEYS.filter((key) => report.score[key].score !== null).length;
+  const partialScore = measuredCategories < CATEGORY_KEYS.length;
+  // A blocked site with nothing found has nothing to "fix": the useful
+  // next step there is a manual look, not an empty recommendations page.
+  const primaryIsManual = Boolean(report.blocked) && report.issues.length === 0;
 
   return (
     <div className="blueprint bg-white/60 p-5">
@@ -44,7 +57,7 @@ export function ReportScreen({ report, onNextStep }: { report: AnalyzeReport; on
       </div>
 
       <div className="mb-2 flex items-center gap-4">
-        <ScoreRing score={report.score.overall} severity={report.score.overallSeverity} />
+        <ScoreRing score={report.score.overall} severity={report.score.overallSeverity} partial={partialScore} />
         <div>
           <div className="text-[38px] font-semibold leading-none tracking-tight">
             {report.score.overall}
@@ -55,6 +68,12 @@ export function ReportScreen({ report, onNextStep }: { report: AnalyzeReport; on
           </span>
         </div>
       </div>
+
+      {partialScore && (
+        <p className="mb-2 max-w-sm text-[11.5px] leading-snug text-[var(--color-neutral-700)]">
+          {t.coverageNote(measuredCategories)}
+        </p>
+      )}
 
       <details className="group mb-1">
         <summary className="flex w-fit cursor-pointer list-none items-center gap-1 text-[11.5px] text-[var(--color-accent-700)] hover:underline focus-visible:underline [&::-webkit-details-marker]:hidden">
@@ -72,14 +91,32 @@ export function ReportScreen({ report, onNextStep }: { report: AnalyzeReport; on
         ))}
       </div>
 
+      {report.blocked && (
+        // Neutral on purpose (accent, not a severity color): being blocked
+        // isn't a finding about the site, just why this report is thinner.
+        <div className="mb-5 border-l-2 border-[var(--color-accent-700)] py-0.5 pl-3">
+          <p className="text-[12.5px] leading-relaxed text-[var(--color-text)]/80">{t.blockedNote}</p>
+          {/* Inline link only when the big button below goes elsewhere. */}
+          {!primaryIsManual && (
+            <button
+              type="button"
+              onClick={onManualAnalysis}
+              className="-mx-1 mt-1.5 px-1 py-0.5 text-[12.5px] font-medium text-[var(--color-accent-700)] hover:underline focus-visible:underline"
+            >
+              {t.manualAnalysisButton} <span aria-hidden="true">→</span>
+            </button>
+          )}
+        </div>
+      )}
+
       <IssueList issues={report.issues} />
 
       <button
         type="button"
-        onClick={onNextStep}
+        onClick={primaryIsManual ? onManualAnalysis : onNextStep}
         className="mt-6 flex w-full items-center justify-center border border-[var(--color-accent-700)] bg-[var(--color-accent-700)] py-2.5 text-[14.5px] font-semibold text-white transition-colors hover:border-[var(--color-accent-800)] hover:bg-[var(--color-accent-800)] active:bg-[var(--color-accent-900)]"
       >
-        {t.nextStepButton}
+        {primaryIsManual ? `${t.manualAnalysisButton} →` : t.nextStepButton}
       </button>
     </div>
   );

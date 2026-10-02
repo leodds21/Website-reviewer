@@ -2,6 +2,7 @@ import type { Issue, IssueCode } from "@/lib/issues";
 import type { Severity } from "@/lib/score";
 import type { AnalyzeError, AnalyzeErrorCode } from "@/lib/analyzeError";
 import type { ContactErrorCode } from "@/app/hooks/useContactForm";
+import type { FailureReason } from "@/lib/checkFailure";
 
 /**
  * Turns a raw retry delay into something a person would actually say —
@@ -59,6 +60,20 @@ type Dictionary = {
   scoreExplanation: string;
   categories: Record<"performance" | "seo" | "accessibility" | "security", string>;
   severity: Record<Severity, string>;
+  // Shown under a category that couldn't be measured, so the visitor
+  // always learns why (and whether trying again could help) instead of
+  // a bare "não medido".
+  unavailableReason: Record<FailureReason, string>;
+  partialMeasure: string;
+  coverageNote: (measured: number) => string;
+  // Neutral note + manual-analysis offer for a site that refused our
+  // automated checks: a dead end turned into a next step.
+  blockedNote: string;
+  manualAnalysisButton: string;
+  manualKicker: string;
+  manualHeadline: string;
+  manualBody: string;
+  manualMessagePrefill: (domain: string) => string;
   whatWeFound: string;
   points: (count: number) => string;
   noIssues: string;
@@ -168,14 +183,34 @@ const pt: Dictionary = {
   scoreLabelAttention: "Precisa de atenção",
   scoreExplanationToggle: "Como calculamos esta nota",
   scoreExplanation:
-    "A nota geral é a média simples das quatro categorias — Performance, SEO, Acessibilidade e Segurança — sem nenhuma valer mais que a outra. Cada categoria, por sua vez, já é a média das checagens que a compõem (Segurança, por exemplo, combina HTTPS, certificado e cabeçalhos de proteção). Uma categoria marcada \"não avaliado\" fica de fora da conta: normalmente é porque alguma checagem não conseguiu rodar, não porque está tudo bem por lá. \"Crítico\" e \"atenção\" indicam o quanto aquela categoria está abaixo do ideal; \"ok\" significa que não encontramos problema relevante nela.",
+    "A nota geral é a média simples das quatro categorias — Performance, SEO, Acessibilidade e Segurança — sem nenhuma valer mais que a outra. Cada categoria, por sua vez, já é a média das checagens que a compõem (Segurança, por exemplo, combina HTTPS, certificado e cabeçalhos de proteção). Uma categoria marcada \"não medido\" fica de fora da conta e mostra logo abaixo o motivo; nesse caso, a nota geral avisa em quantas categorias se baseia. \"Medido em parte\" quer dizer que algumas checagens daquela categoria não conseguiram rodar. \"Crítico\" e \"atenção\" indicam o quanto aquela categoria está abaixo do ideal; \"ok\" significa que não encontramos problema relevante nela.",
   categories: {
     performance: "Performance",
     seo: "SEO",
     accessibility: "Acessibilidade",
     security: "Segurança",
   },
-  severity: { critico: "crítico", atencao: "atenção", ok: "ok", indisponivel: "não avaliado" },
+  severity: { critico: "crítico", atencao: "atenção", ok: "ok", indisponivel: "não medido" },
+  unavailableReason: {
+    blocked: "O site recusou nosso acesso automático.",
+    timeout: "A medição demorou demais. Vale tentar de novo.",
+    unreachable: "Não conseguimos chegar até o site.",
+    "site-error": "O site respondeu com uma página de erro.",
+    quota: "Limite diário de medições atingido. Tenta de novo amanhã.",
+    "measurement-failed": "O Google não conseguiu medir esta parte. Vale tentar de novo.",
+    unknown: "Não deu pra medir desta vez. Vale tentar de novo.",
+  },
+  partialMeasure: "medido em parte",
+  coverageNote: (measured) =>
+    `Nota baseada em ${measured} de 4 categorias. As outras não puderam ser medidas, veja o motivo abaixo.`,
+  blockedNote:
+    "Este site recusa ferramentas automáticas, por isso algumas partes não puderam ser medidas. Isso não quer dizer que ele tenha problema: muitos sites bloqueiam robôs por segurança.",
+  manualAnalysisButton: "Pedir análise manual",
+  manualKicker: "Análise manual",
+  manualHeadline: "Dá pra olhar esse site de perto, sem depender de robô.",
+  manualBody:
+    "Como o site bloqueou a análise automática, posso revisar ele direto no navegador e te mandar o que encontrar.",
+  manualMessagePrefill: (domain) => `Quero uma análise manual de ${domain}.`,
   whatWeFound: "O que encontramos",
   points: (count) => `${count} ${count === 1 ? "ponto" : "pontos"}`,
   noIssues: "Não encontramos problema nenhum nas checagens que rodamos.",
@@ -432,14 +467,33 @@ const en: Dictionary = {
   scoreLabelAttention: "Needs attention",
   scoreExplanationToggle: "How we calculate this score",
   scoreExplanation:
-    "The overall score is a simple average of the four categories — Performance, SEO, Accessibility, and Security — none weighted more than another. Each category is itself an average of the checks that make it up (Security, for instance, combines HTTPS, the certificate, and protection headers). A category marked \"not evaluated\" is left out of that average: usually because a check couldn't run, not because everything's fine there. \"Critical\" and \"attention\" show how far below ideal that category is; \"ok\" means we didn't find a relevant problem in it.",
+    "The overall score is a simple average of the four categories — Performance, SEO, Accessibility, and Security — none weighted more than another. Each category is itself an average of the checks that make it up (Security, for instance, combines HTTPS, the certificate, and protection headers). A category marked \"not measured\" is left out of that average and shows the reason right below it; when that happens, the overall score says how many categories it's based on. \"Partly measured\" means some of that category's checks couldn't run. \"Critical\" and \"attention\" show how far below ideal that category is; \"ok\" means we didn't find a relevant problem in it.",
   categories: {
     performance: "Performance",
     seo: "SEO",
     accessibility: "Accessibility",
     security: "Security",
   },
-  severity: { critico: "critical", atencao: "attention", ok: "ok", indisponivel: "not evaluated" },
+  severity: { critico: "critical", atencao: "attention", ok: "ok", indisponivel: "not measured" },
+  unavailableReason: {
+    blocked: "The site refused our automated access.",
+    timeout: "The measurement took too long. Worth trying again.",
+    unreachable: "We couldn't reach the site.",
+    "site-error": "The site answered with an error page.",
+    quota: "Daily measurement limit reached. Try again tomorrow.",
+    "measurement-failed": "Google couldn't measure this part. Worth trying again.",
+    unknown: "We couldn't measure this time. Worth trying again.",
+  },
+  partialMeasure: "partly measured",
+  coverageNote: (measured) =>
+    `Score based on ${measured} of 4 categories. The others couldn't be measured, see why below.`,
+  blockedNote:
+    "This site refuses automated tools, so some parts couldn't be measured. That doesn't mean something is wrong with it: many sites block bots for security.",
+  manualAnalysisButton: "Request a manual review",
+  manualKicker: "Manual review",
+  manualHeadline: "This site can be looked at up close, without relying on a bot.",
+  manualBody: "Since the site blocked the automated analysis, I can review it directly in a browser and send you what I find.",
+  manualMessagePrefill: (domain) => `I'd like a manual review of ${domain}.`,
   whatWeFound: "What we found",
   points: (count) => `${count} ${count === 1 ? "point" : "points"}`,
   noIssues: "We didn't find any problems in the checks we ran.",

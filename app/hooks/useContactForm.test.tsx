@@ -32,6 +32,14 @@ describe("useContactForm", () => {
     expect(result.current.errorCode).toBeNull();
   });
 
+  it("starts the message pre-filled when given one (the manual-review request)", () => {
+    const { result } = renderHook(() =>
+      useContactForm({ domain: "example.com", initialMessage: "Quero uma análise manual de example.com." }),
+    );
+
+    expect(result.current.contact.message).toBe("Quero uma análise manual de example.com.");
+  });
+
   it("fails with not-configured, without calling fetch, when the Formspree endpoint isn't set", async () => {
     vi.stubEnv("NEXT_PUBLIC_FORMSPREE_ENDPOINT", "");
     const { result } = renderHook(() => useContactForm({ domain: "example.com" }));
