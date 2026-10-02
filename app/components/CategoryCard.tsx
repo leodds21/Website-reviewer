@@ -34,11 +34,21 @@ export function CategoryCard({ category, result }: { category: CategoryKey; resu
   const [width, setWidth] = useState(0);
   useEffect(() => {
     // A null score has to land on 0 explicitly: the bar would otherwise
-    // keep the previous width under the "não avaliado" label instead of
+    // keep the previous width under the "não medido" label instead of
     // reading as genuinely unmeasured.
     const id = requestAnimationFrame(() => setWidth(score === null ? 0 : score));
     return () => cancelAnimationFrame(id);
   }, [score]);
+
+  // Every category answers something: why it couldn't be measured, or
+  // that only part of it could. "?? unknown" covers reports cached
+  // before reasons existed.
+  const note =
+    result.score === null
+      ? (t.unavailableReason[result.reason] ?? t.unavailableReason.unknown)
+      : result.partial
+        ? t.partialMeasure
+        : null;
 
   return (
     <div>
@@ -65,6 +75,7 @@ export function CategoryCard({ category, result }: { category: CategoryKey; resu
           style={{ width: `${width}%` }}
         />
       </div>
+      {note && <p className="mt-1 text-[11.5px] leading-snug text-[var(--color-neutral-700)]">{note}</p>}
     </div>
   );
 }

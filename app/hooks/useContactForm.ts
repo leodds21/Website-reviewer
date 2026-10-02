@@ -8,8 +8,8 @@ export type ContactErrorCode = "offline" | "timeout" | "not-configured" | "rejec
 const SUBMIT_TIMEOUT_MS = 15_000;
 const SUCCESS_HOLD_MS = 1200;
 
-export function useContactForm(options: { domain: string | undefined }) {
-  const [contact, setContact] = useState({ name: "", email: "", message: "" });
+export function useContactForm(options: { domain: string | undefined; initialMessage?: string }) {
+  const [contact, setContact] = useState({ name: "", email: "", message: options.initialMessage ?? "" });
   const [status, setStatus] = useState<ContactStatus>("idle");
   const [errorCode, setErrorCode] = useState<ContactErrorCode | null>(null);
   const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

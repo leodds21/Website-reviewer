@@ -37,6 +37,13 @@ type PageSpeedApiResponse = {
       "color-contrast"?: { score?: number | null };
       "heading-order"?: { score?: number | null };
       label?: { score?: number | null };
+      // The same basics our own HTML checks look for. Read so a site
+      // whose firewall refuses *our* fetch but lets Google's
+      // Lighthouse through still gets them checked.
+      "document-title"?: { score?: number | null };
+      "meta-description"?: { score?: number | null };
+      viewport?: { score?: number | null };
+      "image-alt"?: { score?: number | null };
     };
   };
 };
@@ -85,6 +92,14 @@ export type PageSpeedResult = {
   // Undefined when the page has no <form> elements for the "label"
   // audit to check in the first place.
   hasFormLabelIssues?: boolean;
+  // Lighthouse's own pass/fail for the basics parseMetaTags and
+  // parseAltImages check — the fallback when our fetch of the page was
+  // refused. Undefined when the audit is missing or not applicable
+  // (image-alt on a page with no images).
+  hasTitle?: boolean;
+  hasDescription?: boolean;
+  hasViewport?: boolean;
+  imagesHaveAlt?: boolean;
 };
 
 /**
@@ -146,6 +161,9 @@ export async function runPageSpeed(url: string, signal?: AbortSignal): Promise<P
   const formLabelScore = data.lighthouseResult?.audits?.label?.score;
   const hasFormLabelIssues = typeof formLabelScore === "number" ? formLabelScore < 1 : undefined;
 
+  const audits = data.lighthouseResult?.audits;
+  const passes = (score: number | null | undefined) => (typeof score === "number" ? score === 1 : undefined);
+
   return {
     scores: {
       performance: scoreOf("performance"),
@@ -159,5 +177,9 @@ export async function runPageSpeed(url: string, signal?: AbortSignal): Promise<P
     ttfbMs,
     hasHeadingOrderIssues,
     hasFormLabelIssues,
+    hasTitle: passes(audits?.["document-title"]?.score),
+    hasDescription: passes(audits?.["meta-description"]?.score),
+    hasViewport: passes(audits?.viewport?.score),
+    imagesHaveAlt: passes(audits?.["image-alt"]?.score),
   };
 }

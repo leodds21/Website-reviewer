@@ -118,6 +118,20 @@ export function deriveIssues(input: Partial<CheckResults>): Issue[] {
     if (!input.metaTags.hasViewport) {
       issues.push({ category: "accessibility", severity: "critico", code: "no-viewport" });
     }
+  } else if (input.pagespeed) {
+    // Our fetch of the page was refused or failed, but Lighthouse got
+    // through: same findings from its audits. `=== false` throughout,
+    // since undefined means the audit didn't run, not that it failed.
+    // No generic-title check here: Lighthouse doesn't expose the title text.
+    if (input.pagespeed.hasTitle === false) {
+      issues.push({ category: "seo", severity: "critico", code: "no-title" });
+    }
+    if (input.pagespeed.hasDescription === false) {
+      issues.push({ category: "seo", severity: "atencao", code: "no-description" });
+    }
+    if (input.pagespeed.hasViewport === false) {
+      issues.push({ category: "accessibility", severity: "critico", code: "no-viewport" });
+    }
   }
 
   if (input.altImages && input.altImages.missingAltCount > 0) {
@@ -128,6 +142,10 @@ export function deriveIssues(input: Partial<CheckResults>): Issue[] {
       code: "missing-alt",
       params: { missing: input.altImages.missingAltCount, sampled: input.altImages.sampledCount },
     });
+  } else if (!input.altImages && input.pagespeed?.imagesHaveAlt === false) {
+    // Lighthouse says some images lack alt text but gives no count to
+    // grade by, so no params and "atencao" rather than guessing "critico".
+    issues.push({ category: "accessibility", severity: "atencao", code: "missing-alt" });
   }
 
   // Explicitly `=== false`, not a falsy check: hasSitemap is
