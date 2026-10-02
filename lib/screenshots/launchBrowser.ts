@@ -1,4 +1,4 @@
-import { chromium, type Browser } from "playwright-core";
+import type { Browser } from "playwright-core";
 
 // A cold start on serverless includes unpacking Chromium into /tmp;
 // past this something is wrong, and the capture budget is better spent
@@ -15,6 +15,11 @@ const LAUNCH_TIMEOUT_MS = 15000;
  * otherwise the installed Google Chrome.
  */
 export async function launchBrowser(extraArgs: string[] = []): Promise<Browser> {
+  // Loaded on first capture, not with the route: if the browser stack
+  // can't load in some environment, only the preview fails (and says
+  // so), never the whole analysis endpoint.
+  const { chromium } = await import("playwright-core");
+
   if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
     const { default: serverlessChromium } = await import("@sparticuz/chromium");
     // No WebGL needed for a static capture; skips unpacking swiftshader.
