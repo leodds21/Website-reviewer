@@ -267,7 +267,9 @@ const pt: Dictionary = {
       description: "Em celular, a página pode aparecer minúscula ou exigir zoom pra ler.",
     }),
     "missing-alt": (params) => ({
-      title: `${params?.missing} de ${params?.sampled} imagens sem texto alternativo.`,
+      title: params
+        ? `${params.missing} de ${params.sampled} imagens sem texto alternativo.`
+        : "Há imagens sem texto alternativo.",
       description: "Quem usa leitor de tela não sabe o que essas imagens mostram.",
     }),
     "no-sitemap": () => ({
@@ -528,7 +530,9 @@ const en: Dictionary = {
       description: "On mobile, the page can show up tiny or require zooming to read.",
     }),
     "missing-alt": (params) => ({
-      title: `${params?.missing} of ${params?.sampled} images with no alt text.`,
+      title: params
+        ? `${params.missing} of ${params.sampled} images with no alt text.`
+        : "Some images have no alt text.",
       description: "Screen reader users have no idea what these images show.",
     }),
     "no-sitemap": () => ({
