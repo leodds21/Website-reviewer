@@ -28,18 +28,18 @@ export const dynamic = "force-dynamic";
 // than failing loudly.
 export const runtime = "nodejs";
 
-// PAGESPEED_TIMEOUT_MS (lib/timeouts.ts) alone is 30s, and it's the
+// PAGESPEED_TIMEOUT_MS (lib/timeouts.ts) alone is 50s, and it's the
 // longest-running of the checks that run concurrently — so the
 // route's own worst-case wall-clock time is close to that, not the
 // sum of every check's timeout. Without an explicit ceiling here, a
 // slow-but-legitimate analysis can get killed by whatever the
 // platform's own default duration limit happens to be, which is
-// usually well under 30s — a real, likely-already-happening failure
-// mode in production, not just a hypothetical. 35s leaves a small
+// usually well under that — a real, likely-already-happening failure
+// mode in production, not just a hypothetical. 60s leaves a small
 // buffer over the known worst case for scoring/caching/stream
 // teardown, without requesting more time than the route can ever
 // actually use.
-export const maxDuration = 35;
+export const maxDuration = 60;
 
 /**
  * Error responses keep their real HTTP status (429 with Retry-After,
