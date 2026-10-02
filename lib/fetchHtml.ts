@@ -22,5 +22,16 @@ export async function fetchHtml(url: string, signal?: AbortSignal): Promise<stri
     method: "GET",
     signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
   });
+
+  // A 403/503 here is usually a bot wall or an error page, not the
+  // site's real markup. Parsing it anyway would report "no title, no
+  // viewport" as confirmed findings about a page we never actually
+  // saw — failing the fetch leaves those checks "indisponível", the
+  // same honest answer as any other check that couldn't run.
+  if (!response.ok) {
+    await response.body?.cancel();
+    throw new Error(`A página respondeu ${response.status}.`);
+  }
+
   return readTextCapped(response);
 }

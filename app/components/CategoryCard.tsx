@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Gauge, Search, Accessibility as AccessibilityIcon, Shield } from "lucide-react";
-import type { Severity } from "@/lib/score";
+import type { CategoryScore, Severity } from "@/lib/score";
 import { useLanguage } from "@/app/i18n/LanguageContext";
 import type { CategoryKey } from "@/app/i18n/translations";
 
@@ -27,24 +27,15 @@ const CATEGORY_ICON: Record<CategoryKey, typeof Gauge> = {
   security: Shield,
 };
 
-export function CategoryCard({
-  category,
-  score,
-  severity,
-}: {
-  category: CategoryKey;
-  score: number | null;
-  severity: Severity;
-}) {
+export function CategoryCard({ category, result }: { category: CategoryKey; result: CategoryScore }) {
+  const { score, severity } = result;
   const { t } = useLanguage();
   const Icon = CATEGORY_ICON[category];
   const [width, setWidth] = useState(0);
   useEffect(() => {
-    // CategoryCard doesn't remount between analyses (page.tsx keeps a
-    // stable key per category), so without explicitly resetting to 0
-    // for a null score, the bar keeps showing the *previous* site's
-    // width under the "não avaliado" label instead of reading as
-    // genuinely unmeasured.
+    // A null score has to land on 0 explicitly: the bar would otherwise
+    // keep the previous width under the "não avaliado" label instead of
+    // reading as genuinely unmeasured.
     const id = requestAnimationFrame(() => setWidth(score === null ? 0 : score));
     return () => cancelAnimationFrame(id);
   }, [score]);
@@ -62,9 +53,7 @@ export function CategoryCard({
           ) : (
             <>
               {score}{" "}
-              <span className={severity === "indisponivel" ? "text-[var(--color-neutral-700)]" : SEVERITY_TEXT[severity]}>
-                · {t.severity[severity]}
-              </span>
+              <span className={SEVERITY_TEXT[severity]}>· {t.severity[severity]}</span>
             </>
           )}
         </span>

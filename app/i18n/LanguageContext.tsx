@@ -11,8 +11,8 @@ type LanguageContextValue = {
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
-// LOCALE_STORAGE_KEY doubles as the cookie name proxy.ts and layout.tsx
-// use server-side — same concept, one shared constant.
+// The cookie is the only persistence: proxy.ts and layout.tsx read it
+// server-side, so it's what makes a manual toggle survive a reload.
 function writeLocaleCookie(locale: Locale) {
   const oneYear = 60 * 60 * 24 * 365;
   const secure = window.location.protocol === "https:" ? "; secure" : "";
@@ -39,16 +39,6 @@ export function LanguageProvider({
 
   function setLocale(next: Locale) {
     setLocaleState(next);
-    try {
-      localStorage.setItem(LOCALE_STORAGE_KEY, next);
-    } catch {
-      // Safari private mode, storage blocked by the user/an extension —
-      // a write failure just means the choice won't persist, not fatal.
-    }
-    // Without this, a manual toggle followed by a full reload lands back
-    // on the server-resolved locale (no ?lang=, no prior cookie) instead
-    // of what was just picked — localStorage alone isn't visible to
-    // layout.tsx, only a cookie is.
     writeLocaleCookie(next);
   }
 

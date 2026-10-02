@@ -68,7 +68,7 @@ export function ReportScreen({ report, onNextStep }: { report: AnalyzeReport; on
 
       <div className="mt-5 mb-5 flex flex-col gap-2.5">
         {CATEGORY_KEYS.map((key) => (
-          <CategoryCard key={key} category={key} score={report.score[key].score} severity={report.score[key].severity} />
+          <CategoryCard key={key} category={key} result={report.score[key]} />
         ))}
       </div>
 

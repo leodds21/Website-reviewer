@@ -110,14 +110,13 @@ h1, h2, h3, h4 {
   height: 100%;
   overflow: hidden;
   background: var(--color-accent-700);
-  transition: width 500ms ease-out;
 }
 
-/* A soft sheen sweeping across the filled portion — the width
-   transition alone only reads as motion at the instant a step
-   completes; this keeps the bar visibly alive in between, the same
-   "still working" signal an indeterminate bar gives, without
-   pretending progress isn't real. */
+/* A soft sheen sweeping across the filled portion — keeps the bar
+   visibly alive even in the moments its width barely changes, the
+   same "still working" signal an indeterminate bar gives, without
+   pretending progress isn't real. Width itself is animated per frame
+   by useSmoothProgress, so it deliberately has no CSS transition. */
 @keyframes shimmer {
   from { transform: translateX(-100%); }
   to { transform: translateX(250%); }
