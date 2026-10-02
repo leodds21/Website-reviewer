@@ -1,10 +1,4 @@
-import type { PageSpeedResult } from "./pagespeed";
-import type { HttpsCheckResult } from "./checks/https";
-import type { MetaTagsCheckResult } from "./checks/metaTags";
-import type { AltImagesCheckResult } from "./checks/altImages";
-import type { SitemapRobotsCheckResult } from "./checks/sitemapRobots";
-import type { SecurityHeadersCheckResult } from "./checks/securityHeaders";
-import type { BrokenLinksCheckResult } from "./checks/brokenLinks";
+import type { CheckResults } from "./checkResults";
 
 export type IssueCategory = "performance" | "seo" | "accessibility" | "security";
 export type IssueSeverity = "critico" | "atencao";
@@ -65,16 +59,6 @@ const CLS_POOR_THRESHOLD = 0.25;
 const TTFB_NEEDS_IMPROVEMENT_THRESHOLD_MS = 800;
 const TTFB_POOR_THRESHOLD_MS = 1800;
 
-export type DeriveIssuesInput = {
-  pagespeed?: PageSpeedResult;
-  https?: HttpsCheckResult;
-  securityHeaders?: SecurityHeadersCheckResult;
-  metaTags?: MetaTagsCheckResult;
-  altImages?: AltImagesCheckResult;
-  sitemapRobots?: SitemapRobotsCheckResult;
-  brokenLinks?: BrokenLinksCheckResult;
-};
-
 /**
  * Turns the raw check/PageSpeed results into findings for the "o que
  * encontramos" list — as a code + params, not display text, so the UI
@@ -89,7 +73,7 @@ export type DeriveIssuesInput = {
  * rather than a false "everything is missing" one — silence, not a
  * fabricated negative, is the honest response to missing data.
  */
-export function deriveIssues(input: DeriveIssuesInput): Issue[] {
+export function deriveIssues(input: Partial<CheckResults>): Issue[] {
   const issues: Issue[] = [];
 
   if (input.https) {

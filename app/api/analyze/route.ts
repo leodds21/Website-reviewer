@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { checkHttps, type HttpsCheckResult } from "@/lib/checks/https";
-import { parseSecurityHeaders, type SecurityHeadersCheckResult } from "@/lib/checks/securityHeaders";
-import { parseMetaTags, type MetaTagsCheckResult } from "@/lib/checks/metaTags";
-import { parseAltImages, type AltImagesCheckResult } from "@/lib/checks/altImages";
-import { checkSitemapRobots, type SitemapRobotsCheckResult } from "@/lib/checks/sitemapRobots";
+import { checkHttps } from "@/lib/checks/https";
+import { parseSecurityHeaders } from "@/lib/checks/securityHeaders";
+import { parseMetaTags } from "@/lib/checks/metaTags";
+import { parseAltImages } from "@/lib/checks/altImages";
+import { checkSitemapRobots } from "@/lib/checks/sitemapRobots";
 import { detectTech, type TechPlatform } from "@/lib/checks/techDetect";
-import { checkBrokenLinks, type BrokenLinksCheckResult } from "@/lib/checks/brokenLinks";
-import { PageSpeedError, runPageSpeed, type PageSpeedResult } from "@/lib/pagespeed";
+import { checkBrokenLinks } from "@/lib/checks/brokenLinks";
+import { PageSpeedError, runPageSpeed } from "@/lib/pagespeed";
 import { fetchHtml } from "@/lib/fetchHtml";
 import { getCached, setCached, FULL_TTL_MS, PARTIAL_TTL_MS } from "@/lib/cache";
 import { aggregateScore } from "@/lib/score";
@@ -15,6 +15,7 @@ import { checkRateLimit } from "@/lib/rateLimit";
 import { isBlockedHost } from "@/lib/safeFetch";
 import { normalizeUrl } from "@/lib/url";
 import type { AnalyzeReport } from "@/lib/report";
+import type { CheckResults } from "@/lib/checkResults";
 import type { AnalyzeError, AnalyzeErrorCode } from "@/lib/analyzeError";
 
 export const dynamic = "force-dynamic";
@@ -38,16 +39,6 @@ export const runtime = "nodejs";
 // teardown, without requesting more time than the route can ever
 // actually use.
 export const maxDuration = 35;
-
-type CheckResults = {
-  https: HttpsCheckResult;
-  securityHeaders: SecurityHeadersCheckResult;
-  metaTags: MetaTagsCheckResult;
-  altImages: AltImagesCheckResult;
-  sitemapRobots: SitemapRobotsCheckResult;
-  pagespeed: PageSpeedResult;
-  brokenLinks: BrokenLinksCheckResult;
-};
 
 /**
  * Error responses keep their real HTTP status (429 with Retry-After,
@@ -170,131 +161,139 @@ export async function GET(request: Request) {
         }
       }
 
-      const cached = await getCached<AnalyzeReport>(cacheKey);
-      if (cached) {
-        send("done", cached);
-        close();
-        return;
-      }
+      try {
+        const cached = await getCached<AnalyzeReport>(cacheKey);
+        if (cached) {
+          send("done", cached);
+          return;
+        }
 
-      const results: Partial<CheckResults> = {};
-      let platform: TechPlatform | null = null;
-      let sawFailure = false;
-      // Only meaningful when every check fails (see the "analysis-failed"
-      // branch below) — a PageSpeed failure alone just leaves the
-      // performance category "indisponível," like any other partial
-      // failure, no top-level error needed for that case.
-      let pagespeedError: unknown;
-      // brokenLinks derives from the same `pageFetch` promise as the
-      // "page" task (see `tasks` below): when fetchHtml itself fails,
-      // that rejection forwards unchanged into brokenLinks too, so the
-      // exact same Error object would otherwise get logged twice for
-      // one root cause. Tracked by reference, not by task key, so it
-      // stays correct if another derived task is added later.
-      const loggedErrors = new Set<unknown>();
+        const results: Partial<CheckResults> = {};
+        let platform: TechPlatform | null = null;
+        let sawFailure = false;
+        // Only meaningful when every check fails (see the "analysis-failed"
+        // branch below) — a PageSpeed failure alone just leaves the
+        // performance category "indisponível," like any other partial
+        // failure, no top-level error needed for that case.
+        let pagespeedError: unknown;
+        // brokenLinks derives from the same `pageFetch` promise as the
+        // "page" task (see `tasks` below): when fetchHtml itself fails,
+        // that rejection forwards unchanged into brokenLinks too, so the
+        // exact same Error object would otherwise get logged twice for
+        // one root cause. Tracked by reference, not by task key, so it
+        // stays correct if another derived task is added later.
+        const loggedErrors = new Set<unknown>();
 
-      // https gets the raw user input (not the https-forced `target`)
-      // since its whole job is testing whether a plain-http request
-      // gets upgraded — feeding it an already-https URL made "site
-      // doesn't serve HTTPS at all" nearly unreachable as a finding.
-      const pageFetch = fetchHtml(target, abortController.signal);
+        // https gets the raw user input (not the https-forced `target`)
+        // since its whole job is testing whether a plain-http request
+        // gets upgraded — feeding it an already-https URL made "site
+        // doesn't serve HTTPS at all" nearly unreachable as a finding.
+        const pageFetch = fetchHtml(target, abortController.signal);
 
-      const tasks = {
-        https: checkHttps(rawUrl, abortController.signal),
-        page: pageFetch,
-        sitemapRobots: checkSitemapRobots(target, abortController.signal),
-        pagespeed: runPageSpeed(target, abortController.signal),
-        // Waits on the same fetch page/metaTags/altImages already use
-        // (see the "page" outcome below) instead of fetching the page a
-        // second time — only the up-to-10 link checks themselves are
-        // new requests, against links the site's own home page links to.
-        brokenLinks: pageFetch.then((html) => checkBrokenLinks(html, target, abortController.signal)),
-      };
+        const tasks = {
+          https: checkHttps(rawUrl, abortController.signal),
+          page: pageFetch,
+          sitemapRobots: checkSitemapRobots(target, abortController.signal),
+          pagespeed: runPageSpeed(target, abortController.signal),
+          // Waits on the same fetch page/metaTags/altImages already use
+          // (see the "page" outcome below) instead of fetching the page a
+          // second time — only the up-to-10 link checks themselves are
+          // new requests, against links the site's own home page links to.
+          brokenLinks: pageFetch.then((html) => checkBrokenLinks(html, target, abortController.signal)),
+        };
 
-      for await (const outcome of settleInOrder(tasks)) {
-        if ("error" in outcome) {
-          sawFailure = true;
-          // Logged server-side only — the client gets a generic
-          // message (see below), never this raw detail.
-          if (!loggedErrors.has(outcome.error)) {
-            loggedErrors.add(outcome.error);
-            console.error(`Checagem "${outcome.key}" falhou para ${target}:`, outcome.error);
+        for await (const outcome of settleInOrder(tasks)) {
+          if ("error" in outcome) {
+            sawFailure = true;
+            // Logged server-side only — the client gets a generic
+            // message (see below), never this raw detail.
+            if (!loggedErrors.has(outcome.error)) {
+              loggedErrors.add(outcome.error);
+              console.error(`Checagem "${outcome.key}" falhou para ${target}:`, outcome.error);
+            }
+            if (outcome.key === "pagespeed") pagespeedError = outcome.error;
+            continue;
           }
-          if (outcome.key === "pagespeed") pagespeedError = outcome.error;
-          continue;
-        }
 
-        if (outcome.key === "page") {
-          // metaTags and altImages both just parse this same fetch —
-          // they used to each fetch the page independently, tripling
-          // traffic against the (third-party) site being analyzed.
-          results.metaTags = parseMetaTags(outcome.value);
-          results.altImages = parseAltImages(outcome.value);
-          platform = detectTech(outcome.value).platform;
-          send("step", { step: "metaTags" });
-          send("step", { step: "altImages" });
-          continue;
-        }
-
-        if (outcome.key === "https") {
-          // securityHeaders reads off the same response checkHttps
-          // already fetched — no request of its own, so it isn't a
-          // separate entry in `tasks`, just derived data the moment
-          // https settles. Only meaningful once the connection is
-          // actually secure (see deriveIssues), but the step event
-          // still fires either way so the loading UI's security group
-          // reaches "done" instead of hanging on a step that silently
-          // never arrives.
-          results.https = outcome.value;
-          send("step", { step: "https" });
-          if (outcome.value.passed && outcome.value.headers) {
-            results.securityHeaders = parseSecurityHeaders(outcome.value.headers);
+          if (outcome.key === "page") {
+            // metaTags and altImages both just parse this same fetch —
+            // they used to each fetch the page independently, tripling
+            // traffic against the (third-party) site being analyzed.
+            results.metaTags = parseMetaTags(outcome.value);
+            results.altImages = parseAltImages(outcome.value);
+            platform = detectTech(outcome.value).platform;
+            send("step", { step: "metaTags" });
+            send("step", { step: "altImages" });
+            continue;
           }
-          send("step", { step: "securityHeaders" });
-          continue;
+
+          if (outcome.key === "https") {
+            // securityHeaders reads off the same response checkHttps
+            // already fetched — no request of its own, so it isn't a
+            // separate entry in `tasks`, just derived data the moment
+            // https settles. Only meaningful once the connection is
+            // actually secure (see deriveIssues), but the step event
+            // still fires either way so the loading UI's security group
+            // reaches "done" instead of hanging on a step that silently
+            // never arrives.
+            results.https = outcome.value;
+            send("step", { step: "https" });
+            if (outcome.value.passed && outcome.value.headers) {
+              results.securityHeaders = parseSecurityHeaders(outcome.value.headers);
+            }
+            send("step", { step: "securityHeaders" });
+            continue;
+          }
+
+          results[outcome.key] = outcome.value as never;
+          send("step", { step: outcome.key });
         }
 
-        results[outcome.key] = outcome.value as never;
-        send("step", { step: outcome.key });
-      }
+        if (request.signal.aborted) {
+          // The visitor left mid-analysis. Nothing to send, and caching
+          // the half-finished results would serve this degraded report
+          // to the *next* visitor for the full partial TTL.
+          return;
+        }
 
-      if (request.signal.aborted) {
-        // The visitor left mid-analysis. Nothing to send, and caching
-        // the half-finished results would serve this degraded report
-        // to the *next* visitor for the full partial TTL.
+        if (Object.keys(results).length === 0) {
+          // A bare code, not a sentence: the real reason (a missing API
+          // key, the exact PageSpeed error body, an internal hostname a
+          // redirect resolved to) is exactly the detail an SSRF/config
+          // guard exists to keep off the client. The one exception worth
+          // telling apart is Google's quota running out (429) — "tenta
+          // de novo amanhã" is a real, actionable answer where "unknown
+          // failure" isn't.
+          const failure: AnalyzeErrorCode =
+            pagespeedError instanceof PageSpeedError && pagespeedError.status === 429
+              ? "quota-exceeded"
+              : "analysis-failed";
+          send("failed", { code: failure });
+        } else {
+          const score = aggregateScore(results);
+          const issues = deriveIssues(results);
+          const report: AnalyzeReport = { domain, score, issues, platform, checkedAt: new Date().toISOString() };
+          // A report where some checks failed to run shouldn't be
+          // trusted as long as a complete one — a transient failure
+          // (a slow site timing out) shouldn't lock every visitor into a
+          // degraded report for the full 6h TTL. "Complete" ignores the
+          // page/metaTags/altImages split (one fetch, two derived
+          // results) by checking sawFailure directly instead of key count.
+          const isComplete = !sawFailure;
+          await setCached(cacheKey, report, isComplete ? FULL_TTL_MS : PARTIAL_TTL_MS);
+          send("done", report);
+        }
+      } catch (error) {
+        // Anything unexpected past this point (a bug in scoring, a
+        // serialization failure) would otherwise error the stream
+        // mid-flight: the visitor gets a dropped connection and the
+        // still-running checks keep burning PageSpeed quota for nobody.
+        console.error(`Análise de ${target} falhou de forma inesperada:`, error);
+        abortController.abort();
+        send("failed", { code: "analysis-failed" satisfies AnalyzeErrorCode });
+      } finally {
         close();
-        return;
       }
-
-      if (Object.keys(results).length === 0) {
-        // A bare code, not a sentence: the real reason (a missing API
-        // key, the exact PageSpeed error body, an internal hostname a
-        // redirect resolved to) is exactly the detail an SSRF/config
-        // guard exists to keep off the client. The one exception worth
-        // telling apart is Google's quota running out (429) — "tenta
-        // de novo amanhã" is a real, actionable answer where "unknown
-        // failure" isn't.
-        const failure: AnalyzeErrorCode =
-          pagespeedError instanceof PageSpeedError && pagespeedError.status === 429
-            ? "quota-exceeded"
-            : "analysis-failed";
-        send("failed", { code: failure });
-      } else {
-        const score = aggregateScore(results);
-        const issues = deriveIssues(results);
-        const report: AnalyzeReport = { domain, score, issues, platform, checkedAt: new Date().toISOString() };
-        // A report where some checks failed to run shouldn't be
-        // trusted as long as a complete one — a transient failure
-        // (a slow site timing out) shouldn't lock every visitor into a
-        // degraded report for the full 6h TTL. "Complete" ignores the
-        // page/metaTags/altImages split (one fetch, two derived
-        // results) by checking sawFailure directly instead of key count.
-        const isComplete = !sawFailure;
-        await setCached(cacheKey, report, isComplete ? FULL_TTL_MS : PARTIAL_TTL_MS);
-        send("done", report);
-      }
-
-      close();
     },
     cancel() {
       abortController.abort();
