@@ -6,8 +6,8 @@ import { checkHttps } from "./https";
 // depend on real DNS, same as fetch itself.
 vi.mock("node:dns/promises", () => ({ lookup: vi.fn().mockResolvedValue([{ address: "93.184.216.34" }]) }));
 
-function fakeResponse(url: string): Response {
-  return { status: 200, headers: new Headers(), url, ok: true } as Response;
+function fakeResponse(url: string, status = 200): Response {
+  return { status, headers: new Headers(), url, ok: status >= 200 && status < 300 } as Response;
 }
 
 describe("checkHttps", () => {
@@ -17,6 +17,34 @@ describe("checkHttps", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("asks https:// directly when a firewall refuses the plain-http request, instead of calling it 'no HTTPS'", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(fakeResponse("http://example.com/", 403))
+      .mockResolvedValueOnce(fakeResponse("https://example.com/", 403));
+
+    const result = await checkHttps("example.com");
+
+    expect(result.passed).toBe(true);
+    expect(vi.mocked(fetch).mock.calls[1][0].toString()).toBe("https://example.com/");
+  });
+
+  it("gives no verdict when http is refused and https can't be reached at all", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(fakeResponse("http://example.com/", 403))
+      .mockRejectedValueOnce(new TypeError("fetch failed"));
+
+    await expect(checkHttps("example.com")).rejects.toMatchObject({ name: "HttpStatusError", status: 403 });
+  });
+
+  it("still fails a plain-http site that answers normally and never upgrades", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(fakeResponse("http://example.com/", 200));
+
+    const result = await checkHttps("example.com");
+
+    expect(result.passed).toBe(false);
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it("passes when the final URL is https", async () => {
