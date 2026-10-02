@@ -1,5 +1,6 @@
 import { safeFetch } from "../safeFetch";
 import { LINK_CHECK_TIMEOUT_MS } from "../timeouts";
+import { isBotBlockStatus } from "../httpStatus";
 
 // A conservative cap, not an exhaustive crawl: this fires one request
 // per sampled link, concurrently, against the site being analyzed —
@@ -53,11 +54,6 @@ function extractLinkUrls(html: string, baseUrl: string): string[] {
   return urls;
 }
 
-// Statuses a live page returns to an automated client it doesn't want
-// (login walls, bot protection, rate limits; 999 is LinkedIn's own).
-// They say nothing about whether the link works for a real visitor.
-const BOT_BLOCK_STATUSES = new Set([401, 403, 429, 999]);
-
 // true/false only when the request actually got a usable answer — a
 // network failure (DNS, timeout, connection refused) or a bot-block
 // response means we don't know whether the link works, so it comes
@@ -73,7 +69,7 @@ async function isReachable(url: string, signal?: AbortSignal): Promise<boolean |
       signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
     });
     await response.body?.cancel().catch(() => {});
-    if (BOT_BLOCK_STATUSES.has(response.status)) return null;
+    if (isBotBlockStatus(response.status)) return null;
     return response.status < 400;
   } catch {
     return null;
