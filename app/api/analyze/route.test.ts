@@ -3,8 +3,6 @@ import { checkHttps } from "@/lib/checks/https";
 import { checkSitemapRobots } from "@/lib/checks/sitemapRobots";
 import { PageSpeedError, runPageSpeed } from "@/lib/pagespeed";
 import { fetchHtml } from "@/lib/fetchHtml";
-import { captureWebsiteScreenshots } from "@/lib/screenshots/captureWebsiteScreenshots";
-import type { WebsiteScreenshots } from "@/lib/screenshots/types";
 import * as cache from "@/lib/cache";
 import { HttpStatusError } from "@/lib/httpStatus";
 import type { AnalyzeReport } from "@/lib/report";
@@ -25,14 +23,6 @@ vi.mock("@/lib/pagespeed", async (importOriginal) => ({
   runPageSpeed: vi.fn(),
 }));
 vi.mock("@/lib/fetchHtml", () => ({ fetchHtml: vi.fn() }));
-// The real capture launches Chromium; its own behavior is covered in
-// lib/screenshots. Here only how the route carries the result matters.
-vi.mock("@/lib/screenshots/captureWebsiteScreenshots", () => ({ captureWebsiteScreenshots: vi.fn() }));
-
-const SCREENSHOTS_OK: WebsiteScreenshots = {
-  desktop: { status: "success", width: 1440, height: 900, src: "data:image/webp;base64,AAAA" },
-  mobile: { status: "success", width: 390, height: 844, src: "data:image/webp;base64,BBBB" },
-};
 
 const HAPPY_HTML = `<html><head>
   <meta name="viewport" content="width=device-width">
@@ -56,7 +46,6 @@ beforeEach(() => {
   vi.mocked(fetchHtml).mockResolvedValue(HAPPY_HTML);
   vi.mocked(checkSitemapRobots).mockResolvedValue(HAPPY.sitemapRobots);
   vi.mocked(runPageSpeed).mockResolvedValue(HAPPY.pagespeed);
-  vi.mocked(captureWebsiteScreenshots).mockResolvedValue(SCREENSHOTS_OK);
 });
 
 function requestFor(url: string, ip: string): Request {
@@ -116,7 +105,7 @@ describe("GET /api/analyze", () => {
     expect(checkHttps).toHaveBeenCalledWith("route-test-scheme.example", expect.anything());
   });
 
-  it("streams one step event per check (including the derived pairs and the preview), then done", async () => {
+  it("streams one step event per check (6, including the derived metaTags/altImages and https/securityHeaders pairs), then done", async () => {
     const response = await GET(requestFor("route-test-happy.example", "route-test-happy.ip"));
 
     expect(response.status).toBe(200);
@@ -127,36 +116,12 @@ describe("GET /api/analyze", () => {
     const done = events.find((event) => event.event === "done");
 
     expect(steps.map((s) => (s.data as { step: string }).step).sort()).toEqual(
-      ["altImages", "brokenLinks", "https", "metaTags", "pagespeed", "screenshots", "securityHeaders", "sitemapRobots"].sort(),
+      ["altImages", "brokenLinks", "https", "metaTags", "pagespeed", "securityHeaders", "sitemapRobots"].sort(),
     );
     expect(done).toBeDefined();
     const report = done!.data as { domain: string; score: { overall: number } };
     expect(report.domain).toBe("route-test-happy.example");
     expect(report.score.overall).toBeGreaterThan(0);
-  });
-
-  it("puts the desktop and mobile captures in the report, from the same target as the other checks", async () => {
-    const response = await GET(requestFor("route-test-shots.example", "route-test-shots.ip"));
-    const report = (await readSseEvents(response)).find((event) => event.event === "done")!.data as AnalyzeReport;
-
-    expect(report.screenshots).toEqual(SCREENSHOTS_OK);
-    expect(captureWebsiteScreenshots).toHaveBeenCalledWith("https://route-test-shots.example/", expect.any(AbortSignal));
-  });
-
-  it("still delivers the full report when the captures fail, and caches it only briefly", async () => {
-    const setCachedSpy = vi.spyOn(cache, "setCached");
-    vi.mocked(captureWebsiteScreenshots).mockResolvedValueOnce({
-      desktop: { status: "failed", width: 1440, height: 900, reason: "timeout" },
-      mobile: { status: "failed", width: 390, height: 844, reason: "timeout" },
-    });
-
-    const response = await GET(requestFor("route-test-shots-fail.example", "route-test-shots-fail.ip"));
-    const report = (await readSseEvents(response)).find((event) => event.event === "done")!.data as AnalyzeReport;
-
-    expect(report.score.overall).toBeGreaterThan(0);
-    expect(report.screenshots?.desktop).toMatchObject({ status: "failed", reason: "timeout" });
-    expect(setCachedSpy).toHaveBeenLastCalledWith(expect.any(String), expect.anything(), cache.PARTIAL_TTL_MS);
-    setCachedSpy.mockRestore();
   });
 
   it("derives security-header findings from the https check's own response, no separate fetch", async () => {
@@ -217,8 +182,7 @@ describe("GET /api/analyze", () => {
     vi.mocked(runPageSpeed).mockRejectedValueOnce(new Error("PAGESPEED_API_KEY não configurada"));
 
     const response = await GET(requestFor("route-test-total-fail.example", "route-test-total-fail.ip"));
-    // The preview step still streams; what matters is how the analysis ended.
-    const events = (await readSseEvents(response)).filter((event) => event.event !== "step");
+    const events = await readSseEvents(response);
 
     expect(events).toHaveLength(1);
     expect(events[0].event).toBe("failed");
@@ -238,7 +202,7 @@ describe("GET /api/analyze", () => {
     vi.mocked(runPageSpeed).mockRejectedValueOnce(new PageSpeedError("PageSpeed API retornou 429: quota exceeded", 429));
 
     const response = await GET(requestFor("route-test-quota.example", "route-test-quota.ip"));
-    const events = (await readSseEvents(response)).filter((event) => event.event !== "step");
+    const events = await readSseEvents(response);
 
     expect(events).toHaveLength(1);
     expect((events[0].data as { code: string }).code).toBe("quota-exceeded");
@@ -251,7 +215,7 @@ describe("GET /api/analyze", () => {
     vi.mocked(runPageSpeed).mockRejectedValueOnce(new PageSpeedError("PageSpeed API retornou 400: bad url", 400));
 
     const response = await GET(requestFor("route-test-non-quota.example", "route-test-non-quota.ip"));
-    const events = (await readSseEvents(response)).filter((event) => event.event !== "step");
+    const events = await readSseEvents(response);
 
     expect((events[0].data as { code: string }).code).toBe("analysis-failed");
   });
@@ -355,7 +319,7 @@ describe("GET /api/analyze", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const response = await GET(requestFor("route-test-all-blocked.example", "route-test-all-blocked.ip"));
-    const events = (await readSseEvents(response)).filter((event) => event.event !== "step");
+    const events = await readSseEvents(response);
 
     expect(events).toEqual([{ event: "failed", data: { code: "site-blocked" } }]);
     errorSpy.mockRestore();

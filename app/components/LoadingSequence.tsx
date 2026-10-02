@@ -10,8 +10,7 @@ export type StepKey =
   | "altImages"
   | "sitemapRobots"
   | "pagespeed"
-  | "brokenLinks"
-  | "screenshots";
+  | "brokenLinks";
 
 // Roughly how long each check takes relative to the others, so the bar
 // advances with the real work instead of in equal sevenths: PageSpeed
@@ -24,15 +23,13 @@ const STEP_WEIGHT: Record<StepKey, number> = {
   altImages: 4,
   sitemapRobots: 8,
   brokenLinks: 10,
-  // Two real-browser page loads, in parallel with everything else.
-  screenshots: 15,
   pagespeed: 60,
 };
 
 const REAL_STEP_KEYS = Object.keys(STEP_WEIGHT) as StepKey[];
 const TOTAL_WEIGHT = REAL_STEP_KEYS.reduce((sum, key) => sum + STEP_WEIGHT[key], 0);
 
-type DisplayStepKey = "validating" | "performance" | "seo" | "accessibility" | "security" | "preview" | "finishing";
+type DisplayStepKey = "validating" | "performance" | "seo" | "accessibility" | "security" | "finishing";
 type StepStatus = "done" | "current" | "pending";
 
 // Fixed display order, independent of the real (concurrent, any-order)
@@ -48,7 +45,6 @@ const DISPLAY_STEPS: { key: DisplayStepKey; requires: StepKey[] }[] = [
   { key: "seo", requires: ["metaTags", "sitemapRobots", "brokenLinks"] },
   { key: "accessibility", requires: ["altImages"] },
   { key: "security", requires: ["https", "securityHeaders"] },
-  { key: "preview", requires: ["screenshots"] },
   { key: "finishing", requires: [] },
 ];
 
