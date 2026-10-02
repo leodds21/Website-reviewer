@@ -115,10 +115,13 @@ function finalize(score: number | null, sources: CheckKey[], failures: CheckFail
 export function aggregateScore(input: Partial<CheckResults>, failures: CheckFailures = {}): AggregatedScore {
   const performance = finalize(input.pagespeed?.scores.performance ?? null, CATEGORY_SOURCES.performance, failures);
 
+  // Our own HTML parse when we got the page; Lighthouse's audit of the
+  // same thing when our fetch was refused but Google's wasn't.
+  const lighthouse = input.pagespeed;
   const seo = averageOf([
     input.pagespeed?.scores.seo ?? null,
-    input.metaTags ? (input.metaTags.hasTitle ? 100 : 0) : null,
-    input.metaTags ? (input.metaTags.hasDescription ? 100 : 0) : null,
+    booleanSignal(input.metaTags ? input.metaTags.hasTitle : lighthouse?.hasTitle),
+    booleanSignal(input.metaTags ? input.metaTags.hasDescription : lighthouse?.hasDescription),
     // `?? null` rather than a truthiness check: hasSitemap/hasRobotsTxt
     // are boolean | null, and a null (we couldn't reach the host to
     // find out) has to stay out of the average instead of scoring 0
@@ -132,8 +135,8 @@ export function aggregateScore(input: Partial<CheckResults>, failures: CheckFail
 
   const accessibility = averageOf([
     input.pagespeed?.scores.accessibility ?? null,
-    input.metaTags ? (input.metaTags.hasViewport ? 100 : 0) : null,
-    input.altImages ? altImagesScore(input.altImages) : null,
+    booleanSignal(input.metaTags ? input.metaTags.hasViewport : lighthouse?.hasViewport),
+    input.altImages ? altImagesScore(input.altImages) : booleanSignal(lighthouse?.imagesHaveAlt),
   ]);
 
   // Security has no meaning at all without the https check specifically

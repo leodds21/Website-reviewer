@@ -2,6 +2,32 @@ import { describe, expect, it } from "vitest";
 import { deriveIssues } from "./issues";
 
 describe("deriveIssues", () => {
+  it("falls back to Lighthouse's audits for the page basics when our own fetch of the page failed", () => {
+    const issues = deriveIssues({
+      pagespeed: {
+        scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 90 },
+        hasTitle: false,
+        hasDescription: false,
+        hasViewport: true,
+        imagesHaveAlt: false,
+      },
+    });
+
+    expect(issues.map((issue) => issue.code)).toEqual(["no-title", "no-description", "missing-alt"]);
+    const missingAlt = issues.find((issue) => issue.code === "missing-alt");
+    expect(missingAlt?.severity).toBe("atencao");
+    expect(missingAlt?.params).toBeUndefined();
+  });
+
+  it("prefers our own HTML parse over Lighthouse when both ran", () => {
+    const issues = deriveIssues({
+      pagespeed: { scores: { seo: 90 }, hasTitle: false },
+      metaTags: { hasViewport: true, hasTitle: true, title: "Papelaria Central", hasDescription: true, description: "Y" },
+    });
+
+    expect(issues.map((issue) => issue.code)).not.toContain("no-title");
+  });
+
   it("generates no issues for a site that passes every check", () => {
     const cleanSite = deriveIssues({
       pagespeed: { scores: { performance: 95, accessibility: 95, "best-practices": 92, seo: 90 } },
