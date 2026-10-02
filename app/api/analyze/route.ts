@@ -6,7 +6,8 @@ import { parseAltImages } from "@/lib/checks/altImages";
 import { checkSitemapRobots } from "@/lib/checks/sitemapRobots";
 import { detectTech, type TechPlatform } from "@/lib/checks/techDetect";
 import { checkBrokenLinks } from "@/lib/checks/brokenLinks";
-import { PageSpeedError, runPageSpeed } from "@/lib/pagespeed";
+import { runPageSpeed } from "@/lib/pagespeed";
+import { classifyCheckFailure, primaryReason, type CheckFailures, type FailureReason } from "@/lib/checkFailure";
 import { fetchHtml } from "@/lib/fetchHtml";
 import { getCached, setCached, FULL_TTL_MS, PARTIAL_TTL_MS } from "@/lib/cache";
 import { aggregateScore } from "@/lib/score";
@@ -27,18 +28,18 @@ export const dynamic = "force-dynamic";
 // than failing loudly.
 export const runtime = "nodejs";
 
-// PAGESPEED_TIMEOUT_MS (lib/timeouts.ts) alone is 30s, and it's the
+// PAGESPEED_TIMEOUT_MS (lib/timeouts.ts) alone is 50s, and it's the
 // longest-running of the checks that run concurrently — so the
 // route's own worst-case wall-clock time is close to that, not the
 // sum of every check's timeout. Without an explicit ceiling here, a
 // slow-but-legitimate analysis can get killed by whatever the
 // platform's own default duration limit happens to be, which is
-// usually well under 30s — a real, likely-already-happening failure
-// mode in production, not just a hypothetical. 35s leaves a small
+// usually well under that — a real, likely-already-happening failure
+// mode in production, not just a hypothetical. 60s leaves a small
 // buffer over the known worst case for scoring/caching/stream
 // teardown, without requesting more time than the route can ever
 // actually use.
-export const maxDuration = 35;
+export const maxDuration = 60;
 
 /**
  * Error responses keep their real HTTP status (429 with Retry-After,
@@ -170,12 +171,11 @@ export async function GET(request: Request) {
 
         const results: Partial<CheckResults> = {};
         let platform: TechPlatform | null = null;
-        let sawFailure = false;
-        // Only meaningful when every check fails (see the "analysis-failed"
-        // branch below) — a PageSpeed failure alone just leaves the
-        // performance category "indisponível," like any other partial
-        // failure, no top-level error needed for that case.
-        let pagespeedError: unknown;
+        // Why each failed check failed, in visitor-explainable terms: the
+        // report turns these into "não medido, porque..." instead of a
+        // bare "não avaliado", and they decide the top-level error code
+        // when nothing at all could be measured.
+        const failures: CheckFailures = {};
         // brokenLinks derives from the same `pageFetch` promise as the
         // "page" task (see `tasks` below): when fetchHtml itself fails,
         // that rejection forwards unchanged into brokenLinks too, so the
@@ -204,14 +204,13 @@ export async function GET(request: Request) {
 
         for await (const outcome of settleInOrder(tasks)) {
           if ("error" in outcome) {
-            sawFailure = true;
+            failures[outcome.key] = classifyCheckFailure(outcome.error);
             // Logged server-side only — the client gets a generic
             // message (see below), never this raw detail.
             if (!loggedErrors.has(outcome.error)) {
               loggedErrors.add(outcome.error);
               console.error(`Checagem "${outcome.key}" falhou para ${target}:`, outcome.error);
             }
-            if (outcome.key === "pagespeed") pagespeedError = outcome.error;
             continue;
           }
 
@@ -260,26 +259,38 @@ export async function GET(request: Request) {
           // A bare code, not a sentence: the real reason (a missing API
           // key, the exact PageSpeed error body, an internal hostname a
           // redirect resolved to) is exactly the detail an SSRF/config
-          // guard exists to keep off the client. The one exception worth
-          // telling apart is Google's quota running out (429) — "tenta
-          // de novo amanhã" is a real, actionable answer where "unknown
-          // failure" isn't.
-          const failure: AnalyzeErrorCode =
-            pagespeedError instanceof PageSpeedError && pagespeedError.status === 429
-              ? "quota-exceeded"
-              : "analysis-failed";
-          send("failed", { code: failure });
+          // guard exists to keep off the client. The classified reason
+          // is safe to pass on, and each of these has a real, actionable
+          // answer ("tenta amanhã", "confere o endereço") where a
+          // generic failure doesn't.
+          const totalFailureCode: Partial<Record<FailureReason, AnalyzeErrorCode>> = {
+            blocked: "site-blocked",
+            quota: "quota-exceeded",
+            timeout: "timeout",
+            unreachable: "site-unreachable",
+          };
+          const reason = primaryReason(Object.values(failures));
+          send("failed", { code: (reason && totalFailureCode[reason]) ?? "analysis-failed" });
         } else {
-          const score = aggregateScore(results);
+          const score = aggregateScore(results, failures);
           const issues = deriveIssues(results);
-          const report: AnalyzeReport = { domain, score, issues, platform, checkedAt: new Date().toISOString() };
+          const report: AnalyzeReport = {
+            domain,
+            score,
+            issues,
+            platform,
+            // Drives the "este site recusa ferramentas automáticas" note
+            // and the manual-analysis offer in the report.
+            blocked: Object.values(failures).includes("blocked"),
+            checkedAt: new Date().toISOString(),
+          };
           // A report where some checks failed to run shouldn't be
           // trusted as long as a complete one — a transient failure
           // (a slow site timing out) shouldn't lock every visitor into a
           // degraded report for the full 6h TTL. "Complete" ignores the
           // page/metaTags/altImages split (one fetch, two derived
-          // results) by checking sawFailure directly instead of key count.
-          const isComplete = !sawFailure;
+          // results) by checking failures directly instead of key count.
+          const isComplete = Object.keys(failures).length === 0;
           await setCached(cacheKey, report, isComplete ? FULL_TTL_MS : PARTIAL_TTL_MS);
           send("done", report);
         }

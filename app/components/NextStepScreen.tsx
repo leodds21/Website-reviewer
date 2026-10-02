@@ -8,10 +8,19 @@ import { useContactForm } from "@/app/hooks/useContactForm";
 import type { AnalyzeReport } from "@/lib/report";
 import type { Issue } from "@/lib/issues";
 
-export function NextStepScreen({ report, topIssues }: { report: AnalyzeReport; topIssues: Issue[] }) {
+export function NextStepScreen({
+  report,
+  topIssues,
+  manualReview = false,
+}: {
+  report: AnalyzeReport;
+  topIssues: Issue[];
+  manualReview?: boolean;
+}) {
   const { locale, t } = useLanguage();
   const { contact, setContact, submitting, justSucceeded, succeeded, errorCode, submitContact } = useContactForm({
     domain: report.domain,
+    initialMessage: manualReview ? t.manualMessagePrefill(report.domain) : "",
   });
 
   // One short summary sentence tying the critical findings together —
@@ -30,10 +39,14 @@ export function NextStepScreen({ report, topIssues }: { report: AnalyzeReport; t
       </div>
 
       <div className="mb-2 text-xs font-semibold tracking-[0.12em] text-[var(--color-accent-700)] uppercase">
-        {t.nextStepKicker}
+        {manualReview ? t.manualKicker : t.nextStepKicker}
       </div>
-      <h1 className="mb-3 text-[22px] leading-[1.15] tracking-tight">{t.nextStepHeadline}</h1>
-      <p className="mb-4 text-[13px] leading-relaxed text-[var(--color-text)]/80">{t.nextStepBody}</p>
+      <h1 className="mb-3 text-[22px] leading-[1.15] tracking-tight">
+        {manualReview ? t.manualHeadline : t.nextStepHeadline}
+      </h1>
+      <p className="mb-4 text-[13px] leading-relaxed text-[var(--color-text)]/80">
+        {manualReview ? t.manualBody : t.nextStepBody}
+      </p>
 
       {topIssues.length > 0 && (
         <div className="blueprint mb-4 p-3.5">

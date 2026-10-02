@@ -1,6 +1,7 @@
 import { readTextCapped, safeFetch } from "./safeFetch";
 import { normalizeUrl } from "./url";
 import { CHECK_TIMEOUT_MS } from "./timeouts";
+import { HttpStatusError } from "./httpStatus";
 
 /**
  * Fetches a page's HTML once. checkMetaTags and checkAltImages used to
@@ -30,7 +31,7 @@ export async function fetchHtml(url: string, signal?: AbortSignal): Promise<stri
   // same honest answer as any other check that couldn't run.
   if (!response.ok) {
     await response.body?.cancel();
-    throw new Error(`A página respondeu ${response.status}.`);
+    throw new HttpStatusError(response.status, `A página respondeu ${response.status}.`);
   }
 
   return readTextCapped(response);
