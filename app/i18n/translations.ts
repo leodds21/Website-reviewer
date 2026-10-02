@@ -52,7 +52,6 @@ type Dictionary = {
     seo: string;
     accessibility: string;
     security: string;
-    preview: string;
     finishing: string;
   };
   scoreLabelOk: string;
@@ -99,13 +98,6 @@ type Dictionary = {
   sendSuccessDetail: (email: string) => string;
   contactError: Record<ContactErrorCode, string>;
   reportHeading: (domain: string) => string;
-  previewHeading: string;
-  previewViewports: Record<"desktop" | "mobile", string>;
-  previewAlt: (viewportLabel: string, domain: string) => string;
-  previewLoading: string;
-  // Why the preview couldn't be captured, in the same plain terms as
-  // unavailableReason, but about taking a picture rather than measuring.
-  previewError: Record<FailureReason, string>;
   reportFooter: (domain: string) => string;
   // Neutral fact, not a finding — platformName is a proper noun
   // (WordPress, Wix...) so it's the same string in every locale; only
@@ -185,7 +177,6 @@ const pt: Dictionary = {
     seo: "Verificando SEO",
     accessibility: "Analisando acessibilidade",
     security: "Conferindo segurança",
-    preview: "Capturando prévia do site",
     finishing: "Preparando relatório",
   },
   scoreLabelOk: "Está bem",
@@ -250,19 +241,6 @@ const pt: Dictionary = {
     unknown: "Não foi possível enviar sua mensagem. Tenta de novo em instantes.",
   },
   reportHeading: (domain) => `Relatório de ${domain}`,
-  previewHeading: "Prévia do site",
-  previewViewports: { desktop: "Desktop", mobile: "Celular" },
-  previewAlt: (viewportLabel, domain) => `Primeira tela de ${domain}, versão ${viewportLabel.toLowerCase()}`,
-  previewLoading: "Carregando imagem…",
-  previewError: {
-    blocked: "O site recusou o acesso do nosso navegador, então não deu pra capturar a tela.",
-    timeout: "O site demorou demais pra carregar e a captura foi interrompida.",
-    unreachable: "Não conseguimos abrir o site pra capturar a tela.",
-    "site-error": "O site respondeu com uma página de erro.",
-    quota: "Não deu pra capturar a tela agora. Tenta de novo em instantes.",
-    "measurement-failed": "Não deu pra capturar a tela agora. Tenta de novo em instantes.",
-    unknown: "Não deu pra capturar a tela desta vez. Tenta de novo em instantes.",
-  },
   reportFooter: (domain) => `lsdias.dev · relatório referente a ${domain}`,
   platformDetected: (platformName) => `Feito em ${platformName}`,
   madeByLabel: "Veja meu portfólio",
@@ -483,7 +461,6 @@ const en: Dictionary = {
     seo: "Checking SEO",
     accessibility: "Analyzing accessibility",
     security: "Checking security",
-    preview: "Capturing website preview",
     finishing: "Preparing report",
   },
   scoreLabelOk: "Looking good",
@@ -547,19 +524,6 @@ const en: Dictionary = {
     unknown: "We couldn't send your message. Try again in a moment.",
   },
   reportHeading: (domain) => `Report for ${domain}`,
-  previewHeading: "Website preview",
-  previewViewports: { desktop: "Desktop", mobile: "Mobile" },
-  previewAlt: (viewportLabel, domain) => `First screen of ${domain}, ${viewportLabel.toLowerCase()} version`,
-  previewLoading: "Loading image…",
-  previewError: {
-    blocked: "The site refused our browser, so we couldn't capture the screen.",
-    timeout: "The site took too long to load and the capture was stopped.",
-    unreachable: "We couldn't open the site to capture the screen.",
-    "site-error": "The site answered with an error page.",
-    quota: "We couldn't capture the screen right now. Try again in a moment.",
-    "measurement-failed": "We couldn't capture the screen right now. Try again in a moment.",
-    unknown: "We couldn't capture the screen this time. Try again in a moment.",
-  },
   reportFooter: (domain) => `lsdias.dev · report for ${domain}`,
   platformDetected: (platformName) => `Built on ${platformName}`,
   madeByLabel: "See my portfolio",
