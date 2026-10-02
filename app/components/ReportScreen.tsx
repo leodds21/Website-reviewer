@@ -4,6 +4,7 @@ import { Brand, Corners } from "./Chrome";
 import { ScoreRing } from "./ScoreRing";
 import { CategoryCard } from "./CategoryCard";
 import { IssueList } from "./IssueList";
+import { WebsitePreview } from "./WebsitePreview";
 import { useLanguage } from "@/app/i18n/LanguageContext";
 import type { CategoryKey } from "@/app/i18n/translations";
 import type { AnalyzeReport } from "@/lib/report";
@@ -90,6 +91,8 @@ export function ReportScreen({
           <CategoryCard key={key} category={key} result={report.score[key]} />
         ))}
       </div>
+
+      {report.screenshots && <WebsitePreview screenshots={report.screenshots} domain={report.domain} />}
 
       {report.blocked && (
         // Neutral on purpose (accent, not a severity color): being blocked
