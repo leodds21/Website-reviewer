@@ -4,6 +4,8 @@ import { checkSitemapRobots } from "@/lib/checks/sitemapRobots";
 import { PageSpeedError, runPageSpeed } from "@/lib/pagespeed";
 import { fetchHtml } from "@/lib/fetchHtml";
 import * as cache from "@/lib/cache";
+import { HttpStatusError } from "@/lib/httpStatus";
+import type { AnalyzeReport } from "@/lib/report";
 import { GET } from "./route";
 
 // The route orchestrates these — mocked so this file tests the
@@ -285,6 +287,42 @@ describe("GET /api/analyze", () => {
     // A different path on the same host must re-run the checks, not
     // silently serve /a's cached report for /b.
     expect(checkHttps).toHaveBeenCalled();
+  });
+
+  it("explains a site that refuses automated access, without inventing findings (cruzeirodosulvirtual-style)", async () => {
+    vi.mocked(fetchHtml).mockRejectedValueOnce(new HttpStatusError(403, "A página respondeu 403."));
+    vi.mocked(checkSitemapRobots).mockRejectedValueOnce(new HttpStatusError(403, "Origem recusou a checagem"));
+    vi.mocked(runPageSpeed).mockRejectedValueOnce(
+      new PageSpeedError("Lighthouse returned error: ERRORED_DOCUMENT_REQUEST. (Status code: 403)", 500),
+    );
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const response = await GET(requestFor("route-test-blocked.example", "route-test-blocked.ip"));
+    const events = await readSseEvents(response);
+    const report = events.find((e) => e.event === "done")!.data as AnalyzeReport;
+
+    expect(report.blocked).toBe(true);
+    expect(report.score.performance).toEqual({ score: null, severity: "indisponivel", reason: "blocked" });
+    expect(report.score.seo).toEqual({ score: null, severity: "indisponivel", reason: "blocked" });
+    expect(report.score.accessibility).toEqual({ score: null, severity: "indisponivel", reason: "blocked" });
+    expect(report.score.security).toMatchObject({ severity: "ok", partial: true });
+    expect(report.issues.map((issue) => issue.code)).not.toContain("no-sitemap");
+
+    errorSpy.mockRestore();
+  });
+
+  it("emits site-blocked when every check failed because the site refused us", async () => {
+    vi.mocked(checkHttps).mockRejectedValueOnce(new HttpStatusError(403, "x"));
+    vi.mocked(fetchHtml).mockRejectedValueOnce(new HttpStatusError(403, "x"));
+    vi.mocked(checkSitemapRobots).mockRejectedValueOnce(new HttpStatusError(403, "x"));
+    vi.mocked(runPageSpeed).mockRejectedValueOnce(new PageSpeedError("(Status code: 403)", 500));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const response = await GET(requestFor("route-test-all-blocked.example", "route-test-all-blocked.ip"));
+    const events = await readSseEvents(response);
+
+    expect(events).toEqual([{ event: "failed", data: { code: "site-blocked" } }]);
+    errorSpy.mockRestore();
   });
 
   it("ends the stream with a failed event, not a dropped connection, when something unexpected throws", async () => {

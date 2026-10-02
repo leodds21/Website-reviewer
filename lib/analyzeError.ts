@@ -19,6 +19,11 @@ export type AnalyzeErrorCode =
   // problem the visitor can't do anything about by waiting an hour.
   | "quota-exceeded"
   | "analysis-failed"
+  // Every check failed because the site refused automated access, or
+  // couldn't be reached at all. Separate from "analysis-failed" so the
+  // message can say which, instead of listing every possibility.
+  | "site-blocked"
+  | "site-unreachable"
   | "timeout"
   | "offline"
   | "unknown";
