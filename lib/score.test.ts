@@ -158,6 +158,24 @@ describe("aggregateScore", () => {
     expect(result.security).toMatchObject({ score: 100, partial: true });
   });
 
+  it("scores seo and accessibility from Lighthouse's audits when our fetch of the page was refused", () => {
+    const result = aggregateScore(
+      {
+        pagespeed: {
+          scores: { performance: 70, accessibility: 80, "best-practices": 90, seo: 60 },
+          hasTitle: true,
+          hasDescription: false,
+          hasViewport: true,
+          imagesHaveAlt: true,
+        },
+      },
+      { page: "blocked", brokenLinks: "blocked", sitemapRobots: "blocked" },
+    );
+
+    expect(result.seo.score).toBe(Math.round((60 + 100 + 0) / 3));
+    expect(result.accessibility.score).toBe(Math.round((80 + 100 + 100) / 3));
+  });
+
   it("does not flag a complete category as partial", () => {
     const result = aggregateScore(
       { pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 90 } } },
