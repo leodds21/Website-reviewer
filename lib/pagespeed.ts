@@ -57,7 +57,7 @@ type PageSpeedApiResponse = {
 // import.
 if (!process.env.PAGESPEED_API_KEY && !process.env.VITEST) {
   console.warn(
-    '[isdias] PAGESPEED_API_KEY não está configurada — toda análise vai reportar Performance (e parte de SEO/Acessibilidade/Segurança) como "não avaliado" até essa variável de ambiente ser definida.',
+    '[lsdias] PAGESPEED_API_KEY não está configurada — toda análise vai reportar Performance (e parte de SEO/Acessibilidade/Segurança) como "não avaliado" até essa variável de ambiente ser definida.',
   );
 }
 
