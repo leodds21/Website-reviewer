@@ -28,14 +28,14 @@ describe("aggregateScore", () => {
     expect(noHttps.security.severity).toBe("critico");
   });
 
-  it("blends security headers into the security score, alongside https + best-practices", () => {
+  it("doesn't let missing hardening headers lower the security score: they're suggestions", () => {
     const result = aggregateScore({
       pagespeed: { scores: { performance: 90, accessibility: 95, "best-practices": 92, seo: 88 } },
       https: { passed: true, finalUrl: "https://x.com", redirectedFromHttp: false },
-      securityHeaders: { hasHsts: true, hasCsp: false, hasClickjackingProtection: true }, // 2/3 -> ~67
+      securityHeaders: { hasHsts: false, hasCsp: false, hasClickjackingProtection: false },
     });
 
-    expect(result.security.score).toBe(Math.round((100 + 92 + (2 / 3) * 100) / 3));
+    expect(result.security.score).toBe(96); // média(100, 92), headers listed as findings only
   });
 
   it("doesn't change the security score when securityHeaders wasn't provided", () => {
@@ -58,28 +58,27 @@ describe("aggregateScore", () => {
       sitemapRobots: { hasSitemap: false, hasRobotsTxt: true },
     });
 
-    expect(weakSeo.seo.score).toBe(28); // média(40, 0, 0, 0, 100)
+    expect(weakSeo.seo.score).toBe(13); // média(40, 0, 0): no title, no description
     expect(weakSeo.seo.severity).toBe("critico");
     expect(weakSeo.accessibility.score).toBe(Math.round((95 + 100 + 70) / 3));
   });
 
-  it("keeps an undetermined sitemap/robots probe out of the SEO average", () => {
-    // null means "we couldn't reach the host to find out", so it must
-    // contribute nothing — scoring it as 0, like a confirmed absence,
-    // would invent a penalty from a measurement we never made.
+  it("never scores sitemap.xml or robots.txt, found, missing or undetermined", () => {
+    // A missing sitemap is a suggestion and a missing robots.txt isn't a
+    // problem at all; neither may cost points.
     const undetermined = aggregateScore({
       pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 60 } },
       sitemapRobots: { hasSitemap: null, hasRobotsTxt: null },
     });
 
-    expect(undetermined.seo.score).toBe(60); // pagespeed's seo alone
+    expect(undetermined.seo.score).toBe(60);
 
     const confirmedMissing = aggregateScore({
       pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 60 } },
       sitemapRobots: { hasSitemap: false, hasRobotsTxt: false },
     });
 
-    expect(confirmedMissing.seo.score).toBe(20); // média(60, 0, 0)
+    expect(confirmedMissing.seo.score).toBe(60);
   });
 
   it("blends brokenLinks into the SEO average, scored by the reachable ratio", () => {
@@ -149,9 +148,9 @@ describe("aggregateScore", () => {
     const result = aggregateScore(
       {
         https: { passed: true, finalUrl: "https://x.com", redirectedFromHttp: false },
-        sitemapRobots: { hasSitemap: true, hasRobotsTxt: true },
+        brokenLinks: { checkedCount: 4, brokenCount: 0, brokenUrls: [] },
       },
-      { pagespeed: "quota", page: "blocked", brokenLinks: "blocked" },
+      { pagespeed: "quota", page: "blocked" },
     );
 
     expect(result.seo).toMatchObject({ score: 100, partial: true });
@@ -196,12 +195,12 @@ describe("aggregateScore", () => {
     expect(result.security).toMatchObject({ score: 0, partial: false });
   });
 
-  it("lets seo score from partial sources when metaTags is missing but pagespeed and sitemap ran", () => {
+  it("lets seo score from Lighthouse alone when our own page fetch didn't run", () => {
     const result = aggregateScore({
       pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 60 } },
       sitemapRobots: { hasSitemap: true, hasRobotsTxt: true },
     });
 
-    expect(result.seo.score).toBe(Math.round((60 + 100 + 100) / 3));
+    expect(result.seo.score).toBe(60);
   });
 });

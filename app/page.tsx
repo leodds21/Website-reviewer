@@ -7,6 +7,7 @@ import { ReportScreen } from "./components/ReportScreen";
 import { NextStepScreen } from "./components/NextStepScreen";
 import { useAnalysis } from "./hooks/useAnalysis";
 import { useStageFocus } from "./hooks/useStageFocus";
+import { prioritizeIssues } from "@/lib/issues";
 
 export default function Home() {
   const [url, setUrl] = useState("");
@@ -22,11 +23,7 @@ export default function Home() {
     startAnalysis(url);
   }
 
-  const topIssues = report
-    ? [...report.issues]
-        .sort((a, b) => Number(a.severity !== "critico") - Number(b.severity !== "critico"))
-        .slice(0, 2)
-    : [];
+  const topIssues = report ? prioritizeIssues(report.issues).slice(0, 2) : [];
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-16">

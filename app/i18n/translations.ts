@@ -1,4 +1,4 @@
-import type { Issue, IssueCode } from "@/lib/issues";
+import type { Issue, IssueCode, IssueSeverity } from "@/lib/issues";
 import type { Severity } from "@/lib/score";
 import type { AnalyzeError, AnalyzeErrorCode } from "@/lib/analyzeError";
 import type { ContactErrorCode } from "@/app/hooks/useContactForm";
@@ -59,7 +59,8 @@ type Dictionary = {
   scoreExplanationToggle: string;
   scoreExplanation: string;
   categories: Record<"performance" | "seo" | "accessibility" | "security", string>;
-  severity: Record<Severity, string>;
+  // Category states and finding severities share one label set.
+  severity: Record<Severity | IssueSeverity, string>;
   // Shown under a category that couldn't be measured, so the visitor
   // always learns why (and whether trying again could help) instead of
   // a bare "não medido".
@@ -190,7 +191,7 @@ const pt: Dictionary = {
     accessibility: "Acessibilidade",
     security: "Segurança",
   },
-  severity: { critico: "crítico", atencao: "atenção", ok: "ok", indisponivel: "não medido" },
+  severity: { critico: "crítico", atencao: "atenção", sugestao: "sugestão", ok: "ok", indisponivel: "não medido" },
   unavailableReason: {
     blocked: "O site recusou nosso acesso automático.",
     timeout: "A medição demorou demais. Vale tentar de novo.",
@@ -474,7 +475,7 @@ const en: Dictionary = {
     accessibility: "Accessibility",
     security: "Security",
   },
-  severity: { critico: "critical", atencao: "attention", ok: "ok", indisponivel: "not measured" },
+  severity: { critico: "critical", atencao: "attention", sugestao: "suggestion", ok: "ok", indisponivel: "not measured" },
   unavailableReason: {
     blocked: "The site refused our automated access.",
     timeout: "The measurement took too long. Worth trying again.",
