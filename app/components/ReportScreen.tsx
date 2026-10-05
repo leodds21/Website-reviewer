@@ -77,7 +77,16 @@ export function ReportScreen({
           <span className="mt-1.5 inline-flex border border-[var(--color-accent)] px-2.5 py-0.5 text-[11px] text-[var(--color-accent-700)]">
             {scoreLabel}
           </span>
-          {issueSummary && <p className="mt-1.5 text-[11.5px] text-[var(--color-neutral-700)]">{issueSummary}</p>}
+          {issueSummary.length > 0 && (
+            <p className="mt-1.5 text-[11.5px] text-[var(--color-neutral-700)]">
+              {issueSummary.map((part, index) => (
+                <span key={part} className="whitespace-nowrap">
+                  {index > 0 && " · "}
+                  {part}
+                </span>
+              ))}
+            </p>
+          )}
         </div>
       </div>
 
@@ -88,7 +97,7 @@ export function ReportScreen({
       )}
 
       <details className="group mb-1">
-        <summary className="flex w-fit cursor-pointer list-none items-center gap-1 text-[11.5px] text-[var(--color-accent-700)] hover:underline focus-visible:underline [&::-webkit-details-marker]:hidden">
+        <summary className="-my-1 flex w-fit cursor-pointer list-none items-center gap-1 py-1.5 text-[11.5px] text-[var(--color-accent-700)] hover:underline focus-visible:underline [&::-webkit-details-marker]:hidden">
           {t.scoreExplanationToggle}
           <span className="inline-block transition-transform group-open:rotate-180" aria-hidden="true">
             ⌄

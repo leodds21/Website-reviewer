@@ -58,9 +58,9 @@ type Dictionary = {
   scoreLabelOk: string;
   scoreLabelAttention: string;
   scoreLabelCritical: string;
-  // "2 críticos · 3 de atenção · 4 sugestões": zero counts are left out,
-  // and an empty string means there's nothing to summarize.
-  issueSummary: (counts: Record<IssueSeverity, number>) => string;
+  // ["2 críticos", "3 de atenção", "4 sugestões"]: zero counts are left
+  // out. Parts, not one string, so a line never breaks inside a count.
+  issueSummary: (counts: Record<IssueSeverity, number>) => string[];
   scoreExplanationToggle: string;
   scoreExplanation: string;
   categories: Record<"performance" | "seo" | "accessibility" | "security", string>;
@@ -191,9 +191,7 @@ const pt: Dictionary = {
       critico > 0 && `${critico} ${critico === 1 ? "crítico" : "críticos"}`,
       atencao > 0 && `${atencao} de atenção`,
       sugestao > 0 && `${sugestao} ${sugestao === 1 ? "sugestão" : "sugestões"}`,
-    ]
-      .filter(Boolean)
-      .join(" · "),
+    ].filter((part): part is string => Boolean(part)),
   scoreExplanationToggle: "Como calculamos esta nota",
   scoreExplanation:
     "A nota geral é a média simples das quatro categorias, sem nenhuma valer mais que a outra. Cada categoria junta a medição do Google com as nossas checagens, e só os pontos marcados como crítico ou atenção tiram nota: sugestões aparecem na lista, mas não mudam o número. Uma categoria \"não medido\" fica fora da conta e mostra o motivo; nesse caso, a nota geral avisa em quantas categorias se baseia. \"Medido em parte\" quer dizer que algumas checagens daquela categoria não conseguiram rodar.",
@@ -452,9 +450,7 @@ const en: Dictionary = {
       critico > 0 && `${critico} critical`,
       atencao > 0 && `${atencao} needing attention`,
       sugestao > 0 && `${sugestao} ${sugestao === 1 ? "suggestion" : "suggestions"}`,
-    ]
-      .filter(Boolean)
-      .join(" · "),
+    ].filter((part): part is string => Boolean(part)),
   scoreExplanationToggle: "How we calculate this score",
   scoreExplanation:
     "The overall score is a simple average of the four categories, none weighted more than another. Each category combines Google's measurement with our own checks, and only findings marked critical or attention cost points: suggestions show up in the list but don't change the number. A category marked \"not measured\" is left out and shows the reason; when that happens, the overall score says how many categories it's based on. \"Partly measured\" means some of that category's checks couldn't run.",
