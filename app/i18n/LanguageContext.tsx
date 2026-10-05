@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { DICTIONARIES, LOCALE_STORAGE_KEY, type Dictionary, type Locale } from "./translations";
+import { DICTIONARIES, LOCALE_COOKIE, type Dictionary, type Locale } from "./translations";
 
 type LanguageContextValue = {
   locale: Locale;
@@ -16,7 +16,7 @@ const LanguageContext = createContext<LanguageContextValue | null>(null);
 function writeLocaleCookie(locale: Locale) {
   const oneYear = 60 * 60 * 24 * 365;
   const secure = window.location.protocol === "https:" ? "; secure" : "";
-  document.cookie = `${LOCALE_STORAGE_KEY}=${locale}; path=/; max-age=${oneYear}; samesite=lax${secure}`;
+  document.cookie = `${LOCALE_COOKIE}=${locale}; path=/; max-age=${oneYear}; samesite=lax${secure}`;
 }
 
 export function LanguageProvider({

@@ -39,10 +39,24 @@ blockList.addSubnet("127.0.0.0", 8);
 blockList.addSubnet("169.254.0.0", 16);
 blockList.addSubnet("172.16.0.0", 12);
 blockList.addSubnet("192.168.0.0", 16);
-blockList.addAddress("::", "ipv6"); // unspecified — routes to localhost in practice
-blockList.addAddress("::1", "ipv6");
+// Reserved/special-purpose ranges: nothing public lives there, and some
+// (benchmarking, protocol assignments) can be routed internally.
+blockList.addSubnet("192.0.0.0", 24); // IETF protocol assignments
+blockList.addSubnet("192.0.2.0", 24); // TEST-NET-1
+blockList.addSubnet("198.18.0.0", 15); // benchmarking
+blockList.addSubnet("198.51.100.0", 24); // TEST-NET-2
+blockList.addSubnet("203.0.113.0", 24); // TEST-NET-3
+blockList.addSubnet("224.0.0.0", 4); // multicast
+blockList.addSubnet("240.0.0.0", 4); // reserved, incl. 255.255.255.255 broadcast
+blockList.addSubnet("::", 96, "ipv6"); // unspecified, loopback and IPv4-compatible (::127.0.0.1)
 blockList.addSubnet("fe80::", 10, "ipv6"); // link-local
 blockList.addSubnet("fc00::", 7, "ipv6"); // unique local
+blockList.addSubnet("ff00::", 8, "ipv6"); // multicast
+// Prefixes that embed an IPv4 address (NAT64, 6to4): a gateway can turn
+// 64:ff9b::7f00:1 into 127.0.0.1, so the embedded address can't be
+// trusted to be public. Neither is how a normal public site is reached.
+blockList.addSubnet("64:ff9b::", 96, "ipv6");
+blockList.addSubnet("2002::", 16, "ipv6");
 
 function stripBrackets(hostname: string): string {
   return hostname.startsWith("[") && hostname.endsWith("]") ? hostname.slice(1, -1) : hostname;

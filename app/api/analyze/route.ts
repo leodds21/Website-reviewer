@@ -7,7 +7,13 @@ import { checkSitemapRobots } from "@/lib/checks/sitemapRobots";
 import { detectTech, type TechPlatform } from "@/lib/checks/techDetect";
 import { checkBrokenLinks } from "@/lib/checks/brokenLinks";
 import { runPageSpeed } from "@/lib/pagespeed";
-import { classifyCheckFailure, primaryReason, type CheckFailures, type FailureReason } from "@/lib/checkFailure";
+import {
+  classifyCheckFailure,
+  primaryReason,
+  type CheckFailures,
+  type CheckKey,
+  type FailureReason,
+} from "@/lib/checkFailure";
 import { fetchHtml } from "@/lib/fetchHtml";
 import { getCached, setCached, FULL_TTL_MS, PARTIAL_TTL_MS } from "@/lib/cache";
 import { aggregateScore } from "@/lib/score";
@@ -50,6 +56,17 @@ export const maxDuration = 60;
 function errorResponse(error: AnalyzeError, status: number, headers?: Record<string, string>) {
   return NextResponse.json(error, { status, headers });
 }
+
+// The loading screen's step events each task completes. The page fetch
+// feeds two (meta tags and image alt text) and the https check feeds
+// the security-header step too, since both derive from one request.
+const TASK_STEPS: Record<CheckKey, string[]> = {
+  https: ["https", "securityHeaders"],
+  page: ["metaTags", "altImages"],
+  sitemapRobots: ["sitemapRobots"],
+  pagespeed: ["pagespeed"],
+  brokenLinks: ["brokenLinks"],
+};
 
 type ParsedTargetUrl = { ok: true; url: URL } | { ok: false; reason: "invalid" | "blocked" };
 
@@ -211,41 +228,32 @@ export async function GET(request: Request) {
               loggedErrors.add(outcome.error);
               console.error(`Checagem "${outcome.key}" falhou para ${target}:`, outcome.error);
             }
-            continue;
-          }
-
-          if (outcome.key === "page") {
+          } else if (outcome.key === "page") {
             // metaTags and altImages both just parse this same fetch —
             // they used to each fetch the page independently, tripling
             // traffic against the (third-party) site being analyzed.
             results.metaTags = parseMetaTags(outcome.value);
             results.altImages = parseAltImages(outcome.value);
             platform = detectTech(outcome.value).platform;
-            send("step", { step: "metaTags" });
-            send("step", { step: "altImages" });
-            continue;
-          }
-
-          if (outcome.key === "https") {
+          } else if (outcome.key === "https") {
             // securityHeaders reads off the same response checkHttps
             // already fetched — no request of its own, so it isn't a
             // separate entry in `tasks`, just derived data the moment
             // https settles. Only meaningful once the connection is
-            // actually secure (see deriveIssues), but the step event
-            // still fires either way so the loading UI's security group
-            // reaches "done" instead of hanging on a step that silently
-            // never arrives.
+            // actually secure (see deriveIssues).
             results.https = outcome.value;
-            send("step", { step: "https" });
             if (outcome.value.passed && outcome.value.headers) {
               results.securityHeaders = parseSecurityHeaders(outcome.value.headers);
             }
-            send("step", { step: "securityHeaders" });
-            continue;
+          } else {
+            results[outcome.key] = outcome.value as never;
           }
 
-          results[outcome.key] = outcome.value as never;
-          send("step", { step: outcome.key });
+          // A step means "this check is done", whether it produced a
+          // result or failed: before, a failed check never sent one, so
+          // its group on the loading screen kept spinning until the whole
+          // report arrived, and the progress bar never got its share.
+          for (const step of TASK_STEPS[outcome.key]) send("step", { step });
         }
 
         if (request.signal.aborted) {

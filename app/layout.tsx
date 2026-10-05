@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { LanguageProvider } from "./i18n/LanguageContext";
 import {
   DICTIONARIES,
-  LOCALE_STORAGE_KEY,
+  LOCALE_COOKIE,
   type Locale,
 } from "./i18n/translations";
 import { SITE_URL } from "@/lib/siteUrl";
@@ -27,7 +27,7 @@ const barlowCondensed = Barlow_Condensed({
 // gets here, so this always reflects that resolution rather than guessing.
 async function getLocaleFromCookies(): Promise<Locale> {
   const cookieStore = await cookies();
-  return cookieStore.get(LOCALE_STORAGE_KEY)?.value === "en" ? "en" : "pt";
+  return cookieStore.get(LOCALE_COOKIE)?.value === "en" ? "en" : "pt";
 }
 
 export async function generateMetadata(): Promise<Metadata> {

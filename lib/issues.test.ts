@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveIssues } from "./issues";
+import { deriveIssues, prioritizeIssues, type Issue } from "./issues";
 
 describe("deriveIssues", () => {
   it("falls back to Lighthouse's audits for the page basics when our own fetch of the page failed", () => {
@@ -109,15 +109,15 @@ describe("deriveIssues — security headers", () => {
     expect(issues.some((issue) => issue.code === "no-clickjacking-protection")).toBe(false);
   });
 
-  it("flags all three when every header is missing on an https site", () => {
+  it("lists all three as suggestions when every header is missing on an https site", () => {
     const issues = deriveIssues({
       https: { passed: true, finalUrl: "https://x.com", redirectedFromHttp: false },
       securityHeaders: { hasHsts: false, hasCsp: false, hasClickjackingProtection: false },
     });
 
-    expect(issues).toContainEqual({ category: "security", severity: "atencao", code: "no-hsts" });
-    expect(issues).toContainEqual({ category: "security", severity: "atencao", code: "no-csp" });
-    expect(issues).toContainEqual({ category: "security", severity: "atencao", code: "no-clickjacking-protection" });
+    expect(issues).toContainEqual({ category: "security", severity: "sugestao", code: "no-hsts" });
+    expect(issues).toContainEqual({ category: "security", severity: "sugestao", code: "no-csp" });
+    expect(issues).toContainEqual({ category: "security", severity: "sugestao", code: "no-clickjacking-protection" });
   });
 
   it("flags nothing when every header is present", () => {
@@ -307,12 +307,12 @@ describe("deriveIssues — heading-order", () => {
     expect(issues.some((issue) => issue.code === "heading-order")).toBe(false);
   });
 
-  it("flags atencao when hasHeadingOrderIssues is true", () => {
+  it("suggests fixing heading order when hasHeadingOrderIssues is true", () => {
     const issues = deriveIssues({
       pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 90 }, hasHeadingOrderIssues: true },
     });
 
-    expect(issues).toContainEqual({ category: "accessibility", severity: "atencao", code: "heading-order" });
+    expect(issues).toContainEqual({ category: "accessibility", severity: "sugestao", code: "heading-order" });
   });
 });
 
@@ -367,5 +367,60 @@ describe("deriveIssues — broken-links", () => {
       code: "broken-links",
       params: { broken: 3, checked: 4 },
     });
+  });
+});
+
+describe("deriveIssues — severity taxonomy", () => {
+  it("treats a generic title as attention, not critical: the page still has one", () => {
+    const issues = deriveIssues({
+      metaTags: { hasViewport: true, hasTitle: true, title: "Home", hasDescription: true, description: "d" },
+    });
+
+    expect(issues).toContainEqual(expect.objectContaining({ code: "generic-title", severity: "atencao" }));
+  });
+
+  it("lists a missing sitemap as a suggestion", () => {
+    const issues = deriveIssues({ sitemapRobots: { hasSitemap: false, hasRobotsTxt: true } });
+
+    expect(issues).toEqual([{ category: "seo", severity: "sugestao", code: "no-sitemap" }]);
+  });
+});
+
+describe("deriveIssues — performance consolidation", () => {
+  const slowScores = { performance: 34, accessibility: 90, "best-practices": 90, seo: 90 };
+
+  it("doesn't repeat the category score as a finding when a specific cause explains it", () => {
+    const issues = deriveIssues({ pagespeed: { scores: slowScores, lcpSeconds: 6.2 } });
+
+    expect(issues.map((issue) => issue.code)).toEqual(["slow-load-impact"]);
+  });
+
+  it("falls back to the score finding when nothing more specific was found", () => {
+    const issues = deriveIssues({ pagespeed: { scores: slowScores, lcpSeconds: 1.8 } });
+
+    expect(issues).toEqual([{ category: "performance", severity: "critico", code: "low-performance", params: { score: 34 } }]);
+  });
+});
+
+describe("prioritizeIssues", () => {
+  const issue = (code: Issue["code"], severity: Issue["severity"]): Issue => ({ category: "seo", severity, code });
+
+  it("puts critical first, then attention, then suggestions, keeping the original order within each", () => {
+    const ordered = prioritizeIssues([
+      issue("no-sitemap", "sugestao"),
+      issue("no-description", "atencao"),
+      issue("no-title", "critico"),
+      issue("generic-title", "atencao"),
+    ]);
+
+    expect(ordered.map((i) => i.code)).toEqual(["no-title", "no-description", "generic-title", "no-sitemap"]);
+  });
+
+  it("doesn't reorder the array it was given", () => {
+    const original = [issue("no-sitemap", "sugestao"), issue("no-title", "critico")];
+
+    prioritizeIssues(original);
+
+    expect(original[0].code).toBe("no-sitemap");
   });
 });
