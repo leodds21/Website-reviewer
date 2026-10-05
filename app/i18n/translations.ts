@@ -81,6 +81,12 @@ type Dictionary = {
   manualBody: string;
   manualMessagePrefill: (domain: string) => string;
   whatWeFound: string;
+  // Per-finding disclosure: the recommendation, plus the specific
+  // elements when the check knows them (lib/issues.ts `affected`).
+  howToFix: string;
+  affectedHeading: Partial<Record<IssueCode, (count: number) => string>>;
+  imageWithoutSource: string;
+  moreAffected: (count: number) => string;
   points: (count: number) => string;
   noIssues: string;
   showAllPoints: (count: number) => string;
@@ -223,6 +229,13 @@ const pt: Dictionary = {
     "Como o site bloqueou a análise automática, posso revisar ele direto no navegador e te mandar o que encontrar.",
   manualMessagePrefill: (domain) => `Quero uma análise manual de ${domain}.`,
   whatWeFound: "O que encontramos",
+  howToFix: "Como resolver",
+  affectedHeading: {
+    "missing-alt": (count) => (count === 1 ? "A imagem afetada" : `As ${count} imagens afetadas`),
+    "broken-links": (count) => (count === 1 ? "O link quebrado" : `Os ${count} links quebrados`),
+  },
+  imageWithoutSource: "(imagem sem endereço no HTML)",
+  moreAffected: (count) => `e mais ${count}`,
   points: (count) => `${count} ${count === 1 ? "ponto" : "pontos"}`,
   noIssues: "Não encontramos problema nenhum nas checagens que rodamos.",
   showAllPoints: (count) => `Ver todos os ${count} ${count === 1 ? "ponto" : "pontos"} ↓`,
@@ -481,6 +494,13 @@ const en: Dictionary = {
   manualBody: "Since the site blocked the automated analysis, I can review it directly in a browser and send you what I find.",
   manualMessagePrefill: (domain) => `I'd like a manual review of ${domain}.`,
   whatWeFound: "What we found",
+  howToFix: "How to fix it",
+  affectedHeading: {
+    "missing-alt": (count) => (count === 1 ? "The affected image" : `The ${count} affected images`),
+    "broken-links": (count) => (count === 1 ? "The broken link" : `The ${count} broken links`),
+  },
+  imageWithoutSource: "(image with no address in the HTML)",
+  moreAffected: (count) => `and ${count} more`,
   points: (count) => `${count} ${count === 1 ? "point" : "points"}`,
   noIssues: "We didn't find any problems in the checks we ran.",
   showAllPoints: (count) => `See all ${count} ${count === 1 ? "point" : "points"} ↓`,
