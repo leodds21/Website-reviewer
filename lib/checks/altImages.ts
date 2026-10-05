@@ -4,6 +4,20 @@ const SAMPLE_SIZE = 20;
 const HAS_ALT_ATTRIBUTE = /\salt(?=\s*=|\s|\/?>)/i;
 const HIDDEN_FROM_ASSISTIVE_TECH = /\s(?:role\s*=\s*["']?(?:presentation|none)\b|aria-hidden\s*=\s*["']?true\b)/i;
 
+// Long enough for any real image URL to stay recognizable, short enough
+// that one absurd attribute can't bloat a cached report.
+const MAX_SOURCE_LENGTH = 200;
+
+// What identifies an image in the report: its address, or "" when the
+// tag has no src at all. An inline data: image can be hundreds of KB of
+// base64, so only its type is kept.
+function describeImageSource(src: string | undefined): string {
+  if (!src) return "";
+  const inline = src.match(/^data:([^;,]+)/i);
+  if (inline) return `data:${inline[1]}`;
+  return src.length > MAX_SOURCE_LENGTH ? `${src.slice(0, MAX_SOURCE_LENGTH)}…` : src;
+}
+
 export type AltImagesCheckResult = {
   sampledCount: number;
   missingAltCount: number;
@@ -30,7 +44,7 @@ export function parseAltImages(html: string): AltImagesCheckResult {
 
     if (!hasAltDecision) {
       const srcMatch = tag.match(/\bsrc\s*=\s*["']([^"']*)["']/i);
-      missingAltSrcs.push(srcMatch ? srcMatch[1] : tag);
+      missingAltSrcs.push(describeImageSource(srcMatch?.[1]));
     }
   }
 
