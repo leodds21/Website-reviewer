@@ -14,18 +14,18 @@ const RING_COLOR: Record<Severity, string> = {
   indisponivel: "var(--color-neutral-200)",
 };
 
+const RING_SIZE = 82;
+
 export function ScoreRing({
   score,
   severity,
   partial = false,
-  size = 82,
 }: {
   score: number;
   severity: Severity;
   // A dashed track when the score covers only some categories, so the
   // ring itself reads as incomplete, not just the caption next to it.
   partial?: boolean;
-  size?: number;
 }) {
   const radius = 42;
   const circumference = 2 * Math.PI * radius;
@@ -42,7 +42,7 @@ export function ScoreRing({
   const offset = circumference - (filled / 100) * circumference;
 
   return (
-    <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true">
+    <svg width={RING_SIZE} height={RING_SIZE} viewBox="0 0 100 100" aria-hidden="true">
       <circle
         cx={50}
         cy={50}

@@ -124,6 +124,21 @@ describe("GET /api/analyze", () => {
     expect(report.score.overall).toBeGreaterThan(0);
   });
 
+  it("still completes a failed check's loading steps, so the loading screen never waits on it", async () => {
+    vi.mocked(fetchHtml).mockRejectedValueOnce(new HttpStatusError(403, "A página respondeu 403."));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const response = await GET(requestFor("route-test-failed-steps.example", "route-test-failed-steps.ip"));
+    const steps = (await readSseEvents(response))
+      .filter((event) => event.event === "step")
+      .map((event) => (event.data as { step: string }).step);
+
+    // The page fetch failed, yet its two derived steps (and brokenLinks,
+    // which waits on it) still arrive.
+    expect(steps).toEqual(expect.arrayContaining(["metaTags", "altImages", "brokenLinks"]));
+    errorSpy.mockRestore();
+  });
+
   it("derives security-header findings from the https check's own response, no separate fetch", async () => {
     const response = await GET(requestFor("route-test-secheaders.example", "route-test-secheaders.ip"));
     const events = await readSseEvents(response);
@@ -182,7 +197,7 @@ describe("GET /api/analyze", () => {
     vi.mocked(runPageSpeed).mockRejectedValueOnce(new Error("PAGESPEED_API_KEY não configurada"));
 
     const response = await GET(requestFor("route-test-total-fail.example", "route-test-total-fail.ip"));
-    const events = await readSseEvents(response);
+    const events = (await readSseEvents(response)).filter((event) => event.event !== "step");
 
     expect(events).toHaveLength(1);
     expect(events[0].event).toBe("failed");
@@ -202,7 +217,7 @@ describe("GET /api/analyze", () => {
     vi.mocked(runPageSpeed).mockRejectedValueOnce(new PageSpeedError("PageSpeed API retornou 429: quota exceeded", 429));
 
     const response = await GET(requestFor("route-test-quota.example", "route-test-quota.ip"));
-    const events = await readSseEvents(response);
+    const events = (await readSseEvents(response)).filter((event) => event.event !== "step");
 
     expect(events).toHaveLength(1);
     expect((events[0].data as { code: string }).code).toBe("quota-exceeded");
@@ -215,7 +230,7 @@ describe("GET /api/analyze", () => {
     vi.mocked(runPageSpeed).mockRejectedValueOnce(new PageSpeedError("PageSpeed API retornou 400: bad url", 400));
 
     const response = await GET(requestFor("route-test-non-quota.example", "route-test-non-quota.ip"));
-    const events = await readSseEvents(response);
+    const events = (await readSseEvents(response)).filter((event) => event.event !== "step");
 
     expect((events[0].data as { code: string }).code).toBe("analysis-failed");
   });
@@ -319,7 +334,7 @@ describe("GET /api/analyze", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const response = await GET(requestFor("route-test-all-blocked.example", "route-test-all-blocked.ip"));
-    const events = await readSseEvents(response);
+    const events = (await readSseEvents(response)).filter((event) => event.event !== "step");
 
     expect(events).toEqual([{ event: "failed", data: { code: "site-blocked" } }]);
     errorSpy.mockRestore();

@@ -1,37 +1,55 @@
 "use client";
 
 import { useState } from "react";
-import type { Issue, IssueSeverity } from "@/lib/issues";
+import { prioritizeIssues, type Issue, type IssueSeverity } from "@/lib/issues";
 import { useLanguage } from "@/app/i18n/LanguageContext";
 import { translateIssue } from "@/app/i18n/translations";
 
-const SEVERITY_COLOR: Record<IssueSeverity, string> = {
-  critico: "var(--color-severity-critico)",
-  atencao: "var(--color-severity-atencao)",
+// CLAUDE.md: show the 1-2 most important findings up front, the rest
+// behind "show more".
+const COLLAPSED_COUNT = 2;
+
+// Severity reads through several signals at once, never color alone:
+// the label, the bar's weight, and the title's size and weight.
+// Suggestions stay neutral: they're opportunities, not warnings.
+const SEVERITY_STYLE: Record<IssueSeverity, { color: string; bar: string; title: string; body: string }> = {
+  critico: {
+    color: "var(--color-severity-critico)",
+    bar: "border-l-[3px]",
+    title: "text-[15.5px] font-semibold",
+    body: "text-[12.5px] text-[var(--color-text)]/70",
+  },
+  atencao: {
+    color: "var(--color-severity-atencao)",
+    bar: "border-l-2",
+    title: "text-[13.5px] font-medium",
+    body: "text-[12px] text-[var(--color-neutral-700)]",
+  },
+  sugestao: {
+    color: "var(--color-neutral-700)",
+    bar: "border-l",
+    title: "text-[13px]",
+    body: "text-[12px] text-[var(--color-neutral-700)]",
+  },
 };
 
 function IssueItem({ issue }: { issue: Issue }) {
   const { locale, t } = useLanguage();
   const { title, description } = translateIssue(locale, issue.code, issue.params);
-  const critical = issue.severity === "critico";
-  const color = SEVERITY_COLOR[issue.severity];
+  const style = SEVERITY_STYLE[issue.severity];
 
   return (
-    <div className={critical ? "border-l-[3px] pl-3" : "border-l-2 pl-3"} style={{ borderColor: color }}>
+    <li className={`${style.bar} pl-3`} style={{ borderColor: style.color }}>
       <div className="mb-0.5 flex items-center gap-1.5 text-[10.5px] font-semibold tracking-[0.08em] uppercase">
-        <span style={{ color }}>{t.severity[issue.severity]}</span>
+        <span style={{ color: style.color }}>{t.severity[issue.severity]}</span>
         <span aria-hidden="true" className="text-[var(--color-divider)]">
           ·
         </span>
         <span className="text-[var(--color-neutral-700)]">{t.categories[issue.category]}</span>
       </div>
-      <div className={critical ? "mb-0.5 text-[15.5px] leading-tight font-semibold" : "mb-0.5 text-[13px] leading-tight font-medium"}>
-        {title}
-      </div>
-      <p className={critical ? "text-[12.5px] text-[var(--color-text)]/70" : "text-[12px] text-[var(--color-neutral-700)]"}>
-        {description}
-      </p>
-    </div>
+      <p className={`mb-0.5 leading-tight ${style.title}`}>{title}</p>
+      <p className={style.body}>{description}</p>
+    </li>
   );
 }
 
@@ -39,40 +57,28 @@ export function IssueList({ issues }: { issues: Issue[] }) {
   const { t } = useLanguage();
   const [expanded, setExpanded] = useState(false);
 
-  const critical = issues.filter((issue) => issue.severity === "critico");
-  const secondary = issues.filter((issue) => issue.severity === "atencao");
-
-  // CLAUDE.md: show the 1-2 most critical issues, rest behind a "show
-  // more" action — computed independently of `expanded` so hasMore
-  // stays true (and the toggle stays visible) once the list opens.
-  const collapsedCritical = critical.slice(0, 2);
-  const collapsedSecondary = secondary.slice(0, Math.max(0, 2 - critical.length));
-  const hasMore = issues.length > collapsedCritical.length + collapsedSecondary.length;
-
-  const visibleCritical = expanded ? critical : collapsedCritical;
-  const visibleSecondary = expanded ? secondary : collapsedSecondary;
-
   if (issues.length === 0) {
     return <p className="text-[12.5px] text-[var(--color-neutral-700)]">{t.noIssues}</p>;
   }
+
+  const ordered = prioritizeIssues(issues);
+  const visible = expanded ? ordered : ordered.slice(0, COLLAPSED_COUNT);
+  const hasMore = ordered.length > COLLAPSED_COUNT;
 
   return (
     <div>
       <div className="mb-3 flex items-baseline justify-between">
         <h2 className="text-lg">{t.whatWeFound}</h2>
-        <span className="border-0 bg-[var(--color-neutral-200)] px-2.5 py-0.5 text-[11px] text-[var(--color-neutral-700)]">
+        <span className="bg-[var(--color-neutral-200)] px-2.5 py-0.5 text-[11px] text-[var(--color-neutral-700)]">
           {t.points(issues.length)}
         </span>
       </div>
 
-      <div className="flex flex-col gap-3.5">
-        {visibleCritical.map((issue, index) => (
-          <IssueItem key={`critico-${index}`} issue={issue} />
+      <ul className="flex flex-col gap-3.5">
+        {visible.map((issue) => (
+          <IssueItem key={issue.code} issue={issue} />
         ))}
-        {visibleSecondary.map((issue, index) => (
-          <IssueItem key={`atencao-${index}`} issue={issue} />
-        ))}
-      </div>
+      </ul>
 
       {hasMore && (
         <button
