@@ -39,6 +39,16 @@ describe("isBlockedHost", () => {
     "::ffff:7f00:1", // same, hex form
     "::", // IPv6 unspecified — connecting to it lands on localhost
     "[::]",
+    "192.0.2.10", // TEST-NET-1
+    "198.18.0.1", // benchmarking
+    "203.0.113.5", // TEST-NET-3
+    "224.0.0.1", // multicast
+    "240.0.0.1", // reserved
+    "255.255.255.255", // broadcast
+    "::7f00:1", // IPv4-compatible IPv6 for 127.0.0.1
+    "64:ff9b::7f00:1", // NAT64-embedded 127.0.0.1
+    "2002:7f00:1::", // 6to4-embedded 127.0.0.1
+    "ff02::1", // IPv6 multicast
   ])("blocks %s", (host) => {
     expect(isBlockedHost(host)).toBe(true);
   });
