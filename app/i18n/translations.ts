@@ -24,13 +24,14 @@ function formatWait(seconds: number, locale: Locale): string {
 
 export type Locale = "pt" | "en";
 
-export const LOCALE_STORAGE_KEY = "isdias-lang";
+// The name predates the lsdias.dev rename; changing it would reset
+// every returning visitor's language choice for no visible gain.
+export const LOCALE_COOKIE = "isdias-lang";
 
 type IssueParams = Record<string, string | number> | undefined;
 
 type Dictionary = {
   documentTitle: string;
-  tagline: string;
   headline: string[];
   subheadline: string;
   analyzeLabel: string;
@@ -141,7 +142,6 @@ type Dictionary = {
 
 const pt: Dictionary = {
   documentTitle: "lsdias.dev, diagnóstico de site",
-  tagline: "ferramenta de diagnóstico",
   headline: ["Todo site tem", "um ponto fraco."],
   subheadline:
     "A gente encontra o seu em menos de um minuto: performance, SEO, acessibilidade e segurança, tudo junto.",
@@ -404,7 +404,6 @@ const pt: Dictionary = {
 
 const en: Dictionary = {
   documentTitle: "lsdias.dev, website diagnostics",
-  tagline: "diagnostic tool",
   headline: ["Every site has", "a weak spot."],
   subheadline: "We find yours in under a minute: performance, SEO, accessibility and security, all at once.",
   analyzeLabel: "Analyze",
