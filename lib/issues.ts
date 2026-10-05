@@ -1,7 +1,27 @@
 import type { CheckResults } from "./checkResults";
 
 export type IssueCategory = "performance" | "seo" | "accessibility" | "security";
-export type IssueSeverity = "critico" | "atencao";
+/**
+ * critico: breaks the site for visitors or leaves it insecure (no HTTPS,
+ *   unusable on phones, most links or images broken, very slow).
+ * atencao: a real problem worth fixing, but the site still works.
+ * sugestao: an improvement opportunity whose absence isn't a problem by
+ *   itself (hardening headers, a sitemap). Suggestions never lower the
+ *   score; see lib/score.ts.
+ */
+export type IssueSeverity = "critico" | "atencao" | "sugestao";
+
+const SEVERITY_RANK: Record<IssueSeverity, number> = { critico: 0, atencao: 1, sugestao: 2 };
+
+/**
+ * Most important first: severity, then the order deriveIssues found
+ * them in (Array.prototype.sort is stable). The single ordering both the
+ * report and the next-step screen use, so "top issues" means the same
+ * thing everywhere.
+ */
+export function prioritizeIssues(issues: Issue[]): Issue[] {
+  return [...issues].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
+}
 
 export type IssueCode =
   | "no-https"
@@ -88,14 +108,16 @@ export function deriveIssues(input: Partial<CheckResults>): Issue[] {
   // trustworthy — flagging a missing CSP on a site that isn't even
   // serving HTTPS would bury the one finding that actually matters.
   if (input.https?.passed && input.securityHeaders) {
+    // Defense-in-depth hardening on an already-secure connection: worth
+    // adding, but their absence isn't a vulnerability by itself.
     if (!input.securityHeaders.hasHsts) {
-      issues.push({ category: "security", severity: "atencao", code: "no-hsts" });
+      issues.push({ category: "security", severity: "sugestao", code: "no-hsts" });
     }
     if (!input.securityHeaders.hasCsp) {
-      issues.push({ category: "security", severity: "atencao", code: "no-csp" });
+      issues.push({ category: "security", severity: "sugestao", code: "no-csp" });
     }
     if (!input.securityHeaders.hasClickjackingProtection) {
-      issues.push({ category: "security", severity: "atencao", code: "no-clickjacking-protection" });
+      issues.push({ category: "security", severity: "sugestao", code: "no-clickjacking-protection" });
     }
   }
 
@@ -103,9 +125,11 @@ export function deriveIssues(input: Partial<CheckResults>): Issue[] {
     if (!input.metaTags.hasTitle) {
       issues.push({ category: "seo", severity: "critico", code: "no-title" });
     } else if (input.metaTags.title === "Home" || input.metaTags.title === "Início") {
+      // The page still has a title and still ranks; it just doesn't sell
+      // itself in results. Not in the same league as having none.
       issues.push({
         category: "seo",
-        severity: "critico",
+        severity: "atencao",
         code: "generic-title",
         params: { title: input.metaTags.title },
       });
@@ -152,8 +176,10 @@ export function deriveIssues(input: Partial<CheckResults>): Issue[] {
   // boolean | null, and null means the probe never reached the host —
   // claiming "we couldn't find a sitemap" on that basis would be a
   // finding about a site we never actually looked at.
+  // A suggestion: small sites with internal links get crawled fine
+  // without one; it mostly speeds up discovery of new pages.
   if (input.sitemapRobots?.hasSitemap === false) {
-    issues.push({ category: "seo", severity: "atencao", code: "no-sitemap" });
+    issues.push({ category: "seo", severity: "sugestao", code: "no-sitemap" });
   }
 
   if (input.brokenLinks && input.brokenLinks.brokenCount > 0) {
@@ -167,16 +193,6 @@ export function deriveIssues(input: Partial<CheckResults>): Issue[] {
   }
 
   if (input.pagespeed) {
-    const performanceScore = input.pagespeed.scores.performance;
-    if (typeof performanceScore === "number" && performanceScore < 80) {
-      issues.push({
-        category: "performance",
-        severity: performanceScore < 50 ? "critico" : "atencao",
-        code: "low-performance",
-        params: { score: performanceScore },
-      });
-    }
-
     if (typeof input.pagespeed.lcpSeconds === "number") {
       const lcpSeconds = input.pagespeed.lcpSeconds;
       const bucket = LOAD_IMPACT_BUCKETS.find((b) => lcpSeconds >= b.minSeconds);
@@ -217,13 +233,27 @@ export function deriveIssues(input: Partial<CheckResults>): Issue[] {
     }
 
     if (input.pagespeed.hasHeadingOrderIssues) {
-      // Same pass/fail shape as color-contrast: Lighthouse gives no
-      // count of affected headings, so this stays "atencao".
-      issues.push({ category: "accessibility", severity: "atencao", code: "heading-order" });
+      // Skipped heading levels make navigation by headings harder, but
+      // the content stays reachable: a structural improvement.
+      issues.push({ category: "accessibility", severity: "sugestao", code: "heading-order" });
     }
 
     if (input.pagespeed.hasFormLabelIssues) {
       issues.push({ category: "accessibility", severity: "atencao", code: "missing-form-labels" });
+    }
+
+    // The performance category already shows this number. As a finding
+    // it only adds something when no specific one (load time, layout
+    // shift, server response) explains it; otherwise it's a repeat.
+    const performanceScore = input.pagespeed.scores.performance;
+    const hasSpecificPerformanceFinding = issues.some((issue) => issue.category === "performance");
+    if (!hasSpecificPerformanceFinding && typeof performanceScore === "number" && performanceScore < 80) {
+      issues.push({
+        category: "performance",
+        severity: performanceScore < 50 ? "critico" : "atencao",
+        code: "low-performance",
+        params: { score: performanceScore },
+      });
     }
   }
 

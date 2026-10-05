@@ -1,7 +1,6 @@
 import type { AltImagesCheckResult } from "./checks/altImages";
 import type { BrokenLinksCheckResult } from "./checks/brokenLinks";
 import type { CheckResults } from "./checkResults";
-import type { SecurityHeadersCheckResult } from "./checks/securityHeaders";
 import { primaryReason, type CheckFailures, type CheckKey, type FailureReason } from "./checkFailure";
 
 export type Severity = "critico" | "atencao" | "ok" | "indisponivel";
@@ -57,14 +56,6 @@ function booleanSignal(value: boolean | null | undefined): number | null {
   return value ? 100 : 0;
 }
 
-// Each present header is worth an equal third — there's no published
-// weighting between HSTS/CSP/clickjacking protection to justify
-// treating one as more important than the others.
-function securityHeadersScore(result: SecurityHeadersCheckResult): number {
-  const signals = [result.hasHsts, result.hasCsp, result.hasClickjackingProtection];
-  return (signals.filter(Boolean).length / signals.length) * 100;
-}
-
 // Averages only the components whose source check actually ran; null
 // when none did. This is how a category degrades gracefully when *some*
 // but not all of its sources are missing (e.g. seo still scores from
@@ -78,7 +69,7 @@ function averageOf(components: (number | null)[]): number | null {
 // unavailable reason are computed from.
 const CATEGORY_SOURCES = {
   performance: ["pagespeed"],
-  seo: ["pagespeed", "page", "sitemapRobots", "brokenLinks"],
+  seo: ["pagespeed", "page", "brokenLinks"],
   accessibility: ["pagespeed", "page"],
   security: ["https", "pagespeed"],
 } satisfies Record<string, CheckKey[]>;
@@ -100,8 +91,13 @@ function finalize(score: number | null, sources: CheckKey[], failures: CheckFail
  * Combines PageSpeed's Lighthouse categories with our own checks into
  * the four categories the report shows. Performance is Lighthouse's
  * number as-is (nothing of ours adds signal there); the others blend
- * Lighthouse with checks that Lighthouse doesn't run at all (sitemap,
- * robots.txt, our own alt-text sample).
+ * Lighthouse with our own checks.
+ *
+ * Only checks that produce a critico/atencao finding feed the score, so
+ * every point lost shows up in the findings list. Suggestion-level ones
+ * (sitemap, security hardening headers) are listed but never lower the
+ * score, and robots.txt isn't scored at all: without one, crawlers
+ * simply index everything, which is fine for most sites.
  *
  * Every input is optional: a check that failed to run (e.g. every
  * fetch blocked by a broken TLS certificate) contributes nothing
@@ -122,14 +118,6 @@ export function aggregateScore(input: Partial<CheckResults>, failures: CheckFail
     input.pagespeed?.scores.seo ?? null,
     booleanSignal(input.metaTags ? input.metaTags.hasTitle : lighthouse?.hasTitle),
     booleanSignal(input.metaTags ? input.metaTags.hasDescription : lighthouse?.hasDescription),
-    // `?? null` rather than a truthiness check: hasSitemap/hasRobotsTxt
-    // are boolean | null, and a null (we couldn't reach the host to
-    // find out) has to stay out of the average instead of scoring 0
-    // like a confirmed absence would.
-    booleanSignal(input.sitemapRobots?.hasSitemap),
-    // robots.txt matters for the same reason sitemap.xml does — it's
-    // how crawlers are told what to do with the site.
-    booleanSignal(input.sitemapRobots?.hasRobotsTxt),
     input.brokenLinks ? brokenLinksScore(input.brokenLinks) : null,
   ]);
 
@@ -156,11 +144,7 @@ export function aggregateScore(input: Partial<CheckResults>, failures: CheckFail
     : !input.https.passed
       ? finalize(0, [], failures)
       : finalize(
-          averageOf([
-            100,
-            input.pagespeed?.scores["best-practices"] ?? null,
-            input.securityHeaders ? securityHeadersScore(input.securityHeaders) : null,
-          ]),
+          averageOf([100, input.pagespeed?.scores["best-practices"] ?? null]),
           CATEGORY_SOURCES.security,
           failures,
         );

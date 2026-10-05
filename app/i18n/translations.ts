@@ -1,4 +1,4 @@
-import type { Issue, IssueCode } from "@/lib/issues";
+import type { Issue, IssueCode, IssueSeverity } from "@/lib/issues";
 import type { Severity } from "@/lib/score";
 import type { AnalyzeError, AnalyzeErrorCode } from "@/lib/analyzeError";
 import type { ContactErrorCode } from "@/app/hooks/useContactForm";
@@ -24,13 +24,14 @@ function formatWait(seconds: number, locale: Locale): string {
 
 export type Locale = "pt" | "en";
 
-export const LOCALE_STORAGE_KEY = "isdias-lang";
+// The name predates the lsdias.dev rename; changing it would reset
+// every returning visitor's language choice for no visible gain.
+export const LOCALE_COOKIE = "isdias-lang";
 
 type IssueParams = Record<string, string | number> | undefined;
 
 type Dictionary = {
   documentTitle: string;
-  tagline: string;
   headline: string[];
   subheadline: string;
   analyzeLabel: string;
@@ -56,10 +57,15 @@ type Dictionary = {
   };
   scoreLabelOk: string;
   scoreLabelAttention: string;
+  scoreLabelCritical: string;
+  // ["2 críticos", "3 de atenção", "4 sugestões"]: zero counts are left
+  // out. Parts, not one string, so a line never breaks inside a count.
+  issueSummary: (counts: Record<IssueSeverity, number>) => string[];
   scoreExplanationToggle: string;
   scoreExplanation: string;
   categories: Record<"performance" | "seo" | "accessibility" | "security", string>;
-  severity: Record<Severity, string>;
+  // Category states and finding severities share one label set.
+  severity: Record<Severity | IssueSeverity, string>;
   // Shown under a category that couldn't be measured, so the visitor
   // always learns why (and whether trying again could help) instead of
   // a bare "não medido".
@@ -80,6 +86,11 @@ type Dictionary = {
   showAllPoints: (count: number) => string;
   showLess: string;
   nextStepButton: string;
+  // The same next step when the report found nothing to fix: an offer to
+  // talk, instead of a "how to fix it" screen with nothing in it.
+  nextStepButtonClean: string;
+  cleanHeadline: string;
+  cleanBody: string;
   nextStepKicker: string;
   nextStepHeadline: string;
   nextStepBody: string;
@@ -111,12 +122,6 @@ type Dictionary = {
   // is only ever present on rate-limited.
   analysisError: Record<AnalyzeErrorCode, (retryAfterSeconds?: number) => string>;
   issue: Record<IssueCode, (params: IssueParams) => { title: string; description: string }>;
-  // Plain-language "so what" for a non-technical site owner, one level
-  // removed from the technical finding above it — filled in one check
-  // module at a time (see lib/checks/), so Partial rather than a full
-  // Record. Not rendered per-item in the UI; it's source material a
-  // future detail view could use directly.
-  impact: Partial<Record<IssueCode, string>>;
   // Short noun-phrase version of the same idea, grammatically built to
   // slot into synthesizeImpact() below (e.g. "the insecure connection").
   impactClause: Partial<Record<IssueCode, string>>;
@@ -130,21 +135,20 @@ type Dictionary = {
   // result (more sales, a fixed ranking) or claims the problem is
   // costing anything measurable, only describes what fixing it
   // involves. Filled for every IssueCode, not incrementally like
-  // impact/impactClause, since a finding with no recommendation would
+  // impactClause, since a finding with no recommendation would
   // leave a visible gap in that screen.
   recommendation: Record<IssueCode, string>;
 };
 
 const pt: Dictionary = {
   documentTitle: "lsdias.dev, diagnóstico de site",
-  tagline: "ferramenta de diagnóstico",
   headline: ["Todo site tem", "um ponto fraco."],
   subheadline:
     "A gente encontra o seu em menos de um minuto: performance, SEO, acessibilidade e segurança, tudo junto.",
   analyzeLabel: "Analisar",
   urlPlaceholder: "seusite.com.br",
   runButton: "Rodar diagnóstico",
-  privacyNote: "Não armazenamos a URL nem o relatório após a análise. Alguns serviços técnicos podem processar dados temporariamente.",
+  privacyNote: "O relatório fica em cache por até 6 horas e depois é descartado. Alguns serviços técnicos processam os dados nesse meio-tempo.",
   privacyLinkLabel: "Como tratamos seus dados",
   close: "Fechar",
   privacyPolicy: {
@@ -164,7 +168,7 @@ const pt: Dictionary = {
       },
       {
         label: "Rastreamento",
-        text: "Não usamos cookies nem ferramentas de analytics. Seu IP só é usado, de forma temporária, pra limitar abusos — não fica associado a você.",
+        text: "Não usamos ferramentas de analytics. O único cookie guarda o idioma que você escolheu. Seu IP só é usado, de forma temporária, pra limitar abusos, e não fica associado a você.",
       },
     ],
   },
@@ -181,16 +185,23 @@ const pt: Dictionary = {
   },
   scoreLabelOk: "Está bem",
   scoreLabelAttention: "Precisa de atenção",
+  scoreLabelCritical: "Tem problemas sérios",
+  issueSummary: ({ critico, atencao, sugestao }) =>
+    [
+      critico > 0 && `${critico} ${critico === 1 ? "crítico" : "críticos"}`,
+      atencao > 0 && `${atencao} de atenção`,
+      sugestao > 0 && `${sugestao} ${sugestao === 1 ? "sugestão" : "sugestões"}`,
+    ].filter((part): part is string => Boolean(part)),
   scoreExplanationToggle: "Como calculamos esta nota",
   scoreExplanation:
-    "A nota geral é a média simples das quatro categorias — Performance, SEO, Acessibilidade e Segurança — sem nenhuma valer mais que a outra. Cada categoria, por sua vez, já é a média das checagens que a compõem (Segurança, por exemplo, combina HTTPS, certificado e cabeçalhos de proteção). Uma categoria marcada \"não medido\" fica de fora da conta e mostra logo abaixo o motivo; nesse caso, a nota geral avisa em quantas categorias se baseia. \"Medido em parte\" quer dizer que algumas checagens daquela categoria não conseguiram rodar. \"Crítico\" e \"atenção\" indicam o quanto aquela categoria está abaixo do ideal; \"ok\" significa que não encontramos problema relevante nela.",
+    "A nota geral é a média simples das quatro categorias, sem nenhuma valer mais que a outra. Cada categoria junta a medição do Google com as nossas checagens, e só os pontos marcados como crítico ou atenção tiram nota: sugestões aparecem na lista, mas não mudam o número. Uma categoria \"não medido\" fica fora da conta e mostra o motivo; nesse caso, a nota geral avisa em quantas categorias se baseia. \"Medido em parte\" quer dizer que algumas checagens daquela categoria não conseguiram rodar.",
   categories: {
     performance: "Performance",
     seo: "SEO",
     accessibility: "Acessibilidade",
     security: "Segurança",
   },
-  severity: { critico: "crítico", atencao: "atenção", ok: "ok", indisponivel: "não medido" },
+  severity: { critico: "crítico", atencao: "atenção", sugestao: "sugestão", ok: "ok", indisponivel: "não medido" },
   unavailableReason: {
     blocked: "O site recusou nosso acesso automático.",
     timeout: "A medição demorou demais. Vale tentar de novo.",
@@ -217,6 +228,9 @@ const pt: Dictionary = {
   showAllPoints: (count) => `Ver todos os ${count} ${count === 1 ? "ponto" : "pontos"} ↓`,
   showLess: "Mostrar menos ↑",
   nextStepButton: "Ver como corrigir →",
+  nextStepButtonClean: "Falar sobre o site →",
+  cleanHeadline: "O site passou nas checagens que fizemos.",
+  cleanBody: "Uma análise automática não vê tudo. Se quiser uma segunda opinião sobre o site, é só escrever.",
   nextStepKicker: "Próximo passo",
   nextStepHeadline: "O relatório mostra o problema. Agora, veja o que pode ser feito.",
   nextStepBody: "Nem todo problema tem o mesmo impacto. Estes são os que vale corrigir primeiro.",
@@ -234,7 +248,7 @@ const pt: Dictionary = {
   sendSuccess: "Recebido. Volto pra você em breve.",
   sendSuccessDetail: (email) => `A resposta vai pra ${email}.`,
   contactError: {
-    offline: "Você parece estar sem conexão. Sua mensagem não foi enviada — confere a internet e tenta de novo.",
+    offline: "Você parece estar sem conexão. Sua mensagem não foi enviada: confere a internet e tenta de novo.",
     timeout: "O envio demorou demais e foi interrompido. Sua mensagem não foi enviada, pode tentar de novo.",
     rejected: "Não conseguimos enviar sua mensagem. Confere se o e-mail está certo e tenta de novo.",
     "not-configured": "O formulário de contato está indisponível no momento. Tenta de novo mais tarde.",
@@ -262,7 +276,7 @@ const pt: Dictionary = {
     "quota-exceeded": () => "Atingimos o limite diário da ferramenta de análise. Tenta de novo amanhã.",
     timeout: () => "O site demorou demais pra responder e desistimos de esperar. Tenta de novo em instantes.",
     offline: () => "Você parece estar sem conexão. Confere sua internet e tenta de novo.",
-    unknown: () => "Algo deu errado no meio da análise. Tenta de novo em instantes.",
+    unknown: () => "Não conseguimos concluir a análise. Tenta de novo em instantes.",
   },
   issue: {
     "no-https": () => ({
@@ -270,8 +284,8 @@ const pt: Dictionary = {
       description: "Navegadores marcam a conexão como não segura, e isso afasta visitante e cliente.",
     }),
     "invalid-certificate": () => ({
-      title: "O certificado de segurança do site está incompleto.",
-      description: "O servidor não envia a cadeia de certificado completa. Navegadores costumam corrigir isso sozinhos e esconder o problema, mas é uma falha real de configuração.",
+      title: "O certificado de segurança do site não é confiável.",
+      description: "Ele pode estar vencido, ser autoassinado ou estar incompleto. Dependendo do navegador ou do app, o visitante vê um alerta de segurança ou nem consegue entrar.",
     }),
     "no-hsts": () => ({
       title: "O site não usa HSTS.",
@@ -287,15 +301,15 @@ const pt: Dictionary = {
     }),
     "no-title": () => ({
       title: "A página não tem título.",
-      description: "O Google não sabe do que o site trata.",
+      description: "A aba do navegador e o resultado no Google mostram só o endereço, sem dizer o que o site oferece.",
     }),
     "generic-title": (params) => ({
       title: `O título da home é só "${params?.title}".`,
-      description: "O Google não sabe do que o site trata.",
+      description: "É esse título que aparece no Google, e um termo genérico não dá motivo pra alguém escolher esse resultado.",
     }),
     "no-description": () => ({
       title: "Falta a meta description.",
-      description: "É o texto que aparece embaixo do link nos resultados de busca.",
+      description: "Sem ela, o Google escolhe sozinho o trecho que aparece embaixo do link nos resultados de busca.",
     }),
     "no-viewport": () => ({
       title: "Falta a meta tag de viewport.",
@@ -312,7 +326,7 @@ const pt: Dictionary = {
       description: "Ajuda o Google a achar todas as páginas do site, principalmente as mais novas.",
     }),
     "low-performance": (params) => ({
-      title: `Performance em ${params?.score}/100 no Lighthouse.`,
+      title: `A página tirou ${params?.score} de 100 no teste de velocidade do Google.`,
       description: "Tempo de sobra pra alguém desistir de esperar a página carregar.",
     }),
     "slow-load-impact": (params) => ({
@@ -320,7 +334,7 @@ const pt: Dictionary = {
       description: `Nessa faixa, a chance de o visitante desistir antes da página carregar é pelo menos ${params?.bounceIncreasePercent}% maior.`,
     }),
     "layout-shift": (params) => ({
-      title: `O site tem instabilidade visual no carregamento (CLS de ${params?.value}).`,
+      title: `O site tem instabilidade visual no carregamento (CLS de ${String(params?.value).replace(".", ",")}).`,
       description: "Elementos da página se deslocam depois de carregados, o que pode fazer a pessoa clicar no lugar errado sem querer.",
     }),
     "color-contrast": () => ({
@@ -344,40 +358,12 @@ const pt: Dictionary = {
       description: "Um link quebrado é um beco sem saída pra quem clicou, e um sinal ruim pro Google sobre a manutenção do site.",
     }),
   },
-  impact: {
-    "no-https": "Seu site aparece com o aviso \"não seguro\" no navegador do visitante. Isso passa desconfiança, principalmente se a pessoa for preencher algum formulário ou fazer uma compra.",
-    "invalid-certificate": "O certificado de segurança do site tem um problema de configuração. Na maioria dos navegadores isso passa despercebido, mas em alguns aparelhos, apps ou navegadores mais rigorosos o site pode aparecer com alerta de segurança.",
-    "no-hsts": "Isso não deixa o site vulnerável de imediato, mas é uma camada de proteção a menos: sem ela, existe uma brecha pequena onde alguém na mesma rede do visitante (tipo um wifi público) poderia, em teoria, interceptar a primeira conexão antes dela virar HTTPS.",
-    "no-csp": "Esse é um cabeçalho técnico que ajuda a impedir que um invasor injete código malicioso na sua página, por exemplo através de um formulário ou campo de comentário vulnerável. Sem ele, essa camada extra de defesa não existe.",
-    "no-clickjacking-protection": "Sem essa proteção, é tecnicamente possível outro site \"vestir\" o seu por cima de uma página falsa, fazendo a pessoa pensar que está clicando numa coisa quando na verdade está clicando em outra.",
-    "no-title": "A aba do navegador e os resultados de busca do Google mostram o site sem nenhum nome. Isso dificulta a pessoa reconhecer ou lembrar do site depois de encontrar num resultado de busca.",
-    "generic-title": "O título que aparece no Google pra esse site é genérico demais (tipo \"Home\"), sem dizer nada sobre o que o negócio oferece. Quem está buscando não tem motivo pra escolher esse resultado em vez do concorrente.",
-    "no-description": "Falta o textinho que aparece embaixo do link nos resultados do Google. Sem ele, o Google escolhe um trecho aleatório da página pra mostrar, o que deixa o resultado menos convidativo na hora de decidir em qual link clicar.",
-    "no-viewport": "Em celular, a página pode aparecer minúscula, exigindo que a pessoa dê zoom pra ler qualquer coisa. A maior parte de quem acessa a internet hoje faz isso pelo celular, então essa experiência ruim atinge boa parte dos visitantes.",
-    "missing-alt": "Sem a descrição alternativa, quem usa leitor de tela (pessoas com deficiência visual) não sabe o que aquelas imagens mostram — pra elas, é como se a imagem simplesmente não existisse. Também reduz a chance de essas imagens aparecerem nas buscas do Google.",
-    "no-sitemap": "O sitemap é como um mapa que ajuda o Google a encontrar todas as páginas do site, principalmente as mais novas. Sem ele, uma página recém-publicada pode demorar bem mais pra aparecer nos resultados de busca.",
-    "low-performance": "Quanto mais devagar o site carrega, maior a chance de a pessoa desistir antes mesmo de ver o conteúdo. Velocidade de carregamento também é um dos fatores que o Google leva em conta pra decidir a posição do site nas buscas.",
-    // The seconds/percentage numbers are already shown in the
-    // finding's own title/description (see LOAD_IMPACT_BUCKETS,
-    // lib/issues.ts, cited from Google's CrUX-based analysis) — this
-    // doesn't restate them, just confirms it's not a guess.
-    "slow-load-impact": "Cada segundo a mais de espera aumenta a chance de a pessoa sair do site antes de ver qualquer coisa — o número acima não é uma estimativa aleatória, vem de uma pesquisa real sobre esse comportamento.",
-    "layout-shift": "Isso costuma acontecer quando uma imagem, anúncio ou bloco de texto carrega depois e empurra o resto da página — o que já era clicável muda de lugar bem na hora em que a pessoa ia interagir.",
-    "color-contrast": "Texto com pouco contraste é difícil de ler pra qualquer pessoa em ambiente claro ou com o brilho da tela baixo, e praticamente ilegível pra quem tem baixa visão.",
-    "slow-server-response": "Um servidor lento pra responder atrasa tudo que vem depois — mesmo que o resto da página seja rápido, a pessoa já esperou antes de qualquer coisa aparecer na tela.",
-    "heading-order": "Pra quem enxerga, isso é praticamente invisível. Pra quem usa leitor de tela, a ordem dos títulos funciona como um índice: pular níveis torna mais difícil entender do que trata cada parte da página.",
-    "missing-form-labels": "Sem rótulo, um formulário de contato ou orçamento pode ficar praticamente inutilizável pra quem usa leitor de tela — a pessoa ouve \"campo de texto\" sem saber se é nome, e-mail ou mensagem.",
-    "broken-links": "Cada link quebrado é uma pessoa que clicou esperando chegar em algum lugar e caiu numa página de erro — se acontece logo na home, é a primeira impressão do site. Também é um dos sinais que o Google usa pra avaliar a qualidade e manutenção de um site.",
-  },
   impactClause: {
     "no-https": "a insegurança da conexão",
     "invalid-certificate": "o problema no certificado de segurança",
-    // no-hsts/no-csp/no-clickjacking-protection have no clause: all
-    // three are always severity "atencao" (see deriveIssues), so they
-    // can never reach the critical-only input synthesizeCriticalImpact
-    // consumes — same reasoning as no-description/no-sitemap below.
+    // Only codes deriveIssues can mark critical have a clause:
+    // synthesizeCriticalImpact reads nothing else.
     "no-title": "a falta de um título que identifique o site nas buscas",
-    "generic-title": "um título genérico demais pra se destacar nas buscas",
     "no-viewport": "a experiência ruim pra quem acessa pelo celular",
     "missing-alt": "as imagens sem descrição pra quem usa leitor de tela",
     "low-performance": "a lentidão geral do carregamento",
@@ -385,12 +371,6 @@ const pt: Dictionary = {
     "layout-shift": "a instabilidade visual durante o carregamento",
     "slow-server-response": "o tempo de resposta lento do servidor",
     "broken-links": "os links quebrados na home",
-    // color-contrast/heading-order/missing-form-labels have no clause:
-    // always "atencao" (no per-element ratio to grade severity by),
-    // same reasoning as no-sitemap below.
-    // no-sitemap has no clause: it's always severity "atencao", never
-    // "critico" (see deriveIssues), so it can never reach the
-    // critical-only input synthesizeCriticalImpact consumes.
   },
   synthesizeImpact: (clauses) => {
     const joined = clauses.length > 1 ? `${clauses[0]} e ${clauses[1]}` : clauses[0];
@@ -399,7 +379,7 @@ const pt: Dictionary = {
   },
   recommendation: {
     "no-https": "Ativar um certificado HTTPS válido e configurar o servidor pra redirecionar automaticamente o tráfego de HTTP pra HTTPS.",
-    "invalid-certificate": "Corrigir a cadeia de certificado no servidor, incluindo o certificado intermediário que está faltando.",
+    "invalid-certificate": "Renovar ou reinstalar o certificado e conferir se o servidor envia a cadeia completa, com o certificado intermediário.",
     "no-hsts": "Adicionar o cabeçalho HSTS pra garantir que o navegador sempre use HTTPS nas próximas visitas.",
     "no-csp": "Configurar um cabeçalho Content-Security-Policy adequado ao site, restringindo de onde scripts podem ser carregados.",
     "no-clickjacking-protection": "Configurar proteção contra clickjacking e revisar os cabeçalhos de segurança.",
@@ -407,9 +387,9 @@ const pt: Dictionary = {
     "generic-title": "Reescrever o título da página com algo específico sobre o negócio, em vez de um termo genérico.",
     "no-description": "Criar uma meta description alinhada ao conteúdo da página e às buscas relevantes.",
     "no-viewport": "Adicionar a meta tag de viewport pra que a página se adapte corretamente a telas de celular.",
-    "missing-alt": "Escrever uma descrição alternativa pra cada imagem relevante do site.",
+    "missing-alt": "Escrever uma descrição curta pra cada imagem que transmite informação, e usar alt=\"\" nas que são só decorativas.",
     "no-sitemap": "Gerar e publicar um sitemap.xml listando as páginas do site.",
-    "low-performance": "Revisar o que mais pesa no carregamento — geralmente imagens grandes, scripts não usados ou fontes carregadas sem necessidade.",
+    "low-performance": "Revisar o que mais pesa no carregamento, geralmente imagens grandes, scripts não usados ou fontes carregadas sem necessidade.",
     "slow-load-impact": "Priorizar o carregamento do conteúdo principal da página antes de qualquer coisa secundária.",
     "layout-shift": "Reservar o espaço de imagens, anúncios e blocos que carregam depois, pra eles não empurrarem o resto da página.",
     "color-contrast": "Ajustar as cores de texto e fundo pra aumentar o contraste nos trechos identificados.",
@@ -422,13 +402,12 @@ const pt: Dictionary = {
 
 const en: Dictionary = {
   documentTitle: "lsdias.dev, website diagnostics",
-  tagline: "diagnostic tool",
   headline: ["Every site has", "a weak spot."],
   subheadline: "We find yours in under a minute: performance, SEO, accessibility and security, all at once.",
   analyzeLabel: "Analyze",
   urlPlaceholder: "yoursite.com",
   runButton: "Run diagnosis",
-  privacyNote: "We don't store the URL or the report after the analysis. Some technical services may process data temporarily.",
+  privacyNote: "The report is cached for up to 6 hours and then discarded. Some technical services process the data in the meantime.",
   privacyLinkLabel: "How we handle your data",
   close: "Close",
   privacyPolicy: {
@@ -448,7 +427,7 @@ const en: Dictionary = {
       },
       {
         label: "Tracking",
-        text: "We don't use cookies or analytics tools. Your IP is only used temporarily to limit abuse — it isn't tied to your identity.",
+        text: "We don't use analytics tools. The only cookie remembers the language you picked. Your IP is only used temporarily to limit abuse, and it isn't tied to your identity.",
       },
     ],
   },
@@ -465,16 +444,23 @@ const en: Dictionary = {
   },
   scoreLabelOk: "Looking good",
   scoreLabelAttention: "Needs attention",
+  scoreLabelCritical: "Has serious problems",
+  issueSummary: ({ critico, atencao, sugestao }) =>
+    [
+      critico > 0 && `${critico} critical`,
+      atencao > 0 && `${atencao} needing attention`,
+      sugestao > 0 && `${sugestao} ${sugestao === 1 ? "suggestion" : "suggestions"}`,
+    ].filter((part): part is string => Boolean(part)),
   scoreExplanationToggle: "How we calculate this score",
   scoreExplanation:
-    "The overall score is a simple average of the four categories — Performance, SEO, Accessibility, and Security — none weighted more than another. Each category is itself an average of the checks that make it up (Security, for instance, combines HTTPS, the certificate, and protection headers). A category marked \"not measured\" is left out of that average and shows the reason right below it; when that happens, the overall score says how many categories it's based on. \"Partly measured\" means some of that category's checks couldn't run. \"Critical\" and \"attention\" show how far below ideal that category is; \"ok\" means we didn't find a relevant problem in it.",
+    "The overall score is a simple average of the four categories, none weighted more than another. Each category combines Google's measurement with our own checks, and only findings marked critical or attention cost points: suggestions show up in the list but don't change the number. A category marked \"not measured\" is left out and shows the reason; when that happens, the overall score says how many categories it's based on. \"Partly measured\" means some of that category's checks couldn't run.",
   categories: {
     performance: "Performance",
     seo: "SEO",
     accessibility: "Accessibility",
     security: "Security",
   },
-  severity: { critico: "critical", atencao: "attention", ok: "ok", indisponivel: "not measured" },
+  severity: { critico: "critical", atencao: "attention", sugestao: "suggestion", ok: "ok", indisponivel: "not measured" },
   unavailableReason: {
     blocked: "The site refused our automated access.",
     timeout: "The measurement took too long. Worth trying again.",
@@ -500,6 +486,9 @@ const en: Dictionary = {
   showAllPoints: (count) => `See all ${count} ${count === 1 ? "point" : "points"} ↓`,
   showLess: "Show less ↑",
   nextStepButton: "See how to fix it →",
+  nextStepButtonClean: "Talk about the site →",
+  cleanHeadline: "The site passed the checks we ran.",
+  cleanBody: "An automated analysis doesn't see everything. If you'd like a second opinion on the site, just write.",
   nextStepKicker: "Next step",
   nextStepHeadline: "The report shows the problem. Now, here's what can be done.",
   nextStepBody: "Not every problem has the same impact. These are the ones worth fixing first.",
@@ -517,7 +506,7 @@ const en: Dictionary = {
   sendSuccess: "Got it. I'll get back to you soon.",
   sendSuccessDetail: (email) => `The reply will go to ${email}.`,
   contactError: {
-    offline: "You appear to be offline. Your message wasn't sent — check your connection and try again.",
+    offline: "You appear to be offline. Your message wasn't sent: check your connection and try again.",
     timeout: "Sending took too long and was interrupted. Your message wasn't sent, feel free to try again.",
     rejected: "We couldn't send your message. Check that the email address is correct and try again.",
     "not-configured": "The contact form is unavailable right now. Please try again later.",
@@ -544,7 +533,7 @@ const en: Dictionary = {
     "quota-exceeded": () => "We've hit the analysis tool's daily limit. Try again tomorrow.",
     timeout: () => "The site took too long to respond and we stopped waiting. Try again in a moment.",
     offline: () => "You appear to be offline. Check your connection and try again.",
-    unknown: () => "Something went wrong during the analysis. Try again in a moment.",
+    unknown: () => "We couldn't finish the analysis. Try again in a moment.",
   },
   issue: {
     "no-https": () => ({
@@ -552,8 +541,8 @@ const en: Dictionary = {
       description: "Browsers flag the connection as not secure, which drives visitors and customers away.",
     }),
     "invalid-certificate": () => ({
-      title: "The site's security certificate is incomplete.",
-      description: "The server isn't sending the full certificate chain. Browsers often patch this over and hide the problem, but it's a real configuration issue.",
+      title: "The site's security certificate isn't trusted.",
+      description: "It may be expired, self-signed or incomplete. Depending on the browser or app, visitors see a security warning or can't get in at all.",
     }),
     "no-hsts": () => ({
       title: "The site doesn't use HSTS.",
@@ -569,15 +558,15 @@ const en: Dictionary = {
     }),
     "no-title": () => ({
       title: "The page has no title.",
-      description: "Google doesn't know what the site is about.",
+      description: "The browser tab and the Google result show only the address, without saying what the site offers.",
     }),
     "generic-title": (params) => ({
       title: `The homepage title is just "${params?.title}".`,
-      description: "Google doesn't know what the site is about.",
+      description: "That's the title Google shows, and a generic word gives nobody a reason to pick this result.",
     }),
     "no-description": () => ({
       title: "Missing the meta description.",
-      description: "That's the text that shows up under the link in search results.",
+      description: "Without it, Google picks on its own which snippet shows under the link in search results.",
     }),
     "no-viewport": () => ({
       title: "Missing the viewport meta tag.",
@@ -594,7 +583,7 @@ const en: Dictionary = {
       description: "It helps Google find every page on the site, especially the newer ones.",
     }),
     "low-performance": (params) => ({
-      title: `Performance at ${params?.score}/100 on Lighthouse.`,
+      title: `The page scored ${params?.score} out of 100 on Google's speed test.`,
       description: "Plenty of time for someone to give up waiting for the page to load.",
     }),
     "slow-load-impact": (params) => ({
@@ -611,7 +600,7 @@ const en: Dictionary = {
     }),
     "slow-server-response": (params) => ({
       title: `The server takes ${params?.ms}ms to start responding.`,
-      description: "That's the time to first byte — before the browser has any HTML to work with at all.",
+      description: "That's the time to the first byte of the response, before the browser has any HTML to work with.",
     }),
     "heading-order": () => ({
       title: "Heading levels (H1, H2, H3...) aren't in a logical order.",
@@ -626,32 +615,10 @@ const en: Dictionary = {
       description: "A broken link is a dead end for whoever clicked it, and a bad signal to Google about how well-maintained the site is.",
     }),
   },
-  impact: {
-    "no-https": "Your site shows up with a \"not secure\" warning in the visitor's browser. That reads as suspicious, especially if someone's about to fill out a form or make a purchase.",
-    "invalid-certificate": "The site's security certificate has a configuration problem. Most browsers quietly work around it, but on some devices, apps, or stricter browsers the site can show up with a security warning instead.",
-    "no-hsts": "This doesn't make the site immediately vulnerable, but it's one less layer of protection: without it, there's a small window where someone on the same network as the visitor (like public wifi) could, in theory, intercept that first connection before it becomes HTTPS.",
-    "no-csp": "This is a technical header that helps stop an attacker from injecting malicious code into your page, for example through a vulnerable form or comment field. Without it, that extra layer of defense doesn't exist.",
-    "no-clickjacking-protection": "Without this protection, it's technically possible for another site to overlay yours on top of a fake page, making someone think they're clicking one thing when they're actually clicking another.",
-    "no-title": "The browser tab and Google's search results show the site with no name at all. That makes it harder for someone to recognize or remember the site after finding it in a search.",
-    "generic-title": "The title that shows up on Google for this site is too generic (like \"Home\"), and says nothing about what the business actually offers. Someone searching has no reason to pick this result over a competitor's.",
-    "no-description": "The short text that shows up under the link in Google's results is missing. Without it, Google picks a random snippet from the page instead, which makes the result less inviting when someone's deciding which link to click.",
-    "no-viewport": "On mobile, the page can show up tiny, forcing people to zoom in just to read anything. Most people browse the internet from a phone these days, so this bad experience hits a large share of visitors.",
-    "missing-alt": "Without alt text, screen reader users (people with visual impairments) have no idea what those images show — to them, it's as if the image simply isn't there. It also lowers the odds of those images showing up in Google search results.",
-    "no-sitemap": "A sitemap is like a map that helps Google find every page on the site, especially the newest ones. Without it, a page you just published can take much longer to show up in search results.",
-    "low-performance": "The slower a site loads, the more likely someone is to give up before even seeing the content. Load speed is also one of the factors Google weighs when deciding where the site ranks in search results.",
-    "slow-load-impact": "Every extra second of waiting raises the odds someone leaves before seeing anything at all — the number above isn't a rough guess, it comes from real published research on this exact behavior.",
-    "layout-shift": "This usually happens when an image, ad, or block of text loads late and pushes the rest of the page around — something that was already clickable moves right as someone's about to interact with it.",
-    "color-contrast": "Low-contrast text is hard to read for anyone in a bright environment or with low screen brightness, and nearly unreadable for people with low vision.",
-    "slow-server-response": "A slow-to-respond server delays everything that follows — even if the rest of the page is fast, the visitor already waited before anything showed up on screen.",
-    "heading-order": "For sighted visitors this is nearly invisible. For screen reader users, heading order works like a table of contents: skipping levels makes it harder to understand what each part of the page is about.",
-    "missing-form-labels": "Without labels, a contact or quote form can be practically unusable for screen reader users — they hear \"text field\" with no way to tell if it's name, email, or message.",
-    "broken-links": "Every broken link is someone who clicked expecting to land somewhere and hit an error page instead — if it happens right on the homepage, that's the site's first impression. It's also one of the signals Google uses to judge how well-maintained a site is.",
-  },
   impactClause: {
     "no-https": "the insecure connection",
     "invalid-certificate": "the security certificate problem",
     "no-title": "the missing page title that would identify the site in search",
-    "generic-title": "a page title too generic to stand out in search",
     "no-viewport": "the broken experience for mobile visitors",
     "missing-alt": "images with no description for screen reader users",
     "low-performance": "the overall slow load time",
@@ -667,7 +634,7 @@ const en: Dictionary = {
   },
   recommendation: {
     "no-https": "Set up a valid HTTPS certificate and configure the server to automatically redirect HTTP traffic to HTTPS.",
-    "invalid-certificate": "Fix the certificate chain on the server, including the missing intermediate certificate.",
+    "invalid-certificate": "Renew or reinstall the certificate and make sure the server sends the full chain, including the intermediate certificate.",
     "no-hsts": "Add the HSTS header so the browser always uses HTTPS on future visits.",
     "no-csp": "Set up a Content-Security-Policy header suited to the site, restricting where scripts can be loaded from.",
     "no-clickjacking-protection": "Set up clickjacking protection and review the site's security headers.",
@@ -675,9 +642,9 @@ const en: Dictionary = {
     "generic-title": "Rewrite the page title with something specific about the business, instead of a generic term.",
     "no-description": "Write a meta description aligned with the page's content and the searches that matter to it.",
     "no-viewport": "Add the viewport meta tag so the page adapts correctly to phone screens.",
-    "missing-alt": "Write alt text for each relevant image on the site.",
+    "missing-alt": "Write a short description for each image that carries information, and use alt=\"\" on purely decorative ones.",
     "no-sitemap": "Generate and publish a sitemap.xml listing the site's pages.",
-    "low-performance": "Review what's weighing load time down the most — usually large images, unused scripts, or fonts loaded unnecessarily.",
+    "low-performance": "Review what's weighing load time down the most: usually large images, unused scripts, or fonts loaded unnecessarily.",
     "slow-load-impact": "Prioritize loading the page's main content before anything secondary.",
     "layout-shift": "Reserve space for images, ads, and blocks that load later, so they don't push the rest of the page around.",
     "color-contrast": "Adjust text and background colors to increase contrast in the flagged areas.",
@@ -705,10 +672,6 @@ export function translateIssue(
   const entry = DICTIONARIES[locale].issue[code];
   if (!entry) return { title: code, description: "" };
   return entry(params);
-}
-
-export function translateImpact(locale: Locale, code: IssueCode): string | undefined {
-  return DICTIONARIES[locale].impact[code];
 }
 
 export function translateRecommendation(locale: Locale, code: IssueCode): string {
