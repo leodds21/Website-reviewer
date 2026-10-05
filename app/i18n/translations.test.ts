@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { synthesizeCriticalImpact, translateAnalysisError } from "./translations";
+import { DICTIONARIES, synthesizeCriticalImpact, translateAnalysisError } from "./translations";
 import type { Issue } from "@/lib/issues";
 
 const CATEGORY_BY_CODE: Record<Issue["code"], Issue["category"]> = {
@@ -110,5 +110,17 @@ describe("translateAnalysisError", () => {
     const message = translateAnalysisError("pt", { code: "something-new" as "unknown" });
 
     expect(message).toBe(translateAnalysisError("pt", { code: "unknown" }));
+  });
+});
+
+describe("issueSummary", () => {
+  it("counts each severity with the right plural, leaving zero counts out", () => {
+    expect(DICTIONARIES.pt.issueSummary({ critico: 2, atencao: 1, sugestao: 1 })).toBe("2 críticos · 1 de atenção · 1 sugestão");
+    expect(DICTIONARIES.pt.issueSummary({ critico: 0, atencao: 0, sugestao: 3 })).toBe("3 sugestões");
+    expect(DICTIONARIES.en.issueSummary({ critico: 1, atencao: 0, sugestao: 2 })).toBe("1 critical · 2 suggestions");
+  });
+
+  it("is empty when there's nothing to summarize", () => {
+    expect(DICTIONARIES.pt.issueSummary({ critico: 0, atencao: 0, sugestao: 0 })).toBe("");
   });
 });

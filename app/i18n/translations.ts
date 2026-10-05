@@ -56,6 +56,10 @@ type Dictionary = {
   };
   scoreLabelOk: string;
   scoreLabelAttention: string;
+  scoreLabelCritical: string;
+  // "2 críticos · 3 de atenção · 4 sugestões": zero counts are left out,
+  // and an empty string means there's nothing to summarize.
+  issueSummary: (counts: Record<IssueSeverity, number>) => string;
   scoreExplanationToggle: string;
   scoreExplanation: string;
   categories: Record<"performance" | "seo" | "accessibility" | "security", string>;
@@ -81,6 +85,11 @@ type Dictionary = {
   showAllPoints: (count: number) => string;
   showLess: string;
   nextStepButton: string;
+  // The same next step when the report found nothing to fix: an offer to
+  // talk, instead of a "how to fix it" screen with nothing in it.
+  nextStepButtonClean: string;
+  cleanHeadline: string;
+  cleanBody: string;
   nextStepKicker: string;
   nextStepHeadline: string;
   nextStepBody: string;
@@ -176,6 +185,15 @@ const pt: Dictionary = {
   },
   scoreLabelOk: "Está bem",
   scoreLabelAttention: "Precisa de atenção",
+  scoreLabelCritical: "Tem problemas sérios",
+  issueSummary: ({ critico, atencao, sugestao }) =>
+    [
+      critico > 0 && `${critico} ${critico === 1 ? "crítico" : "críticos"}`,
+      atencao > 0 && `${atencao} de atenção`,
+      sugestao > 0 && `${sugestao} ${sugestao === 1 ? "sugestão" : "sugestões"}`,
+    ]
+      .filter(Boolean)
+      .join(" · "),
   scoreExplanationToggle: "Como calculamos esta nota",
   scoreExplanation:
     "A nota geral é a média simples das quatro categorias, sem nenhuma valer mais que a outra. Cada categoria junta a medição do Google com as nossas checagens, e só os pontos marcados como crítico ou atenção tiram nota: sugestões aparecem na lista, mas não mudam o número. Uma categoria \"não medido\" fica fora da conta e mostra o motivo; nesse caso, a nota geral avisa em quantas categorias se baseia. \"Medido em parte\" quer dizer que algumas checagens daquela categoria não conseguiram rodar.",
@@ -212,6 +230,9 @@ const pt: Dictionary = {
   showAllPoints: (count) => `Ver todos os ${count} ${count === 1 ? "ponto" : "pontos"} ↓`,
   showLess: "Mostrar menos ↑",
   nextStepButton: "Ver como corrigir →",
+  nextStepButtonClean: "Falar sobre o site →",
+  cleanHeadline: "O site passou nas checagens que fizemos.",
+  cleanBody: "Uma análise automática não vê tudo. Se quiser uma segunda opinião sobre o site, é só escrever.",
   nextStepKicker: "Próximo passo",
   nextStepHeadline: "O relatório mostra o problema. Agora, veja o que pode ser feito.",
   nextStepBody: "Nem todo problema tem o mesmo impacto. Estes são os que vale corrigir primeiro.",
@@ -426,6 +447,15 @@ const en: Dictionary = {
   },
   scoreLabelOk: "Looking good",
   scoreLabelAttention: "Needs attention",
+  scoreLabelCritical: "Has serious problems",
+  issueSummary: ({ critico, atencao, sugestao }) =>
+    [
+      critico > 0 && `${critico} critical`,
+      atencao > 0 && `${atencao} needing attention`,
+      sugestao > 0 && `${sugestao} ${sugestao === 1 ? "suggestion" : "suggestions"}`,
+    ]
+      .filter(Boolean)
+      .join(" · "),
   scoreExplanationToggle: "How we calculate this score",
   scoreExplanation:
     "The overall score is a simple average of the four categories, none weighted more than another. Each category combines Google's measurement with our own checks, and only findings marked critical or attention cost points: suggestions show up in the list but don't change the number. A category marked \"not measured\" is left out and shows the reason; when that happens, the overall score says how many categories it's based on. \"Partly measured\" means some of that category's checks couldn't run.",
@@ -461,6 +491,9 @@ const en: Dictionary = {
   showAllPoints: (count) => `See all ${count} ${count === 1 ? "point" : "points"} ↓`,
   showLess: "Show less ↑",
   nextStepButton: "See how to fix it →",
+  nextStepButtonClean: "Talk about the site →",
+  cleanHeadline: "The site passed the checks we ran.",
+  cleanBody: "An automated analysis doesn't see everything. If you'd like a second opinion on the site, just write.",
   nextStepKicker: "Next step",
   nextStepHeadline: "The report shows the problem. Now, here's what can be done.",
   nextStepBody: "Not every problem has the same impact. These are the ones worth fixing first.",

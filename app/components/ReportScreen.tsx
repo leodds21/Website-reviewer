@@ -7,6 +7,7 @@ import { IssueList } from "./IssueList";
 import { useLanguage } from "@/app/i18n/LanguageContext";
 import type { CategoryKey } from "@/app/i18n/translations";
 import type { AnalyzeReport } from "@/lib/report";
+import type { IssueSeverity } from "@/lib/issues";
 import type { TechPlatform } from "@/lib/checks/techDetect";
 
 const CATEGORY_KEYS: CategoryKey[] = ["performance", "seo", "accessibility", "security"];
@@ -36,6 +37,16 @@ export function ReportScreen({
   // next step there is a manual look, not an empty recommendations page.
   const primaryIsManual = Boolean(report.blocked) && report.issues.length === 0;
 
+  const counts: Record<IssueSeverity, number> = { critico: 0, atencao: 0, sugestao: 0 };
+  for (const issue of report.issues) counts[issue.severity]++;
+  const issueSummary = t.issueSummary(counts);
+  const scoreLabel =
+    report.score.overallSeverity === "ok"
+      ? t.scoreLabelOk
+      : report.score.overallSeverity === "critico"
+        ? t.scoreLabelCritical
+        : t.scoreLabelAttention;
+
   return (
     <div className="blueprint bg-white/60 p-5">
       <Corners />
@@ -49,7 +60,7 @@ export function ReportScreen({
         <div className="text-right">
           <span className="font-mono text-xs text-[var(--color-neutral-700)]">{report.domain}</span>
           {report.platform && (
-            <div className="font-mono text-[10px] text-[var(--color-neutral-700)]/70">
+            <div className="font-mono text-[10px] text-[var(--color-neutral-700)]">
               {t.platformDetected(PLATFORM_NAMES[report.platform])}
             </div>
           )}
@@ -64,8 +75,9 @@ export function ReportScreen({
             <span className="text-base font-normal text-[var(--color-neutral-700)]"> /100</span>
           </div>
           <span className="mt-1.5 inline-flex border border-[var(--color-accent)] px-2.5 py-0.5 text-[11px] text-[var(--color-accent-700)]">
-            {report.score.overallSeverity === "ok" ? t.scoreLabelOk : t.scoreLabelAttention}
+            {scoreLabel}
           </span>
+          {issueSummary && <p className="mt-1.5 text-[11.5px] text-[var(--color-neutral-700)]">{issueSummary}</p>}
         </div>
       </div>
 
@@ -116,7 +128,11 @@ export function ReportScreen({
         onClick={primaryIsManual ? onManualAnalysis : onNextStep}
         className="mt-6 flex w-full items-center justify-center border border-[var(--color-accent-700)] bg-[var(--color-accent-700)] py-2.5 text-[14.5px] font-semibold text-white transition-colors hover:border-[var(--color-accent-800)] hover:bg-[var(--color-accent-800)] active:bg-[var(--color-accent-900)]"
       >
-        {primaryIsManual ? `${t.manualAnalysisButton} →` : t.nextStepButton}
+        {primaryIsManual
+          ? `${t.manualAnalysisButton} →`
+          : report.issues.length === 0
+            ? t.nextStepButtonClean
+            : t.nextStepButton}
       </button>
     </div>
   );

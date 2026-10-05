@@ -18,6 +18,11 @@ export function NextStepScreen({
   manualReview?: boolean;
 }) {
   const { locale, t } = useLanguage();
+  const copy = manualReview
+    ? { kicker: t.manualKicker, headline: t.manualHeadline, body: t.manualBody }
+    : report.issues.length === 0
+      ? { kicker: t.nextStepKicker, headline: t.cleanHeadline, body: t.cleanBody }
+      : { kicker: t.nextStepKicker, headline: t.nextStepHeadline, body: t.nextStepBody };
   const { contact, setContact, submitting, justSucceeded, succeeded, errorCode, submitContact } = useContactForm({
     domain: report.domain,
     initialMessage: manualReview ? t.manualMessagePrefill(report.domain) : "",
@@ -39,14 +44,10 @@ export function NextStepScreen({
       </div>
 
       <div className="mb-2 text-xs font-semibold tracking-[0.12em] text-[var(--color-accent-700)] uppercase">
-        {manualReview ? t.manualKicker : t.nextStepKicker}
+        {copy.kicker}
       </div>
-      <h1 className="mb-3 text-[22px] leading-[1.15] tracking-tight">
-        {manualReview ? t.manualHeadline : t.nextStepHeadline}
-      </h1>
-      <p className="mb-4 text-[13px] leading-relaxed text-[var(--color-text)]/80">
-        {manualReview ? t.manualBody : t.nextStepBody}
-      </p>
+      <h1 className="mb-3 text-[22px] leading-[1.15] tracking-tight">{copy.headline}</h1>
+      <p className="mb-4 text-[13px] leading-relaxed text-[var(--color-text)]/80">{copy.body}</p>
 
       {topIssues.length > 0 && (
         <div className="blueprint mb-4 p-3.5">
