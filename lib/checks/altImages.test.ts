@@ -39,3 +39,23 @@ describe("parseAltImages", () => {
     expect(result.missingAltCount).toBe(20);
   });
 });
+
+describe("parseAltImages — how affected images are described", () => {
+  it("keeps only the type of an inline data: image, not its payload", () => {
+    const payload = "A".repeat(50_000);
+    const result = parseAltImages(`<img src="data:image/png;base64,${payload}">`);
+
+    expect(result.missingAltSrcs).toEqual(["data:image/png"]);
+  });
+
+  it("records an image with no src as an empty entry, not the raw tag", () => {
+    expect(parseAltImages(`<img class="hero">`).missingAltSrcs).toEqual([""]);
+  });
+
+  it("caps an absurdly long address", () => {
+    const [described] = parseAltImages(`<img src="/${"x".repeat(500)}.png">`).missingAltSrcs;
+
+    expect(described.length).toBeLessThanOrEqual(201);
+    expect(described.endsWith("…")).toBe(true);
+  });
+});

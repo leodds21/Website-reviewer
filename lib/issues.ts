@@ -49,6 +49,10 @@ export type Issue = {
   severity: IssueSeverity;
   code: IssueCode;
   params?: Record<string, string | number>;
+  // The specific elements behind the finding (image addresses, broken
+  // link URLs), when the check knows them. Shown as plain text, never as
+  // links: they come from a third-party page.
+  affected?: string[];
 };
 
 // Bounce-probability increase by load time, relative to a 1s load.
@@ -165,6 +169,7 @@ export function deriveIssues(input: Partial<CheckResults>): Issue[] {
       severity: ratio > 0.5 ? "critico" : "atencao",
       code: "missing-alt",
       params: { missing: input.altImages.missingAltCount, sampled: input.altImages.sampledCount },
+      affected: input.altImages.missingAltSrcs,
     });
   } else if (!input.altImages && input.pagespeed?.imagesHaveAlt === false) {
     // Lighthouse says some images lack alt text but gives no count to
@@ -189,6 +194,7 @@ export function deriveIssues(input: Partial<CheckResults>): Issue[] {
       severity: ratio > 0.5 ? "critico" : "atencao",
       code: "broken-links",
       params: { broken: input.brokenLinks.brokenCount, checked: input.brokenLinks.checkedCount },
+      affected: input.brokenLinks.brokenUrls,
     });
   }
 
