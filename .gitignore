@@ -29,6 +29,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# playwright
+/test-results/
+/playwright-report/
+
 # project-local
 diagn-stico-de-site/
 CLAUDE.md
