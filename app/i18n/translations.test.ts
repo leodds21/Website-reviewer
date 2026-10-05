@@ -115,12 +115,12 @@ describe("translateAnalysisError", () => {
 
 describe("issueSummary", () => {
   it("counts each severity with the right plural, leaving zero counts out", () => {
-    expect(DICTIONARIES.pt.issueSummary({ critico: 2, atencao: 1, sugestao: 1 })).toBe("2 críticos · 1 de atenção · 1 sugestão");
-    expect(DICTIONARIES.pt.issueSummary({ critico: 0, atencao: 0, sugestao: 3 })).toBe("3 sugestões");
-    expect(DICTIONARIES.en.issueSummary({ critico: 1, atencao: 0, sugestao: 2 })).toBe("1 critical · 2 suggestions");
+    expect(DICTIONARIES.pt.issueSummary({ critico: 2, atencao: 1, sugestao: 1 })).toEqual(["2 críticos", "1 de atenção", "1 sugestão"]);
+    expect(DICTIONARIES.pt.issueSummary({ critico: 0, atencao: 0, sugestao: 3 })).toEqual(["3 sugestões"]);
+    expect(DICTIONARIES.en.issueSummary({ critico: 1, atencao: 0, sugestao: 2 })).toEqual(["1 critical", "2 suggestions"]);
   });
 
   it("is empty when there's nothing to summarize", () => {
-    expect(DICTIONARIES.pt.issueSummary({ critico: 0, atencao: 0, sugestao: 0 })).toBe("");
+    expect(DICTIONARIES.pt.issueSummary({ critico: 0, atencao: 0, sugestao: 0 })).toEqual([]);
   });
 });
