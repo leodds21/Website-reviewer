@@ -353,6 +353,7 @@ describe("deriveIssues — broken-links", () => {
       severity: "atencao",
       code: "broken-links",
       params: { broken: 1, checked: 4 },
+      affected: ["https://x.com/a"],
     });
   });
 
@@ -366,6 +367,7 @@ describe("deriveIssues — broken-links", () => {
       severity: "critico",
       code: "broken-links",
       params: { broken: 3, checked: 4 },
+      affected: ["https://x.com/a", "https://x.com/b", "https://x.com/c"],
     });
   });
 });
@@ -422,5 +424,21 @@ describe("prioritizeIssues", () => {
     prioritizeIssues(original);
 
     expect(original[0].code).toBe("no-sitemap");
+  });
+});
+
+describe("deriveIssues — affected elements", () => {
+  it("lists the images missing alt text, from our own page parse", () => {
+    const issues = deriveIssues({
+      altImages: { sampledCount: 3, missingAltCount: 2, missingAltSrcs: ["/hero.jpg", ""] },
+    });
+
+    expect(issues[0].affected).toEqual(["/hero.jpg", ""]);
+  });
+
+  it("has no list when the finding came from Lighthouse, which names no images", () => {
+    const issues = deriveIssues({ pagespeed: { scores: { accessibility: 80 }, imagesHaveAlt: false } });
+
+    expect(issues.find((issue) => issue.code === "missing-alt")?.affected).toBeUndefined();
   });
 });
