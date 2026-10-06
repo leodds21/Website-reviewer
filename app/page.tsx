@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { HomeScreen } from "./components/HomeScreen";
 import { ReportScreen } from "./components/ReportScreen";
 import { NextStepScreen } from "./components/NextStepScreen";
 import { useAnalysis } from "./hooks/useAnalysis";
 import { useStageFocus } from "./hooks/useStageFocus";
+import { backToReport, useReportLink } from "./hooks/useReportLink";
 import { prioritizeIssues } from "@/lib/issues";
 import { useLanguage } from "./i18n/LanguageContext";
 
@@ -18,6 +19,18 @@ export default function Home() {
   const { stage, setStage, completedSteps, report, error, startAnalysis } = useAnalysis();
   const stageRef = useStageFocus<HTMLDivElement>(stage);
   const { t } = useLanguage();
+  // What the report on screen was run for, as typed: the ?url= value.
+  const [analyzedUrl, setAnalyzedUrl] = useState("");
+
+  const run = useCallback(
+    (site: string) => {
+      setUrl(site);
+      setAnalyzedUrl(site.trim());
+      startAnalysis(site);
+    },
+    [startAnalysis],
+  );
+  useReportLink({ stage, setStage, analyzedUrl, hasReport: report !== null, run });
 
   // With a report open the tab says which site and how it did, so
   // several analyses in different tabs can be told apart at a glance.
@@ -34,7 +47,7 @@ export default function Home() {
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    startAnalysis(url);
+    run(url);
   }
 
   const topIssues = report ? prioritizeIssues(report.issues).slice(0, 2) : [];
@@ -80,7 +93,7 @@ export default function Home() {
             />
           </div>
           <div hidden={stage !== "next-step"} className="flex flex-1 flex-col">
-            <NextStepScreen report={report} topIssues={topIssues} manualReview={manualReview} onBack={() => setStage("report")} />
+            <NextStepScreen report={report} topIssues={topIssues} manualReview={manualReview} onBack={() => backToReport(setStage)} />
           </div>
         </>
       )}
