@@ -311,6 +311,10 @@ const pt: Dictionary = {
       title: "O site não é servido em HTTPS.",
       description: "Navegadores marcam a conexão como não segura, e isso afasta visitante e cliente.",
     }),
+    "no-https-redirect": () => ({
+      title: "O site tem HTTPS, mas não leva o visitante até ele.",
+      description: "Quem digita o endereço sem o https:// continua na versão não segura, e o navegador mostra o aviso de conexão não segura.",
+    }),
     "invalid-certificate": () => ({
       title: "O certificado de segurança do site não é confiável.",
       description: "Ele pode estar vencido, ser autoassinado ou estar incompleto. Dependendo do navegador ou do app, o visitante vê um alerta de segurança ou nem consegue entrar.",
@@ -408,6 +412,7 @@ const pt: Dictionary = {
   recommendation: {
     "no-https": "Ativar um certificado HTTPS válido e configurar o servidor pra redirecionar automaticamente o tráfego de HTTP pra HTTPS.",
     "invalid-certificate": "Renovar ou reinstalar o certificado e conferir se o servidor envia a cadeia completa, com o certificado intermediário.",
+    "no-https-redirect": "Configurar o servidor pra redirecionar todo acesso por http:// pro mesmo endereço em https://.",
     "no-hsts": "Adicionar o cabeçalho HSTS pra garantir que o navegador sempre use HTTPS nas próximas visitas.",
     "no-csp": "Configurar um cabeçalho Content-Security-Policy adequado ao site, restringindo de onde scripts podem ser carregados.",
     "no-clickjacking-protection": "Configurar proteção contra clickjacking e revisar os cabeçalhos de segurança.",
@@ -584,6 +589,10 @@ const en: Dictionary = {
       title: "The site isn't served over HTTPS.",
       description: "Browsers flag the connection as not secure, which drives visitors and customers away.",
     }),
+    "no-https-redirect": () => ({
+      title: "The site has HTTPS, but doesn't send visitors to it.",
+      description: "Anyone who types the address without https:// stays on the unsecured version, and the browser shows the not-secure warning.",
+    }),
     "invalid-certificate": () => ({
       title: "The site's security certificate isn't trusted.",
       description: "It may be expired, self-signed or incomplete. Depending on the browser or app, visitors see a security warning or can't get in at all.",
@@ -679,6 +688,7 @@ const en: Dictionary = {
   recommendation: {
     "no-https": "Set up a valid HTTPS certificate and configure the server to automatically redirect HTTP traffic to HTTPS.",
     "invalid-certificate": "Renew or reinstall the certificate and make sure the server sends the full chain, including the intermediate certificate.",
+    "no-https-redirect": "Configure the server to redirect every http:// request to the same address over https://.",
     "no-hsts": "Add the HSTS header so the browser always uses HTTPS on future visits.",
     "no-csp": "Set up a Content-Security-Policy header suited to the site, restricting where scripts can be loaded from.",
     "no-clickjacking-protection": "Set up clickjacking protection and review the site's security headers.",
