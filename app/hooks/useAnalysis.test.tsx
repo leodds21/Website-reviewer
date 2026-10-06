@@ -2,6 +2,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAnalysis } from "./useAnalysis";
+import { SCAN_STEPS } from "@/lib/scanSteps";
 
 function sseFrame(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -58,9 +59,22 @@ describe("useAnalysis", () => {
     expect(result.current.stage).toBe("analyzing");
   });
 
-  it("collects steps in order and moves to report once 'done' arrives", async () => {
+  it("collects steps in the order they arrive", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
-      streamResponse([sseFrame("step", { step: "https" }), sseFrame("step", { step: "seo" }), sseFrame("done", { overall: 80 })]),
+      streamResponse([sseFrame("step", { step: "pagespeed" }), sseFrame("step", { step: "https" }), sseFrame("failed", { code: "unknown" })]),
+    );
+    const { result } = renderHook(() => useAnalysis());
+
+    await act(async () => {
+      await result.current.startAnalysis("example.com");
+    });
+
+    expect(result.current.completedSteps).toEqual(["pagespeed", "https"]);
+  });
+
+  it("shows every step done, then moves to report once 'done' arrives", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      streamResponse([sseFrame("step", { step: "https" }), sseFrame("done", { overall: 80 })]),
     );
     const { result } = renderHook(() => useAnalysis());
 
@@ -69,13 +83,13 @@ describe("useAnalysis", () => {
     });
 
     expect(result.current.stage).toBe("report");
-    expect(result.current.completedSteps).toEqual(["https", "seo"]);
+    expect(result.current.completedSteps).toEqual([...SCAN_STEPS]);
     expect(result.current.report).toEqual({ overall: 80 });
   });
 
   it("does not record the same step twice if the server repeats it", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
-      streamResponse([sseFrame("step", { step: "https" }), sseFrame("step", { step: "https" }), sseFrame("done", {})]),
+      streamResponse([sseFrame("step", { step: "https" }), sseFrame("step", { step: "https" }), sseFrame("failed", { code: "unknown" })]),
     );
     const { result } = renderHook(() => useAnalysis());
 

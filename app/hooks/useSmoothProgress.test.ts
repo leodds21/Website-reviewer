@@ -44,7 +44,8 @@ describe("advanceProgress", () => {
     expect(after).toBeLessThan(10 + 60 * 0.2);
   });
 
-  it("reaches 100 once every real step is done", () => {
-    expect(simulate(90, 100, 5)).toBeGreaterThan(99.9);
+  it("reaches exactly 100 within the pause before the report, once every real step is done", () => {
+    expect(simulate(70, 100, 0.6)).toBe(100);
+    expect(simulate(0, 100, 0.65)).toBe(100);
   });
 });

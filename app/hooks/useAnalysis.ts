@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { StepKey } from "@/lib/scanSteps";
+import { SCAN_STEPS, type StepKey } from "@/lib/scanSteps";
 import type { AnalyzeReport } from "@/lib/report";
 import type { AnalyzeError } from "@/lib/analyzeError";
 import { createSseParser } from "@/lib/sse";
@@ -7,10 +7,28 @@ import { createSseParser } from "@/lib/sse";
 export type Stage = "idle" | "analyzing" | "report" | "next-step";
 
 // A ceiling on the whole analysis, well past the server's own per-check
-// timeouts (8s each, 30s for PageSpeed). It exists for the case those
+// timeouts (8s each, 50s for PageSpeed). It exists for the case those
 // never fire — a connection that stays open but stops delivering — so
 // the loading screen can't spin forever with no way out.
 const OVERALL_TIMEOUT_MS = 90_000;
+
+// How long the finished plan (every check done, the bar at 100%) stays
+// up before the report replaces it. Without it the bar jumped from
+// wherever the smoothing had got to (often ~70%) straight to the
+// report, so the visitor never saw the scan actually finish.
+const FINISH_HOLD_MS = 700;
+
+/** Waits, unless the analysis is aborted first (a new one started, or unmount). */
+function pause(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const id = setTimeout(resolve, ms);
+    const onAbort = () => {
+      clearTimeout(id);
+      resolve();
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
 
 export function useAnalysis() {
   const [stage, setStage] = useState<Stage>("idle");
@@ -80,9 +98,16 @@ export function useAnalysis() {
             const { step } = JSON.parse(event.data) as { step: StepKey };
             setCompletedSteps((previous) => (previous.includes(step) ? previous : [...previous, step]));
           } else if (event.event === "done") {
-            setReport(JSON.parse(event.data) as AnalyzeReport);
-            setStage("report");
             finished = true;
+            const finishedReport = JSON.parse(event.data) as AnalyzeReport;
+            // The answer is in: the overall ceiling no longer applies,
+            // and must not fire during the pause below.
+            clearTimeout(timeout);
+            setCompletedSteps([...SCAN_STEPS]);
+            await pause(FINISH_HOLD_MS, controller.signal);
+            if (controller.signal.aborted) return;
+            setReport(finishedReport);
+            setStage("report");
           } else if (event.event === "failed") {
             setError(JSON.parse(event.data) as AnalyzeError);
             setStage("idle");
