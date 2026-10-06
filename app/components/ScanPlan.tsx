@@ -79,14 +79,26 @@ function LiveScanProgress({ realPercent }: { realPercent: number }) {
  * runs: each row flips to "concluída" when its step event arrives.
  * Real completion only; nothing is marked done ahead of the server.
  */
-export function ScanPlan({ running, completedSteps }: { running: boolean; completedSteps: StepKey[] }) {
+export function ScanPlan({
+  running,
+  completedSteps,
+  ref,
+}: {
+  running: boolean;
+  completedSteps: StepKey[];
+  ref?: React.Ref<HTMLElement>;
+}) {
   const { t } = useLanguage();
   const completed = new Set(completedSteps);
   const doneCount = SCAN_STEPS.filter((key) => completed.has(key)).length;
   const realPercent = (SCAN_STEPS.reduce((sum, key) => sum + (completed.has(key) ? STEP_WEIGHT[key] : 0), 0) / TOTAL_WEIGHT) * 100;
 
   return (
-    <section aria-labelledby="scan-plan-heading" className="flex min-w-0 flex-col rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)]">
+    <section
+      ref={ref}
+      aria-labelledby="scan-plan-heading"
+      className="flex min-w-0 scroll-mt-4 flex-col rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)]"
+    >
       <div className="flex items-center justify-between gap-3 border-b border-[var(--color-line)] px-5 py-3.5">
         <h2 id="scan-plan-heading" className="font-mono text-xs font-medium tracking-[0.16em] text-[var(--color-label)] uppercase">
           {t.scanPlan.heading}
