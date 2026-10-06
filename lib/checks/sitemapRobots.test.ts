@@ -98,7 +98,7 @@ describe("checkSitemapRobots", () => {
     // about a site that was never reached.
     vi.mocked(fetch).mockRejectedValue(new Error("getaddrinfo ENOTFOUND"));
 
-    await expect(checkSitemapRobots("este-dominio-nao-existe.example")).rejects.toThrow(/inacess/i);
+    await expect(checkSitemapRobots("este-dominio-nao-existe.example")).rejects.toMatchObject({ name: "UnreachableError" });
   });
 
   it("reports a firewall refusal (403) as unknown, not as a missing file", async () => {

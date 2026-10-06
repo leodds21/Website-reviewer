@@ -98,7 +98,15 @@ describe("checkBrokenLinks", () => {
 
     await expect(
       checkBrokenLinks('<a href="/a">A</a><a href="/b">B</a>', "https://example.com/"),
-    ).rejects.toThrow(/nenhum/i);
+    ).rejects.toMatchObject({ name: "UnreachableError" });
+  });
+
+  it("requests the real address behind an HTML-escaped &amp; in an href", async () => {
+    vi.mocked(fetch).mockResolvedValue(fakeResponse(200));
+
+    await checkBrokenLinks('<a href="/busca?a=1&amp;b=2">Busca</a>', "https://example.com/");
+
+    expect(vi.mocked(fetch).mock.calls[0][0].toString()).toBe("https://example.com/busca?a=1&b=2");
   });
 
   it("still reports the reachable links when only some fail", async () => {

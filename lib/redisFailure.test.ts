@@ -8,11 +8,11 @@ vi.mock("./kv", () => ({
   redis: {
     get: boom,
     set: boom,
-    zremrangebyscore: boom,
-    zcard: boom,
-    zrange: boom,
-    zadd: boom,
-    expire: boom,
+    multi: () => {
+      const chain = new Proxy({}, { get: (_target, name) => (name === "exec" ? boom : () => chain) });
+      return chain;
+    },
+    zrem: boom,
   },
 }));
 

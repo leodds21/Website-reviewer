@@ -32,9 +32,11 @@ export function LanguageProvider({
   // guessing "pt" and fixing itself after the fact.
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
 
+  // The tab title is the page's to set (it names the open report), not
+  // the language's: writing it here too ran after the page's own effect
+  // and could put the plain title back over "56 · site.com | …".
   useEffect(() => {
     document.documentElement.lang = locale === "en" ? "en" : "pt-BR";
-    document.title = DICTIONARIES[locale].documentTitle;
   }, [locale]);
 
   function setLocale(next: Locale) {

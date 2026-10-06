@@ -302,6 +302,17 @@ describe("GET /api/analyze", () => {
     expect(checkHttps).not.toHaveBeenCalled();
   });
 
+  it("doesn't count a cached report against the rate limit (reopening a report link)", async () => {
+    const domain = "route-test-cache-rl.example";
+    await readSseEvents(await GET(requestFor(domain, "route-test-cache-rl.ip")));
+
+    for (let index = 0; index < 12; index++) {
+      const response = await GET(requestFor(domain, "route-test-cache-rl.ip"));
+      expect(response.status).toBe(200);
+      expect((await readSseEvents(response))[0].event).toBe("done");
+    }
+  });
+
   it("keeps two paths on the same host from colliding in the cache", async () => {
     const host = "route-test-path.example";
     const first = await GET(requestFor(`${host}/a`, "route-test-path.ip"));
