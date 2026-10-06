@@ -49,29 +49,35 @@ function checkRateLimitInMemory(ip: string, now: number): RateLimitResult {
  * version tracks with a plain array, just stored where every
  * serverless instance can see it. ZREMRANGEBYSCORE prunes anything
  * outside the window before counting, so old requests age out on
- * their own; EXPIRE on the key means an IP that stops showing up
+ * their own; the key's expiry means an IP that stops showing up
  * doesn't need separate eviction logic the way the in-memory Map does.
+ *
+ * One MULTI, so one round trip and no gap between counting and adding:
+ * as separate calls, two simultaneous requests could both read 9 and
+ * both get through. The request is added before counting; one that
+ * turns out to be over the limit is taken back out, so refusals don't
+ * keep extending the wait.
  */
 async function checkRateLimitRedis(ip: string, now: number): Promise<RateLimitResult> {
   const key = `ratelimit:${ip}`;
-  const windowStart = now - WINDOW_MS;
+  // Unique per request, not just per IP: two requests in the same
+  // millisecond would otherwise collide into one entry, undercounting.
+  const member = `${now}-${Math.random()}`;
 
-  await redis!.zremrangebyscore(key, 0, windowStart);
-  const count = await redis!.zcard(key);
+  const [, , count, oldest] = await redis!
+    .multi()
+    .zremrangebyscore(key, 0, now - WINDOW_MS)
+    .zadd(key, { score: now, member })
+    .zcard(key)
+    .zrange<(string | number)[]>(key, 0, 0, { withScores: true })
+    .pexpire(key, WINDOW_MS)
+    .exec();
 
-  if (count >= MAX_REQUESTS_PER_WINDOW) {
-    const oldest = await redis!.zrange<(string | number)[]>(key, 0, 0, { withScores: true });
-    const oldestTimestamp = oldest.length >= 2 ? Number(oldest[1]) : now;
-    const retryAfterSeconds = Math.ceil((WINDOW_MS - (now - oldestTimestamp)) / 1000);
-    return { limited: true, retryAfterSeconds };
-  }
+  if (count <= MAX_REQUESTS_PER_WINDOW) return { limited: false };
 
-  // Member must be unique per request, not just per IP — two requests
-  // in the same millisecond would otherwise collide and dedupe into
-  // one entry in the set, undercounting real traffic.
-  await redis!.zadd(key, { score: now, member: `${now}-${Math.random()}` });
-  await redis!.expire(key, Math.ceil(WINDOW_MS / 1000));
-  return { limited: false };
+  await redis!.zrem(key, member);
+  const oldestTimestamp = oldest.length >= 2 ? Number(oldest[1]) : now;
+  return { limited: true, retryAfterSeconds: Math.ceil((WINDOW_MS - (now - oldestTimestamp)) / 1000) };
 }
 
 /**

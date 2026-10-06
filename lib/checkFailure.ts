@@ -1,4 +1,4 @@
-import { HttpStatusError, isBotBlockStatus } from "./httpStatus";
+import { HttpStatusError, UnreachableError, isBotBlockStatus } from "./httpStatus";
 import { PageSpeedError } from "./pagespeed";
 
 /**
@@ -53,8 +53,7 @@ export function classifyCheckFailure(error: unknown): FailureReason {
   // fetch() rejects with a TypeError for anything network-level (DNS,
   // refused connection, TLS); BlockedHostError is our SSRF guard
   // refusing where the site pointed us. Either way, nothing to analyze.
-  if (error instanceof TypeError || name === "BlockedHostError") return "unreachable";
-  if (error instanceof Error && /inacess/i.test(error.message)) return "unreachable";
+  if (error instanceof TypeError || error instanceof UnreachableError || name === "BlockedHostError") return "unreachable";
 
   return "unknown";
 }
