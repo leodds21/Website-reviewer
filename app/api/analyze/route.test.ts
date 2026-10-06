@@ -152,6 +152,18 @@ describe("GET /api/analyze", () => {
     expect(report.issues.some((issue) => issue.code === "no-csp")).toBe(false);
   });
 
+  it("lists what the site got right alongside the findings", async () => {
+    const response = await GET(requestFor("route-test-passes.example", "route-test-passes.ip"));
+    const events = await readSseEvents(response);
+
+    const done = events.find((event) => event.event === "done")!;
+    const passed = (done.data as { passed: { code: string }[] }).passed.map((pass) => pass.code);
+
+    expect(passed).toEqual(expect.arrayContaining(["https", "title", "description", "viewport", "alt-images", "sitemap"]));
+    // Missing the clickjacking header, so not all three protections.
+    expect(passed).not.toContain("security-headers");
+  });
+
   it("reports platform: null when the page matches no known site-builder", async () => {
     const response = await GET(requestFor("route-test-noplatform.example", "route-test-noplatform.ip"));
     const events = await readSseEvents(response);

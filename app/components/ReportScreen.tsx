@@ -1,11 +1,14 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { AppHeader, Brand, PageContainer, buttonClass } from "./Chrome";
 import { Findings } from "./Findings";
+import { Passes } from "./Passes";
 import { ScoreSummary } from "./ScoreSummary";
 import { useLanguage } from "@/app/i18n/LanguageContext";
 import type { AnalyzeReport } from "@/lib/report";
 import type { TechPlatform } from "@/lib/checks/techDetect";
+import { SITE_URL } from "@/lib/siteUrl";
 
 // Proper nouns — same spelling in every locale, so this stays outside
 // the translation dictionary; only the sentence around it (t.platformDetected) is translated.
@@ -38,12 +41,35 @@ export function ReportScreen({
       ? t.nextStepButtonClean
       : t.nextStepButton;
 
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // Paper can't expand a section: everything collapsed ("Como resolver",
+  // the optional improvements, what's working) opens for printing, and
+  // closes again afterwards. Covers Ctrl+P too, not just the button.
+  useEffect(() => {
+    let opened: HTMLDetailsElement[] = [];
+    function openAll() {
+      opened = [...(rootRef.current?.querySelectorAll("details:not([open])") ?? [])] as HTMLDetailsElement[];
+      for (const details of opened) details.open = true;
+    }
+    function restore() {
+      for (const details of opened) details.open = false;
+      opened = [];
+    }
+    window.addEventListener("beforeprint", openAll);
+    window.addEventListener("afterprint", restore);
+    return () => {
+      window.removeEventListener("beforeprint", openAll);
+      window.removeEventListener("afterprint", restore);
+    };
+  }, []);
+
   const checkedAt = new Intl.DateTimeFormat(locale === "en" ? "en-US" : "pt-BR", { dateStyle: "short", timeStyle: "short" }).format(
     new Date(report.checkedAt),
   );
 
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div ref={rootRef} className="flex min-h-dvh flex-col">
       <AppHeader>
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1">
           <Brand />
@@ -53,7 +79,7 @@ export function ReportScreen({
             {report.platform && ` · ${t.platformDetected(PLATFORM_NAMES[report.platform])}`}
           </span>
         </div>
-        <div className="flex flex-wrap gap-2.5">
+        <div className="flex flex-wrap gap-2.5 print:hidden">
           <button type="button" onClick={onNewAnalysis} className={buttonClass.secondary}>
             {t.newAnalysis}
           </button>
@@ -80,7 +106,7 @@ export function ReportScreen({
                 <button
                   type="button"
                   onClick={onManualAnalysis}
-                  className="inline-flex min-h-11 w-fit items-center text-sm font-semibold text-[var(--color-link)] hover:underline"
+                  className="inline-flex min-h-11 w-fit items-center text-sm font-semibold text-[var(--color-link)] hover:underline print:hidden"
                 >
                   {t.manualAnalysisButton} <span aria-hidden="true">&nbsp;→</span>
                 </button>
@@ -89,13 +115,23 @@ export function ReportScreen({
           )}
 
           <Findings issues={report.issues} />
+          <Passes passes={report.passed ?? []} open={report.issues.length === 0} />
 
-          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[var(--color-line)] pt-8">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[var(--color-line)] pt-8 print:hidden">
             <p className="font-heading text-2xl font-medium tracking-[-0.02em] text-[var(--color-text)]">{t.reportCta}</p>
-            <button type="button" onClick={primaryAction} className={`${buttonClass.primary} min-h-12 px-7 text-base`}>
-              {primaryLabel}
-            </button>
+            <div className="flex flex-wrap gap-2.5">
+              <button type="button" onClick={() => window.print()} className={`${buttonClass.secondary} min-h-12 px-6 text-base`}>
+                {t.printButton}
+              </button>
+              <button type="button" onClick={primaryAction} className={`${buttonClass.primary} min-h-12 px-7 text-base`}>
+                {primaryLabel}
+              </button>
+            </div>
           </div>
+
+          <p className="hidden border-t border-[var(--color-line)] pt-4 font-mono text-xs text-[var(--color-subtle)] print:block">
+            {t.printFooter(new URL(SITE_URL).host)}
+          </p>
         </div>
       </PageContainer>
     </div>

@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { HomeScreen } from "./components/HomeScreen";
 import { ReportScreen } from "./components/ReportScreen";
 import { NextStepScreen } from "./components/NextStepScreen";
 import { useAnalysis } from "./hooks/useAnalysis";
 import { useStageFocus } from "./hooks/useStageFocus";
+import { backToReport, useReportLink } from "./hooks/useReportLink";
 import { prioritizeIssues } from "@/lib/issues";
+import { useLanguage } from "./i18n/LanguageContext";
 
 export default function Home() {
   const [url, setUrl] = useState("");
@@ -15,11 +17,41 @@ export default function Home() {
   // that blocked the automated checks.
   const [manualReview, setManualReview] = useState(false);
   const { stage, setStage, completedSteps, report, error, startAnalysis } = useAnalysis();
-  const stageRef = useStageFocus<HTMLDivElement>(stage);
+  // Idle and analyzing are one screen (the plan turns into progress in
+  // place), so starting an analysis isn't a screen change: moving focus
+  // there scrolled the page back to the top, undoing HomeScreen's scroll
+  // to the plan on phones.
+  const stageRef = useStageFocus<HTMLDivElement>(stage === "analyzing" ? "idle" : stage);
+  const { t } = useLanguage();
+  // What the report on screen was run for, as typed: the ?url= value.
+  const [analyzedUrl, setAnalyzedUrl] = useState("");
+
+  const run = useCallback(
+    (site: string) => {
+      setUrl(site);
+      setAnalyzedUrl(site.trim());
+      startAnalysis(site);
+    },
+    [startAnalysis],
+  );
+  useReportLink({ stage, setStage, analyzedUrl, hasReport: report !== null, run });
+
+  // With a report open the tab says which site and how it did, so
+  // several analyses in different tabs can be told apart at a glance.
+  const showsReport = stage !== "idle" && stage !== "analyzing" && report !== null;
+  useEffect(() => {
+    if (!showsReport || !report) {
+      document.title = t.documentTitle;
+      return;
+    }
+    const { overall, overallSeverity } = report.score;
+    const prefix = overallSeverity === "indisponivel" ? report.domain : `${overall} · ${report.domain}`;
+    document.title = `${prefix} | ${t.documentTitle}`;
+  }, [showsReport, report, t.documentTitle]);
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    startAnalysis(url);
+    run(url);
   }
 
   const topIssues = report ? prioritizeIssues(report.issues).slice(0, 2) : [];
@@ -43,23 +75,31 @@ export default function Home() {
         />
       )}
 
-      {stage === "report" && report && (
-        <ReportScreen
-          report={report}
-          onNextStep={() => {
-            setManualReview(false);
-            setStage("next-step");
-          }}
-          onManualAnalysis={() => {
-            setManualReview(true);
-            setStage("next-step");
-          }}
-          onNewAnalysis={() => setStage("idle")}
-        />
-      )}
-
-      {stage === "next-step" && report && (
-        <NextStepScreen report={report} topIssues={topIssues} manualReview={manualReview} onBack={() => setStage("report")} />
+      {/* Both stay mounted while a report is open, one of them hidden:
+          going back to the report and returning keeps what was typed in
+          the contact form (or its "sent" confirmation), and the report
+          keeps the sections the visitor opened. A new analysis unmounts
+          both, so nothing carries over to another site. */}
+      {(stage === "report" || stage === "next-step") && report && (
+        <>
+          <div hidden={stage !== "report"} className="flex flex-1 flex-col">
+            <ReportScreen
+              report={report}
+              onNextStep={() => {
+                setManualReview(false);
+                setStage("next-step");
+              }}
+              onManualAnalysis={() => {
+                setManualReview(true);
+                setStage("next-step");
+              }}
+              onNewAnalysis={() => setStage("idle")}
+            />
+          </div>
+          <div hidden={stage !== "next-step"} className="flex flex-1 flex-col">
+            <NextStepScreen report={report} topIssues={topIssues} manualReview={manualReview} onBack={() => backToReport(setStage)} />
+          </div>
+        </>
       )}
     </div>
   );

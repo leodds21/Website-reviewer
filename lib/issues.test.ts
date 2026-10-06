@@ -59,6 +59,14 @@ describe("deriveIssues", () => {
     expect(messySite.filter((issue) => issue.severity === "critico").length).toBeGreaterThanOrEqual(3);
   });
 
+  it("flags a missing http redirect as attention, not the critical no-https", () => {
+    const issues = deriveIssues({
+      https: { passed: true, finalUrl: "https://x.com/", redirectedFromHttp: false, noHttpRedirect: true },
+    });
+
+    expect(issues).toEqual([{ category: "security", severity: "atencao", code: "no-https-redirect" }]);
+  });
+
   it("flags invalid-certificate instead of no-https when the cert chain is broken", () => {
     const issues = deriveIssues({
       https: { passed: false, finalUrl: "https://x.com", redirectedFromHttp: false, certificateError: true },
