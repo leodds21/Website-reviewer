@@ -22,9 +22,11 @@ function LocaleOption({
       onClick={() => onSelect(value)}
       aria-pressed={active}
       lang={value}
-      className={
-        active ? "text-[var(--color-text)]" : "text-[var(--color-neutral-700)] hover:text-[var(--color-accent-700)]"
-      }
+      className={`inline-flex min-h-11 items-center border-b-2 px-3 font-mono text-xs ${
+        active
+          ? "border-[var(--color-link)] text-[var(--color-text)]"
+          : "border-transparent text-[var(--color-subtle)] hover:text-[var(--color-text)]"
+      }`}
     >
       {/* The full name is appended rather than replacing "PT" via
           aria-label. An accessible name that doesn't contain the
@@ -41,11 +43,8 @@ export function LanguageSwitcher() {
   const { locale, setLocale } = useLanguage();
 
   return (
-    <div className="flex items-center gap-1.5 text-xs">
+    <div className="flex items-center gap-0.5">
       <LocaleOption value="pt" label="PT" fullName="Português" active={locale === "pt"} onSelect={setLocale} />
-      <span className="text-[var(--color-neutral-200)]" aria-hidden="true">
-        |
-      </span>
       <LocaleOption value="en" label="EN" fullName="English" active={locale === "en"} onSelect={setLocale} />
     </div>
   );
