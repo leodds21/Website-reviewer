@@ -31,6 +31,7 @@ test.describe("report", () => {
     // The finished plan stays up for a moment before the report replaces it.
     await expect(page.getByRole("status")).toHaveText("7 / 7 concluídas");
     await expect(page.getByRole("heading", { level: 1, name: "Relatório de exemplo.com.br" })).toBeAttached();
+    await expect(page).toHaveTitle(/^56 · exemplo.com.br | /);
     const summary = page.getByRole("complementary", { name: "Nota geral" });
     await expect(summary.getByText("56", { exact: true })).toBeVisible();
     await expect(summary.getByText("2 críticos")).toBeVisible();
@@ -92,6 +93,7 @@ test.describe("report", () => {
 
     await page.getByRole("button", { name: "Nova análise" }).click();
     await expect(page.getByLabel("Endereço do site")).toHaveValue("exemplo.com.br");
+    await expect(page).not.toHaveTitle(/exemplo.com.br/);
     // The plan starts over, not showing the previous run as done.
     const plan = page.getByRole("region", { name: /plano da varredura/i });
     await expect(plan.getByRole("status")).toHaveText("0 / 7 concluídas");
