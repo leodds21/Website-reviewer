@@ -65,35 +65,55 @@ describe("checkRateLimit (Upstash Redis path)", () => {
   // Same reason as cache.test.ts: lib/kv.ts picks in-memory vs Redis
   // once at module load from env vars, so the Redis branch is
   // exercised by mocking that module, not by setting env vars.
+  // A sorted-set store behind the same multi()/exec() chain the code
+  // uses: queued commands run in order on exec, like a Redis MULTI.
   function mockRedis() {
     const store = new Map<string, Map<string, number>>();
-
-    return {
-      zremrangebyscore: vi.fn(async (key: string, _min: number, max: number) => {
+    const commands = {
+      zremrangebyscore: (key: string, _min: number, max: number) => {
         const set = store.get(key);
-        if (!set) return 0;
-        for (const [member, score] of set) if (score <= max) set.delete(member);
+        if (set) for (const [member, score] of set) if (score <= max) set.delete(member);
         return 0;
-      }),
-      zcard: vi.fn(async (key: string) => store.get(key)?.size ?? 0),
-      zadd: vi.fn(async (key: string, entry: { score: number; member: string }) => {
+      },
+      zadd: (key: string, entry: { score: number; member: string }) => {
         if (!store.has(key)) store.set(key, new Map());
         store.get(key)!.set(entry.member, entry.score);
         return 1;
-      }),
-      zrange: vi.fn(async (key: string) => {
+      },
+      zcard: (key: string) => store.get(key)?.size ?? 0,
+      zrange: (key: string) => {
         const set = store.get(key);
         if (!set || set.size === 0) return [];
         const [member, score] = [...set.entries()].sort((a, b) => a[1] - b[1])[0];
         return [member, score];
-      }),
-      expire: vi.fn(async () => 1),
+      },
+      pexpire: () => 1,
+    };
+
+    return {
+      multi() {
+        const queued: (() => unknown)[] = [];
+        const chain = Object.fromEntries(
+          Object.entries(commands).map(([name, run]) => [
+            name,
+            (...args: unknown[]) => {
+              queued.push(() => (run as (...a: unknown[]) => unknown)(...args));
+              return chain;
+            },
+          ]),
+        ) as Record<string, (...args: unknown[]) => unknown> & { exec?: () => Promise<unknown[]> };
+        chain.exec = async () => queued.map((command) => command());
+        return chain;
+      },
+      zrem: vi.fn(async (key: string, member: string) => (store.get(key)?.delete(member) ? 1 : 0)),
+      size: (key: string) => store.get(key)?.size ?? 0,
     };
   }
 
   it("allows the first 10 requests, blocks the 11th, using the real retry time from the oldest entry", async () => {
     vi.resetModules();
-    vi.doMock("./kv", () => ({ redis: mockRedis() }));
+    const redis = mockRedis();
+    vi.doMock("./kv", () => ({ redis }));
     const { checkRateLimit: checkRateLimitRedis } = await import("./rateLimit");
 
     const ip = "redis-rate-limit-test.ip";
@@ -103,6 +123,8 @@ describe("checkRateLimit (Upstash Redis path)", () => {
 
     const eleventh = await checkRateLimitRedis(ip, start + 10_000);
     expect(eleventh.limited).toBe(true);
+    // A refused request is taken back out, so it doesn't count later.
+    expect(redis.size(`ratelimit:${ip}`)).toBe(10);
     if (eleventh.limited) {
       // The oldest request was at `start`; the window closes on it at
       // start + WINDOW_MS, and we're asking at start + 10_000.
