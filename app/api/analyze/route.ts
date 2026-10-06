@@ -59,6 +59,21 @@ function errorResponse(error: AnalyzeError, status: number, headers?: Record<str
   return NextResponse.json(error, { status, headers });
 }
 
+const SSE_HEADERS = {
+  "Content-Type": "text/event-stream",
+  "Cache-Control": "no-cache, no-transform",
+  Connection: "keep-alive",
+  // Tells nginx-style reverse proxies not to buffer the response.
+  // Without it, a proxy can hold every step event until the stream
+  // closes, turning the live progress screen into a long freeze
+  // followed by everything at once.
+  "X-Accel-Buffering": "no",
+};
+
+function sseFrame(event: string, data: unknown): string {
+  return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+}
+
 // The loading screen's step events each task completes. The page fetch
 // feeds two (meta tags and image alt text) and the https check feeds
 // the security-header step too, since both derive from one request.
@@ -115,20 +130,6 @@ async function* settleInOrder<T extends Record<string, Promise<unknown>>>(
 }
 
 export async function GET(request: Request) {
-  // The leftmost entry in x-forwarded-for is whatever the client
-  // itself claims — trivially spoofable with a header. The rightmost
-  // entry is the one appended by our own trusted edge (Vercel), so
-  // that's the one to trust. This assumes exactly one trusted proxy in
-  // front of the app; an additional untrusted proxy in the chain would
-  // still need its own handling.
-  const ip = request.headers.get("x-forwarded-for")?.split(",").pop()?.trim() ?? "unknown";
-  const rateLimit = await checkRateLimit(ip);
-  if (rateLimit.limited) {
-    return errorResponse({ code: "rate-limited", retryAfterSeconds: rateLimit.retryAfterSeconds }, 429, {
-      "Retry-After": String(rateLimit.retryAfterSeconds),
-    });
-  }
-
   const { searchParams } = new URL(request.url);
   const rawUrl = (searchParams.get("url") ?? "").trim();
 
@@ -150,11 +151,33 @@ export async function GET(request: Request) {
   // excluded — those more often vary per-visitor (tracking params)
   // than change what's actually being analyzed.
   const cacheKey = `${targetUrl.origin}${targetUrl.pathname}`;
+
+  // A cached report costs no PageSpeed quota, so it's answered before
+  // the rate limit, not counted against it: reopening a report link,
+  // reloading it or going back to it in the browser repeats the same
+  // request, and each one used to spend one of the visitor's 10/hour.
+  const cached = await getCached<AnalyzeReport>(cacheKey);
+  if (cached) return new Response(sseFrame("done", cached), { headers: SSE_HEADERS });
+
+  // The leftmost entry in x-forwarded-for is whatever the client
+  // itself claims — trivially spoofable with a header. The rightmost
+  // entry is the one appended by our own trusted edge (Vercel), so
+  // that's the one to trust. This assumes exactly one trusted proxy in
+  // front of the app; an additional untrusted proxy in the chain would
+  // still need its own handling.
+  const ip = request.headers.get("x-forwarded-for")?.split(",").pop()?.trim() ?? "unknown";
+  const rateLimit = await checkRateLimit(ip);
+  if (rateLimit.limited) {
+    return errorResponse({ code: "rate-limited", retryAfterSeconds: rateLimit.retryAfterSeconds }, 429, {
+      "Retry-After": String(rateLimit.retryAfterSeconds),
+    });
+  }
+
   const encoder = new TextEncoder();
 
   // Ties every check's fetch to the client connection: if the visitor
   // closes the tab mid-analysis, this aborts the still-running checks
-  // (including the up-to-30s PageSpeed call) instead of letting them
+  // (including the up-to-50s PageSpeed call) instead of letting them
   // burn quota and time for nobody.
   const abortController = new AbortController();
   request.signal.addEventListener("abort", () => abortController.abort());
@@ -166,7 +189,7 @@ export async function GET(request: Request) {
       function send(event: string, data: unknown) {
         if (closed) return;
         try {
-          controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+          controller.enqueue(encoder.encode(sseFrame(event, data)));
         } catch {
           closed = true; // controller already closed client-side; nothing left to do
         }
@@ -182,12 +205,6 @@ export async function GET(request: Request) {
       }
 
       try {
-        const cached = await getCached<AnalyzeReport>(cacheKey);
-        if (cached) {
-          send("done", cached);
-          return;
-        }
-
         const results: Partial<CheckResults> = {};
         let platform: TechPlatform | null = null;
         // Why each failed check failed, in visitor-explainable terms: the
@@ -323,16 +340,5 @@ export async function GET(request: Request) {
     },
   });
 
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
-      // Tells nginx-style reverse proxies not to buffer the response.
-      // Without it, a proxy can hold every step event until the stream
-      // closes, turning the live progress screen into a long freeze
-      // followed by everything at once.
-      "X-Accel-Buffering": "no",
-    },
-  });
+  return new Response(stream, { headers: SSE_HEADERS });
 }
