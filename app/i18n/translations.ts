@@ -101,6 +101,8 @@ type Dictionary = {
   pass: Record<PassCode, string>;
   newAnalysis: string;
   reportCta: string;
+  printButton: string;
+  printFooter: (host: string) => string;
   backToReport: string;
   nextStepButton: string;
   // The same next step when the report found nothing to fix: an offer to
@@ -275,6 +277,8 @@ const pt: Dictionary = {
   },
   newAnalysis: "Nova análise",
   reportCta: "Quer ajuda pra resolver o que apareceu aqui?",
+  printButton: "Imprimir ou salvar PDF",
+  printFooter: (host) => `Diagnóstico gerado em ${host}`,
   backToReport: "Voltar ao relatório",
   nextStepButton: "Ver como corrigir →",
   nextStepButtonClean: "Falar sobre o site →",
@@ -569,6 +573,8 @@ const en: Dictionary = {
   },
   newAnalysis: "New analysis",
   reportCta: "Want help fixing what showed up here?",
+  printButton: "Print or save as PDF",
+  printFooter: (host) => `Report generated at ${host}`,
   backToReport: "Back to the report",
   nextStepButton: "See how to fix it →",
   nextStepButtonClean: "Talk about the site →",

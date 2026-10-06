@@ -95,6 +95,49 @@ dialog::backdrop {
   background: rgba(0, 0, 0, 0.6);
 }
 
+/* "Imprimir ou salvar PDF": the same report on white paper. The tokens
+   flip to a light set (severity tones darkened to read on white), and
+   color printing is forced on, since the severity marks and the score
+   meter are backgrounds that browsers drop by default. Screen-only
+   controls carry Tailwind's print:hidden. */
+@media print {
+  :root {
+    --color-bg: #ffffff;
+    --color-surface: #ffffff;
+    --color-field: #ffffff;
+    --color-line: #dde3ec;
+    --color-line-strong: #b9c3d1;
+    --color-text: #0b0d12;
+    --color-body: #1f2633;
+    --color-muted: #3b4556;
+    --color-subtle: #5a667a;
+    --color-link: #1f5fd1;
+    --color-label: #1f5fd1;
+    --color-severity-critico: #d23b2a;
+    --color-severity-critico-text: #a8261a;
+    --color-severity-atencao: #d08c00;
+    --color-severity-atencao-text: #7d5300;
+    --color-severity-ok: #1f9d63;
+    --color-severity-ok-text: #146b43;
+    --color-severity-sugestao: #5a667a;
+  }
+
+  * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  @page {
+    margin: 14mm;
+  }
+
+  /* A finding split across two pages is hard to read on paper. */
+  li,
+  aside {
+    break-inside: avoid;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
