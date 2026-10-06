@@ -125,3 +125,11 @@ describe("issueSummary", () => {
     expect(DICTIONARIES.pt.issueSummary({ critico: 0, atencao: 0, sugestao: 0 })).toEqual([]);
   });
 });
+
+describe("loadTime", () => {
+  it("writes the seconds with each language's decimal separator", () => {
+    expect(DICTIONARIES.pt.loadTime(2.4)).toBe("Carrega em 2,4s no celular");
+    expect(DICTIONARIES.en.loadTime(2.4)).toBe("Loads in 2.4s on phones");
+    expect(DICTIONARIES.pt.loadTime(3)).toBe("Carrega em 3s no celular");
+  });
+});

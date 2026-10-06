@@ -35,6 +35,7 @@ test.describe("report", () => {
     const summary = page.getByRole("complementary", { name: "Nota geral" });
     await expect(summary.getByText("56", { exact: true })).toBeVisible();
     await expect(summary.getByText("2 críticos")).toBeVisible();
+    await expect(summary.getByText("Carrega em 2,4s no celular")).toBeVisible();
 
     await expect(page.getByRole("heading", { level: 2, name: "Resolver primeiro" })).toBeVisible();
     await expect(page.getByRole("heading", { level: 2, name: "Corrigir depois" })).toBeVisible();

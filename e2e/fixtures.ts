@@ -39,6 +39,7 @@ export const REPORT_WITH_FINDINGS: AnalyzeReport = {
     { category: "seo", code: "title" },
     { category: "performance", code: "fast-load" },
   ],
+  loadSeconds: 2.4,
 };
 
 export const CLEAN_REPORT: AnalyzeReport = {

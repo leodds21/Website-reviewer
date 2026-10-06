@@ -75,6 +75,7 @@ type Dictionary = {
   // a bare "não medido".
   unavailableReason: Record<FailureReason, string>;
   partialMeasure: string;
+  loadTime: (seconds: number) => string;
   coverageNote: (measured: number) => string;
   // Neutral note + manual-analysis offer for a site that refused our
   // automated checks: a dead end turned into a next step.
@@ -235,6 +236,8 @@ const pt: Dictionary = {
     unknown: "Não deu pra medir desta vez. Vale tentar de novo.",
   },
   partialMeasure: "medido em parte",
+  // PageSpeed measures as a phone on a mobile connection by default.
+  loadTime: (seconds) => `Carrega em ${seconds.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}s no celular`,
   coverageNote: (measured) =>
     `Nota baseada em ${measured} de 4 categorias. As outras não puderam ser medidas, veja o motivo abaixo.`,
   blockedNote:
@@ -529,6 +532,7 @@ const en: Dictionary = {
     unknown: "We couldn't measure this time. Worth trying again.",
   },
   partialMeasure: "partly measured",
+  loadTime: (seconds) => `Loads in ${seconds.toLocaleString("en-US", { maximumFractionDigits: 1 })}s on phones`,
   coverageNote: (measured) =>
     `Score based on ${measured} of 4 categories. The others couldn't be measured, see why below.`,
   blockedNote:
