@@ -2,6 +2,7 @@
 
 import { AppHeader, Brand, PageContainer, buttonClass } from "./Chrome";
 import { Findings } from "./Findings";
+import { Passes } from "./Passes";
 import { ScoreSummary } from "./ScoreSummary";
 import { useLanguage } from "@/app/i18n/LanguageContext";
 import type { AnalyzeReport } from "@/lib/report";
@@ -89,6 +90,7 @@ export function ReportScreen({
           )}
 
           <Findings issues={report.issues} />
+          <Passes passes={report.passed ?? []} open={report.issues.length === 0} />
 
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[var(--color-line)] pt-8">
             <p className="font-heading text-2xl font-medium tracking-[-0.02em] text-[var(--color-text)]">{t.reportCta}</p>
