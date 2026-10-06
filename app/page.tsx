@@ -36,7 +36,10 @@ export default function Home() {
           onSubmit={handleSubmit}
           error={error}
           analyzing={stage === "analyzing"}
-          completedSteps={completedSteps}
+          // Only a run in progress has steps to show: after "Nova análise"
+          // or a failed run, the plan starts over instead of showing the
+          // previous analysis as done.
+          completedSteps={stage === "analyzing" ? completedSteps : []}
         />
       )}
 
