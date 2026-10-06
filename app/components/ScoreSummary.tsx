@@ -123,7 +123,7 @@ export function ScoreSummary({ report }: { report: AnalyzeReport }) {
         ))}
       </ul>
 
-      <details className="group">
+      <details>
         <ToggleSummary className="flex min-h-11 text-[13px]">{t.scoreExplanationToggle}</ToggleSummary>
         <p className="mt-1 text-[13px] leading-relaxed text-[var(--color-muted)]">{t.scoreExplanation}</p>
       </details>
