@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { StepKey } from "@/app/components/LoadingSequence";
+import type { StepKey } from "@/lib/scanSteps";
 import type { AnalyzeReport } from "@/lib/report";
 import type { AnalyzeError } from "@/lib/analyzeError";
 import { createSseParser } from "@/lib/sse";
