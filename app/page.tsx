@@ -36,18 +36,20 @@ export default function Home() {
   );
   useReportLink({ stage, setStage, analyzedUrl, hasReport: report !== null, run });
 
+  // The report and the contact step that follows it.
+  const openReport = stage === "report" || stage === "next-step" ? report : null;
+
   // With a report open the tab says which site and how it did, so
   // several analyses in different tabs can be told apart at a glance.
-  const showsReport = stage !== "idle" && stage !== "analyzing" && report !== null;
   useEffect(() => {
-    if (!showsReport || !report) {
+    if (!openReport) {
       document.title = t.documentTitle;
       return;
     }
-    const { overall, overallSeverity } = report.score;
-    const prefix = overallSeverity === "indisponivel" ? report.domain : `${overall} · ${report.domain}`;
+    const { overall, overallSeverity } = openReport.score;
+    const prefix = overallSeverity === "indisponivel" ? openReport.domain : `${overall} · ${openReport.domain}`;
     document.title = `${prefix} | ${t.documentTitle}`;
-  }, [showsReport, report, t.documentTitle]);
+  }, [openReport, t.documentTitle]);
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -80,11 +82,11 @@ export default function Home() {
           the contact form (or its "sent" confirmation), and the report
           keeps the sections the visitor opened. A new analysis unmounts
           both, so nothing carries over to another site. */}
-      {(stage === "report" || stage === "next-step") && report && (
+      {openReport && (
         <>
           <div hidden={stage !== "report"} className="flex flex-1 flex-col">
             <ReportScreen
-              report={report}
+              report={openReport}
               onNextStep={() => {
                 setManualReview(false);
                 setStage("next-step");
@@ -97,7 +99,7 @@ export default function Home() {
             />
           </div>
           <div hidden={stage !== "next-step"} className="flex flex-1 flex-col">
-            <NextStepScreen report={report} topIssues={topIssues} manualReview={manualReview} onBack={() => backToReport(setStage)} />
+            <NextStepScreen report={openReport} topIssues={topIssues} manualReview={manualReview} onBack={() => backToReport(setStage)} />
           </div>
         </>
       )}
