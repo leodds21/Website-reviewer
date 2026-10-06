@@ -164,6 +164,25 @@ test.describe("report", () => {
     await expect(page.getByLabel("Endereço do site")).toHaveValue("exemplo.com.br");
   });
 
+  test("prints a clean copy, with every section open and no buttons", async ({ page }) => {
+    await mockAnalysis(page, REPORT_WITH_FINDINGS);
+    await analyze(page, "exemplo.com.br");
+    await expect(page.getByRole("button", { name: "Imprimir ou salvar PDF" })).toBeVisible();
+    const optional = page.getByText("Falta o cabeçalho Content-Security-Policy.");
+
+    await page.evaluate(() => window.dispatchEvent(new Event("beforeprint")));
+    await page.emulateMedia({ media: "print" });
+    await expect(page.getByRole("button", { name: "Nova análise" })).toBeHidden();
+    await expect(page.getByRole("button", { name: "Imprimir ou salvar PDF" })).toBeHidden();
+    await expect(page.getByText("Diagnóstico gerado em scan.lsdias.dev")).toBeVisible();
+    await expect(page.getByText("Carrega rápido no celular")).toBeVisible();
+    await expect(optional).toBeVisible();
+
+    await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+    await page.emulateMedia({ media: "screen" });
+    await expect(page.getByText("Carrega rápido no celular")).toBeHidden();
+  });
+
   test("never scrolls sideways", async ({ page }) => {
     await mockAnalysis(page, REPORT_WITH_FINDINGS);
     await analyze(page, "exemplo.com.br");
