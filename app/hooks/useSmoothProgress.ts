@@ -16,6 +16,13 @@ const CREEP_TAU_MS = 10_000;
 // big jump (several fast checks landing together) reads as a glide.
 const EASE_TAU_MS = 500;
 
+// Once every check is done the bar only has a brief pause before the
+// report replaces it (FINISH_HOLD_MS in useAnalysis), so it closes the
+// gap fast, and lands on exactly 100 once it's within half a point:
+// an easing curve alone only approaches 100, and the label rounds down.
+const FINISH_EASE_TAU_MS = 100;
+const FINISH_SNAP = 0.5;
+
 // A backgrounded tab pauses animation frames; without a cap, the first
 // frame back would see a huge dt and snap the bar to its target.
 const MAX_FRAME_MS = 100;
@@ -28,7 +35,9 @@ const MAX_FRAME_MS = 100;
  */
 export function advanceProgress(shown: number, real: number, sinceStepMs: number, dtMs: number): number {
   const target = real >= 100 ? 100 : real + (100 - real) * CREEP_SHARE * (1 - Math.exp(-sinceStepMs / CREEP_TAU_MS));
-  const eased = shown + (target - shown) * (1 - Math.exp(-Math.min(dtMs, MAX_FRAME_MS) / EASE_TAU_MS));
+  const tau = real >= 100 ? FINISH_EASE_TAU_MS : EASE_TAU_MS;
+  const eased = shown + (target - shown) * (1 - Math.exp(-Math.min(dtMs, MAX_FRAME_MS) / tau));
+  if (real >= 100 && 100 - eased < FINISH_SNAP) return 100;
   return Math.max(shown, eased);
 }
 

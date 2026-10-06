@@ -28,6 +28,8 @@ test.describe("report", () => {
     await mockAnalysis(page, REPORT_WITH_FINDINGS);
     await analyze(page, "exemplo.com.br");
 
+    // The finished plan stays up for a moment before the report replaces it.
+    await expect(page.getByRole("status")).toHaveText("7 / 7 concluídas");
     await expect(page.getByRole("heading", { level: 1, name: "Relatório de exemplo.com.br" })).toBeAttached();
     const summary = page.getByRole("complementary", { name: "Nota geral" });
     await expect(summary.getByText("56", { exact: true })).toBeVisible();
