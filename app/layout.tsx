@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Barlow, Barlow_Condensed } from "next/font/google";
+import { JetBrains_Mono, Manrope, Space_Grotesk } from "next/font/google";
 import { cookies } from "next/headers";
 import { LanguageProvider } from "./i18n/LanguageContext";
 import {
@@ -10,15 +10,24 @@ import {
 import { SITE_URL } from "@/lib/siteUrl";
 import "./globals.css";
 
-const barlow = Barlow({
-  variable: "--font-body",
-  weight: ["400", "500"],
+// The lsdias.dev type system: Space Grotesk for headings, Manrope for
+// text, JetBrains Mono for labels, data and addresses. Self-hosted by
+// next/font, so the CSP's font-src 'self' still holds.
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
+  weight: ["500", "600"],
   subsets: ["latin"],
 });
 
-const barlowCondensed = Barlow_Condensed({
-  variable: "--font-heading",
-  weight: ["400", "600"],
+const manrope = Manrope({
+  variable: "--font-manrope",
+  weight: ["400", "500", "600"],
+  subsets: ["latin"],
+});
+
+const jetBrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
+  weight: ["400", "500"],
   subsets: ["latin"],
 });
 
@@ -50,7 +59,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang={locale === "en" ? "en" : "pt-BR"}
-      className={`${barlow.variable} ${barlowCondensed.variable} h-full antialiased`}
+      className={`${spaceGrotesk.variable} ${manrope.variable} ${jetBrainsMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <LanguageProvider initialLocale={locale}>{children}</LanguageProvider>
