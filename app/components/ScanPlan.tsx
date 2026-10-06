@@ -35,13 +35,42 @@ function StatusMark({ status }: { status: StepStatus }) {
   return <span aria-hidden="true" className="h-2 w-2 rounded-full border border-[var(--color-line-strong)]" />;
 }
 
-function SmoothProgressBar({ realPercent }: { realPercent: number }) {
-  const percent = useSmoothProgress(realPercent);
+/**
+ * The percentage and the bar under the plan, from one value so they
+ * always agree. Shown before a run too ("0%"), so the panel doesn't
+ * change height when the analysis starts.
+ */
+function ScanProgress({ percent }: { percent: number }) {
+  const { t } = useLanguage();
+  // Whole numbers only, and never 100 before the server says it's done.
+  const shown = Math.floor(percent);
+
   return (
-    <div aria-hidden="true" className="h-[3px] overflow-hidden rounded-b-lg bg-[var(--color-line)]">
-      <div className="progress-fill" style={{ width: `${percent}%` }} />
+    <div
+      role="progressbar"
+      aria-label={t.scanPlan.progressLabel}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={shown}
+      className="border-t border-[var(--color-line)]"
+    >
+      <div className="flex items-baseline justify-between px-5 py-2.5">
+        <span className="font-mono text-xs text-[var(--color-subtle)]">{t.scanPlan.progressLabel}</span>
+        <span className="font-mono text-sm text-[var(--color-text)] tabular-nums">{shown}%</span>
+      </div>
+      <div className="h-[3px] overflow-hidden rounded-b-lg bg-[var(--color-line)]">
+        <div className="progress-fill" style={{ width: `${percent}%` }} />
+      </div>
     </div>
   );
+}
+
+// Only mounted during a run: the smoothing creeps forward on its own
+// between steps, which is right while checks are running and wrong
+// while nothing is (an idle screen would drift up toward 80%). Mounting
+// it per run also starts every analysis from 0%.
+function LiveScanProgress({ realPercent }: { realPercent: number }) {
+  return <ScanProgress percent={useSmoothProgress(realPercent)} />;
 }
 
 /**
@@ -92,7 +121,7 @@ export function ScanPlan({ running, completedSteps }: { running: boolean; comple
         })}
       </ol>
 
-      {running ? <SmoothProgressBar realPercent={realPercent} /> : <div aria-hidden="true" className="h-[3px] rounded-b-lg bg-[var(--color-line)]" />}
+      {running ? <LiveScanProgress realPercent={realPercent} /> : <ScanProgress percent={0} />}
     </section>
   );
 }

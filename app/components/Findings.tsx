@@ -51,7 +51,7 @@ function AffectedItems({ issue, compact = false }: { issue: Issue; compact?: boo
 function HowToFix({ issue, recommendation }: { issue: Issue; recommendation: string }) {
   const { t } = useLanguage();
   return (
-    <details className="group">
+    <details>
       <ToggleSummary className="inline-flex min-h-11 text-[13px] font-semibold">{t.howToFix}</ToggleSummary>
       <div className="flex flex-col gap-3 pb-2">
         <p className="text-sm leading-relaxed text-[var(--color-body)]">{recommendation}</p>
@@ -164,7 +164,7 @@ export function Findings({ issues }: { issues: Issue[] }) {
         return (
           <section key={severity} aria-labelledby={headingId} className="flex flex-col gap-3.5">
             <GroupHeading id={headingId} severity={severity} count={items.length} />
-            <details className="group rounded-lg border border-dashed border-[var(--color-line-strong)]">
+            <details className="rounded-lg border border-dashed border-[var(--color-line-strong)]">
               <ToggleSummary className="flex min-h-12 px-5 text-sm font-semibold sm:px-6">{t.showOptional(items.length)}</ToggleSummary>
               <ul className="border-t border-dashed border-[var(--color-line-strong)]">
                 {items.map((issue) => (
