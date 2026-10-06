@@ -108,6 +108,43 @@ test.describe("report", () => {
     await expect(plan.getByText("em espera")).toHaveCount(7);
   });
 
+  test("puts the report in the address bar, so it can be shared, reloaded and navigated", async ({ page }) => {
+    await mockAnalysis(page, REPORT_WITH_FINDINGS);
+    await analyze(page, "exemplo.com.br");
+    const reportHeading = page.getByRole("heading", { level: 2, name: "Resolver primeiro" });
+    await expect(reportHeading).toBeVisible();
+    await expect(page).toHaveURL(/[?&]url=exemplo.com.br/);
+    await expect(page).toHaveURL(/[?&]lang=pt/);
+
+    // A reload (or the link opened elsewhere) runs it again and lands on the report.
+    await page.reload();
+    await expect(reportHeading).toBeVisible();
+    await expect(page.getByLabel("Endereço do site")).toHaveCount(0);
+
+    // Back and forward move between the app's screens.
+    await page.getByRole("button", { name: "Ver como corrigir →" }).first().click();
+    await expect(page.getByLabel("E-mail")).toBeVisible();
+    await page.goBack();
+    await expect(reportHeading).toBeVisible();
+    await page.getByRole("button", { name: "Nova análise" }).click();
+    await expect(page).not.toHaveURL(/[?&]url=/);
+    await page.goBack();
+    await expect(reportHeading).toBeVisible();
+    // One entry per screen, even across the reload: one more step back is home.
+    await page.goBack();
+    await expect(page.getByLabel("Endereço do site")).toBeVisible();
+    await expect(page).not.toHaveURL(/[?&]url=/);
+  });
+
+  test("opens a shared report link directly", async ({ page }) => {
+    await mockAnalysis(page, REPORT_WITH_FINDINGS);
+    await page.goto("/?lang=pt&url=exemplo.com.br");
+
+    await expect(page.getByRole("heading", { level: 1, name: "Relatório de exemplo.com.br" })).toBeAttached();
+    await page.getByRole("button", { name: "Nova análise" }).click();
+    await expect(page.getByLabel("Endereço do site")).toHaveValue("exemplo.com.br");
+  });
+
   test("never scrolls sideways", async ({ page }) => {
     await mockAnalysis(page, REPORT_WITH_FINDINGS);
     await analyze(page, "exemplo.com.br");
