@@ -4,6 +4,7 @@ import type { AnalyzeError, AnalyzeErrorCode } from "@/lib/analyzeError";
 import type { ContactErrorCode } from "@/app/hooks/useContactForm";
 import type { FailureReason } from "@/lib/checkFailure";
 import type { StepKey } from "@/lib/scanSteps";
+import type { PassCode } from "@/lib/passes";
 
 /**
  * Turns a raw retry delay into something a person would actually say —
@@ -94,6 +95,9 @@ type Dictionary = {
   imageWithoutSource: string;
   moreAffected: (count: number) => string;
   noIssues: string;
+  passesHeading: string;
+  passesToggle: (count: number) => string;
+  pass: Record<PassCode, string>;
   newAnalysis: string;
   reportCta: string;
   backToReport: string;
@@ -252,6 +256,20 @@ const pt: Dictionary = {
   imageWithoutSource: "(imagem sem endereço no HTML)",
   moreAffected: (count) => `e mais ${count}`,
   noIssues: "Não encontramos problema nenhum nas checagens que rodamos.",
+  passesHeading: "O que está certo",
+  passesToggle: (count) => (count === 1 ? "Ver o ponto que passou" : `Ver os ${count} pontos que passaram`),
+  pass: {
+    https: "Conexão segura: o site abre em HTTPS",
+    "security-headers": "Proteções extras do servidor ativadas",
+    title: "A página tem um título próprio",
+    description: "A página tem uma descrição pro Google",
+    viewport: "Se ajusta à tela do celular",
+    "alt-images": "As imagens têm texto alternativo",
+    sitemap: "Tem um sitemap pro Google achar as páginas",
+    links: "Os links testados na home funcionam",
+    "fast-load": "Carrega rápido no celular",
+    "stable-layout": "Nada pula de lugar enquanto a página carrega",
+  },
   newAnalysis: "Nova análise",
   reportCta: "Quer ajuda pra resolver o que apareceu aqui?",
   backToReport: "Voltar ao relatório",
@@ -531,6 +549,20 @@ const en: Dictionary = {
   imageWithoutSource: "(image with no address in the HTML)",
   moreAffected: (count) => `and ${count} more`,
   noIssues: "We didn't find any problems in the checks we ran.",
+  passesHeading: "What's working",
+  passesToggle: (count) => (count === 1 ? "See the check that passed" : `See the ${count} checks that passed`),
+  pass: {
+    https: "Secure connection: the site loads over HTTPS",
+    "security-headers": "The server's extra protections are on",
+    title: "The page has a title of its own",
+    description: "The page has a description for Google",
+    viewport: "Fits phone screens",
+    "alt-images": "Images have alternative text",
+    sitemap: "Has a sitemap that helps Google find the pages",
+    links: "The links tested on the home page work",
+    "fast-load": "Loads fast on phones",
+    "stable-layout": "Nothing jumps around while the page loads",
+  },
   newAnalysis: "New analysis",
   reportCta: "Want help fixing what showed up here?",
   backToReport: "Back to the report",

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { PARTIAL_REPORT, REPORT_WITH_FINDINGS, analyze, mockAnalysis, mockAnalysisError } from "./fixtures";
+import { CLEAN_REPORT, PARTIAL_REPORT, REPORT_WITH_FINDINGS, analyze, mockAnalysis, mockAnalysisError } from "./fixtures";
 
 test.describe("home", () => {
   test("lists the seven real checks before anything runs", async ({ page }) => {
@@ -65,6 +65,24 @@ test.describe("report", () => {
     await expect(linksFinding.getByText("Os 2 links quebrados")).toBeVisible();
     await expect(linksFinding.getByText("https://exemplo.com.br/contato.php")).toBeVisible();
     await expect(linksFinding.getByRole("link")).toHaveCount(0);
+  });
+
+  test("lists what's working, collapsed under the findings", async ({ page }) => {
+    await mockAnalysis(page, REPORT_WITH_FINDINGS);
+    await analyze(page, "exemplo.com.br");
+
+    const passes = page.getByRole("region", { name: "O que está certo" });
+    await expect(passes.getByText("Carrega rápido no celular")).toBeHidden();
+    await passes.getByText("Ver os 2 pontos que passaram").click();
+    await expect(passes.getByText("Carrega rápido no celular")).toBeVisible();
+  });
+
+  test("opens what's working right away when nothing is wrong", async ({ page }) => {
+    await mockAnalysis(page, CLEAN_REPORT);
+    await analyze(page, "tudocerto.com.br");
+
+    await expect(page.getByText("Não encontramos problema nenhum nas checagens que rodamos.")).toBeVisible();
+    await expect(page.getByText("Conexão segura: o site abre em HTTPS")).toBeVisible();
   });
 
   test("explains unmeasured categories and offers a manual review for a blocking site", async ({ page }) => {
