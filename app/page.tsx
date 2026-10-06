@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { HomeScreen } from "./components/HomeScreen";
 import { ReportScreen } from "./components/ReportScreen";
 import { NextStepScreen } from "./components/NextStepScreen";
 import { useAnalysis } from "./hooks/useAnalysis";
 import { useStageFocus } from "./hooks/useStageFocus";
 import { prioritizeIssues } from "@/lib/issues";
+import { useLanguage } from "./i18n/LanguageContext";
 
 export default function Home() {
   const [url, setUrl] = useState("");
@@ -16,6 +17,20 @@ export default function Home() {
   const [manualReview, setManualReview] = useState(false);
   const { stage, setStage, completedSteps, report, error, startAnalysis } = useAnalysis();
   const stageRef = useStageFocus<HTMLDivElement>(stage);
+  const { t } = useLanguage();
+
+  // With a report open the tab says which site and how it did, so
+  // several analyses in different tabs can be told apart at a glance.
+  const showsReport = stage !== "idle" && stage !== "analyzing" && report !== null;
+  useEffect(() => {
+    if (!showsReport || !report) {
+      document.title = t.documentTitle;
+      return;
+    }
+    const { overall, overallSeverity } = report.score;
+    const prefix = overallSeverity === "indisponivel" ? report.domain : `${overall} · ${report.domain}`;
+    document.title = `${prefix} | ${t.documentTitle}`;
+  }, [showsReport, report, t.documentTitle]);
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
