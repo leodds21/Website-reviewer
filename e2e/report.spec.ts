@@ -79,6 +79,10 @@ test.describe("report", () => {
 
     await page.getByRole("button", { name: "Nova análise" }).click();
     await expect(page.getByLabel("Endereço do site")).toHaveValue("exemplo.com.br");
+    // The plan starts over, not showing the previous run as done.
+    const plan = page.getByRole("region", { name: /plano da varredura/i });
+    await expect(plan.getByRole("status")).toHaveText("0 / 7 concluídas");
+    await expect(plan.getByText("em espera")).toHaveCount(7);
   });
 
   test("never scrolls sideways", async ({ page }) => {
