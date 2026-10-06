@@ -42,15 +42,15 @@ export function useReportLink({
   hasReport: boolean;
   run: (site: string) => void;
 }) {
-  const mounted = useRef(false);
   // True from opening a link (or reloading one) until its report is up:
   // that entry already has the right address and is claimed in place,
   // never stacked on. History state survives a reload, so the entry's
   // own tag can't tell this case apart.
   const openingLink = useRef(false);
+  // Once per mount (run is stable). Deliberately not guarded by a ref:
+  // a remount (React's dev double-mount does one) aborts the analysis
+  // this started, and only running it again recovers from that.
   useEffect(() => {
-    if (mounted.current) return;
-    mounted.current = true;
     const site = linkedSite();
     if (!site) return;
     openingLink.current = true;
