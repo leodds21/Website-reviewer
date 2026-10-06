@@ -87,9 +87,17 @@ test.describe("report", () => {
     await page.getByRole("button", { name: "Ver como corrigir →" }).first().click();
     await expect(page.getByRole("heading", { name: "O que pode ser feito", exact: true })).toBeVisible();
     await expect(page.getByLabel("E-mail")).toBeVisible();
+    await page.getByLabel("Nome").fill("Ana");
+    await page.getByLabel("Mensagem").fill("Quero ajuda com o HTTPS.");
 
     await page.getByRole("button", { name: /Voltar ao relatório/ }).click();
     await expect(page.getByRole("heading", { level: 2, name: "Resolver primeiro" })).toBeVisible();
+
+    // Going back to the report doesn't throw away what was typed.
+    await page.getByRole("button", { name: "Ver como corrigir →" }).first().click();
+    await expect(page.getByLabel("Nome")).toHaveValue("Ana");
+    await expect(page.getByLabel("Mensagem")).toHaveValue("Quero ajuda com o HTTPS.");
+    await page.getByRole("button", { name: /Voltar ao relatório/ }).click();
 
     await page.getByRole("button", { name: "Nova análise" }).click();
     await expect(page.getByLabel("Endereço do site")).toHaveValue("exemplo.com.br");
