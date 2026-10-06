@@ -1,6 +1,6 @@
 "use client";
 
-import { AppHeader, Brand, PageContainer } from "./Chrome";
+import { AppHeader, Brand, PageContainer, buttonClass } from "./Chrome";
 import { Findings } from "./Findings";
 import { ScoreSummary } from "./ScoreSummary";
 import { useLanguage } from "@/app/i18n/LanguageContext";
@@ -15,11 +15,6 @@ const PLATFORM_NAMES: Record<TechPlatform, string> = {
   squarespace: "Squarespace",
   shopify: "Shopify",
 };
-
-const primaryButton =
-  "inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--color-accent)] px-5 text-sm font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)]";
-const secondaryButton =
-  "inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--color-line-strong)] px-5 text-sm font-semibold text-[var(--color-body)] transition-colors hover:border-[var(--color-subtle)]";
 
 export function ReportScreen({
   report,
@@ -59,10 +54,10 @@ export function ReportScreen({
           </span>
         </div>
         <div className="flex flex-wrap gap-2.5">
-          <button type="button" onClick={onNewAnalysis} className={secondaryButton}>
+          <button type="button" onClick={onNewAnalysis} className={buttonClass.secondary}>
             {t.newAnalysis}
           </button>
-          <button type="button" onClick={primaryAction} className={primaryButton}>
+          <button type="button" onClick={primaryAction} className={buttonClass.primary}>
             {primaryLabel}
           </button>
         </div>
@@ -97,7 +92,7 @@ export function ReportScreen({
 
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[var(--color-line)] pt-8">
             <p className="font-heading text-2xl font-medium tracking-[-0.02em] text-[var(--color-text)]">{t.reportCta}</p>
-            <button type="button" onClick={primaryAction} className={`${primaryButton} min-h-12 px-7 text-base`}>
+            <button type="button" onClick={primaryAction} className={`${buttonClass.primary} min-h-12 px-7 text-base`}>
               {primaryLabel}
             </button>
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ToggleSummary } from "./Chrome";
 import { SEVERITY_TEXT, SeverityMark } from "./SeverityMark";
 import { useLanguage } from "@/app/i18n/LanguageContext";
 import type { CategoryKey } from "@/app/i18n/translations";
@@ -123,12 +124,7 @@ export function ScoreSummary({ report }: { report: AnalyzeReport }) {
       </ul>
 
       <details className="group">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 text-[13px] text-[var(--color-link)] hover:underline [&::-webkit-details-marker]:hidden">
-          {t.scoreExplanationToggle}
-          <span aria-hidden="true" className="inline-block transition-transform group-open:rotate-180">
-            ⌄
-          </span>
-        </summary>
+        <ToggleSummary className="flex min-h-11 text-[13px]">{t.scoreExplanationToggle}</ToggleSummary>
         <p className="mt-1 text-[13px] leading-relaxed text-[var(--color-muted)]">{t.scoreExplanation}</p>
       </details>
     </aside>

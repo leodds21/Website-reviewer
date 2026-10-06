@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, Check } from "lucide-react";
-import { AppHeader, Brand, PageContainer } from "./Chrome";
+import { AppHeader, Brand, ErrorNote, PageContainer, buttonClass } from "./Chrome";
 import { useLanguage } from "@/app/i18n/LanguageContext";
 import { synthesizeCriticalImpact, translateIssue, translateRecommendation } from "@/app/i18n/translations";
 import { useContactForm } from "@/app/hooks/useContactForm";
@@ -48,7 +48,7 @@ export function NextStepScreen({
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex min-h-11 items-center rounded-full border border-[var(--color-line-strong)] px-5 text-sm font-semibold text-[var(--color-body)] transition-colors hover:border-[var(--color-subtle)]"
+          className={buttonClass.secondary}
         >
           <span aria-hidden="true">←&nbsp;</span>
           {t.backToReport}
@@ -142,12 +142,7 @@ export function NextStepScreen({
               {errorCode && (
                 // What the visitor typed stays in the fields, so retrying
                 // is one click and not a re-type.
-                <p
-                  role="alert"
-                  className="rounded-lg border border-[var(--color-severity-critico)]/40 bg-[var(--color-severity-critico)]/10 px-4 py-3 text-sm leading-relaxed text-[var(--color-severity-critico-text)]"
-                >
-                  {t.contactError[errorCode]}
-                </p>
+                <ErrorNote>{t.contactError[errorCode]}</ErrorNote>
               )}
 
               <button

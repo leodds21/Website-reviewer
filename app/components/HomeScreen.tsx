@@ -1,6 +1,6 @@
 "use client";
 
-import { AppHeader, Brand, PageContainer } from "./Chrome";
+import { AppHeader, Brand, ErrorNote, PageContainer } from "./Chrome";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { PrivacyPolicyDialog } from "./PrivacyPolicyDialog";
 import { ScanPlan } from "./ScanPlan";
@@ -72,12 +72,7 @@ export function HomeScreen({
           {error && (
             // The typed URL stays in the field, so recovering is "fix the
             // typo and press the button again", not starting over.
-            <p
-              role="alert"
-              className="rounded-lg border border-[var(--color-severity-critico)]/40 bg-[var(--color-severity-critico)]/10 px-4 py-3 text-sm leading-relaxed text-[var(--color-severity-critico-text)]"
-            >
-              {translateAnalysisError(locale, error)}
-            </p>
+            <ErrorNote>{translateAnalysisError(locale, error)}</ErrorNote>
           )}
 
           {/* A div, not a <p>: the privacy link carries its <dialog>,
