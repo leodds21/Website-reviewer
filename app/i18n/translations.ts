@@ -157,7 +157,7 @@ const pt: Dictionary = {
   subheadline:
     "A gente encontra o seu em menos de um minuto: performance, SEO, acessibilidade e segurança, tudo junto.",
   homeHeadline: "Descubra o que está atrapalhando o seu site.",
-  homeIntro: "Sete checagens reais rodando ao mesmo tempo. Você acompanha cada uma ao lado.",
+  homeIntro: "Sete checagens reais rodando ao mesmo tempo. Você acompanha cada uma em tempo real.",
   analyzeLabel: "Endereço do site",
   urlPlaceholder: "seusite.com.br",
   runButton: "Rodar diagnóstico",
@@ -437,7 +437,7 @@ const en: Dictionary = {
   documentTitle: "lsdias.dev, website diagnostics",
   subheadline: "We find yours in under a minute: performance, SEO, accessibility and security, all at once.",
   homeHeadline: "Find out what's holding your site back.",
-  homeIntro: "Seven real checks running at the same time. You can follow each one alongside.",
+  homeIntro: "Seven real checks running at the same time. You can follow each one as it runs.",
   analyzeLabel: "Site address",
   urlPlaceholder: "yoursite.com",
   runButton: "Run diagnosis",
