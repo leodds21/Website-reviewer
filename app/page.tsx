@@ -17,7 +17,11 @@ export default function Home() {
   // that blocked the automated checks.
   const [manualReview, setManualReview] = useState(false);
   const { stage, setStage, completedSteps, report, error, startAnalysis } = useAnalysis();
-  const stageRef = useStageFocus<HTMLDivElement>(stage);
+  // Idle and analyzing are one screen (the plan turns into progress in
+  // place), so starting an analysis isn't a screen change: moving focus
+  // there scrolled the page back to the top, undoing HomeScreen's scroll
+  // to the plan on phones.
+  const stageRef = useStageFocus<HTMLDivElement>(stage === "analyzing" ? "idle" : stage);
   const { t } = useLanguage();
   // What the report on screen was run for, as typed: the ?url= value.
   const [analyzedUrl, setAnalyzedUrl] = useState("");
