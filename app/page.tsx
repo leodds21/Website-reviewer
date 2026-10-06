@@ -58,23 +58,31 @@ export default function Home() {
         />
       )}
 
-      {stage === "report" && report && (
-        <ReportScreen
-          report={report}
-          onNextStep={() => {
-            setManualReview(false);
-            setStage("next-step");
-          }}
-          onManualAnalysis={() => {
-            setManualReview(true);
-            setStage("next-step");
-          }}
-          onNewAnalysis={() => setStage("idle")}
-        />
-      )}
-
-      {stage === "next-step" && report && (
-        <NextStepScreen report={report} topIssues={topIssues} manualReview={manualReview} onBack={() => setStage("report")} />
+      {/* Both stay mounted while a report is open, one of them hidden:
+          going back to the report and returning keeps what was typed in
+          the contact form (or its "sent" confirmation), and the report
+          keeps the sections the visitor opened. A new analysis unmounts
+          both, so nothing carries over to another site. */}
+      {(stage === "report" || stage === "next-step") && report && (
+        <>
+          <div hidden={stage !== "report"} className="flex flex-1 flex-col">
+            <ReportScreen
+              report={report}
+              onNextStep={() => {
+                setManualReview(false);
+                setStage("next-step");
+              }}
+              onManualAnalysis={() => {
+                setManualReview(true);
+                setStage("next-step");
+              }}
+              onNewAnalysis={() => setStage("idle")}
+            />
+          </div>
+          <div hidden={stage !== "next-step"} className="flex flex-1 flex-col">
+            <NextStepScreen report={report} topIssues={topIssues} manualReview={manualReview} onBack={() => setStage("report")} />
+          </div>
+        </>
       )}
     </div>
   );
