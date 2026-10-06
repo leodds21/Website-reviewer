@@ -26,6 +26,7 @@ export function prioritizeIssues(issues: Issue[]): Issue[] {
 export type IssueCode =
   | "no-https"
   | "invalid-certificate"
+  | "no-https-redirect"
   | "no-hsts"
   | "no-csp"
   | "no-clickjacking-protection"
@@ -105,6 +106,10 @@ export function deriveIssues(input: Partial<CheckResults>): Issue[] {
       issues.push({ category: "security", severity: "critico", code: "invalid-certificate" });
     } else if (!input.https.passed) {
       issues.push({ category: "security", severity: "critico", code: "no-https" });
+    } else if (input.https.noHttpRedirect) {
+      // HTTPS works, it just isn't the default: a real gap (whoever
+      // types the bare address stays unencrypted) but not "insecure site".
+      issues.push({ category: "security", severity: "atencao", code: "no-https-redirect" });
     }
   }
 
