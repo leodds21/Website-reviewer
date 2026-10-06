@@ -11,6 +11,10 @@ export type AnalyzeReport = {
   // Optional: reports cached before this field existed don't have it,
   // and show no such list.
   passed?: Pass[];
+  // When the main content appeared in Lighthouse's (mobile) run, in
+  // seconds: the plain-language "carrega em 2,4s" next to Performance.
+  // Optional: absent when PageSpeed didn't run, and in older reports.
+  loadSeconds?: number;
   // Which site-builder platform (if any) the page's own markup gave
   // away. Deliberately not an Issue: which platform a site runs on
   // isn't a problem to fix, just a neutral fact about it.
