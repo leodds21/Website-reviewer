@@ -1,5 +1,6 @@
 "use client";
 
+import { ToggleSummary } from "./Chrome";
 import { SeverityMark } from "./SeverityMark";
 import { useLanguage } from "@/app/i18n/LanguageContext";
 import { translateIssue, translateRecommendation } from "@/app/i18n/translations";
@@ -51,12 +52,7 @@ function HowToFix({ issue, recommendation }: { issue: Issue; recommendation: str
   const { t } = useLanguage();
   return (
     <details className="group">
-      <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 text-[13px] font-semibold text-[var(--color-link)] hover:underline [&::-webkit-details-marker]:hidden">
-        {t.howToFix}
-        <span aria-hidden="true" className="inline-block transition-transform group-open:rotate-180">
-          ⌄
-        </span>
-      </summary>
+      <ToggleSummary className="inline-flex min-h-11 text-[13px] font-semibold">{t.howToFix}</ToggleSummary>
       <div className="flex flex-col gap-3 pb-2">
         <p className="text-sm leading-relaxed text-[var(--color-body)]">{recommendation}</p>
         <AffectedItems issue={issue} />
@@ -169,12 +165,7 @@ export function Findings({ issues }: { issues: Issue[] }) {
           <section key={severity} aria-labelledby={headingId} className="flex flex-col gap-3.5">
             <GroupHeading id={headingId} severity={severity} count={items.length} />
             <details className="group rounded-lg border border-dashed border-[var(--color-line-strong)]">
-              <summary className="flex min-h-12 cursor-pointer list-none items-center gap-1 px-5 text-sm font-semibold text-[var(--color-link)] hover:underline sm:px-6 [&::-webkit-details-marker]:hidden">
-                {t.showOptional(items.length)}
-                <span aria-hidden="true" className="inline-block transition-transform group-open:rotate-180">
-                  ⌄
-                </span>
-              </summary>
+              <ToggleSummary className="flex min-h-12 px-5 text-sm font-semibold sm:px-6">{t.showOptional(items.length)}</ToggleSummary>
               <ul className="border-t border-dashed border-[var(--color-line-strong)]">
                 {items.map((issue) => (
                   <FindingRow key={issue.code} issue={issue} />

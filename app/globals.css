@@ -29,20 +29,8 @@
   --color-severity-sugestao: #9fb2cc;
 }
 
+/* Feeds the font-heading / font-body / font-mono utilities. */
 @theme inline {
-  --color-bg: var(--color-bg);
-  --color-surface: var(--color-surface);
-  --color-field: var(--color-field);
-  --color-line: var(--color-line);
-  --color-line-strong: var(--color-line-strong);
-  --color-text: var(--color-text);
-  --color-body: var(--color-body);
-  --color-muted: var(--color-muted);
-  --color-subtle: var(--color-subtle);
-  --color-accent: var(--color-accent);
-  --color-accent-hover: var(--color-accent-hover);
-  --color-link: var(--color-link);
-  --color-label: var(--color-label);
   --font-heading: var(--font-space-grotesk), sans-serif;
   --font-body: var(--font-manrope), sans-serif;
   --font-mono: var(--font-jetbrains-mono), monospace;
