@@ -18,6 +18,7 @@ import { fetchHtml } from "@/lib/fetchHtml";
 import { getCached, setCached, FULL_TTL_MS, PARTIAL_TTL_MS } from "@/lib/cache";
 import { aggregateScore } from "@/lib/score";
 import { deriveIssues } from "@/lib/issues";
+import { derivePasses } from "@/lib/passes";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { isBlockedHost } from "@/lib/safeFetch";
 import { normalizeUrl } from "@/lib/url";
@@ -287,6 +288,8 @@ export async function GET(request: Request) {
             domain,
             score,
             issues,
+            passed: derivePasses(results),
+            loadSeconds: results.pagespeed?.lcpSeconds,
             platform,
             // Drives the "este site recusa ferramentas automáticas" note
             // and the manual-analysis offer in the report.

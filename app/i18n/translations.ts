@@ -4,6 +4,7 @@ import type { AnalyzeError, AnalyzeErrorCode } from "@/lib/analyzeError";
 import type { ContactErrorCode } from "@/app/hooks/useContactForm";
 import type { FailureReason } from "@/lib/checkFailure";
 import type { StepKey } from "@/lib/scanSteps";
+import type { PassCode } from "@/lib/passes";
 
 /**
  * Turns a raw retry delay into something a person would actually say —
@@ -74,6 +75,7 @@ type Dictionary = {
   // a bare "não medido".
   unavailableReason: Record<FailureReason, string>;
   partialMeasure: string;
+  loadTime: (seconds: number) => string;
   coverageNote: (measured: number) => string;
   // Neutral note + manual-analysis offer for a site that refused our
   // automated checks: a dead end turned into a next step.
@@ -94,8 +96,13 @@ type Dictionary = {
   imageWithoutSource: string;
   moreAffected: (count: number) => string;
   noIssues: string;
+  passesHeading: string;
+  passesToggle: (count: number) => string;
+  pass: Record<PassCode, string>;
   newAnalysis: string;
   reportCta: string;
+  printButton: string;
+  printFooter: (host: string) => string;
   backToReport: string;
   nextStepButton: string;
   // The same next step when the report found nothing to fix: an offer to
@@ -157,7 +164,7 @@ const pt: Dictionary = {
   subheadline:
     "A gente encontra o seu em menos de um minuto: performance, SEO, acessibilidade e segurança, tudo junto.",
   homeHeadline: "Descubra o que está atrapalhando o seu site.",
-  homeIntro: "Sete checagens reais rodando ao mesmo tempo. Você acompanha cada uma ao lado.",
+  homeIntro: "Sete checagens reais rodando ao mesmo tempo. Você acompanha cada uma em tempo real.",
   analyzeLabel: "Endereço do site",
   urlPlaceholder: "seusite.com.br",
   runButton: "Rodar diagnóstico",
@@ -231,6 +238,8 @@ const pt: Dictionary = {
     unknown: "Não deu pra medir desta vez. Vale tentar de novo.",
   },
   partialMeasure: "medido em parte",
+  // PageSpeed measures as a phone on a mobile connection by default.
+  loadTime: (seconds) => `Carrega em ${seconds.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}s no celular`,
   coverageNote: (measured) =>
     `Nota baseada em ${measured} de 4 categorias. As outras não puderam ser medidas, veja o motivo abaixo.`,
   blockedNote:
@@ -252,8 +261,24 @@ const pt: Dictionary = {
   imageWithoutSource: "(imagem sem endereço no HTML)",
   moreAffected: (count) => `e mais ${count}`,
   noIssues: "Não encontramos problema nenhum nas checagens que rodamos.",
+  passesHeading: "O que está certo",
+  passesToggle: (count) => (count === 1 ? "Ver o ponto que passou" : `Ver os ${count} pontos que passaram`),
+  pass: {
+    https: "Conexão segura: o site abre em HTTPS",
+    "security-headers": "Proteções extras do servidor ativadas",
+    title: "A página tem um título próprio",
+    description: "A página tem uma descrição pro Google",
+    viewport: "Se ajusta à tela do celular",
+    "alt-images": "As imagens têm texto alternativo",
+    sitemap: "Tem um sitemap pro Google achar as páginas",
+    links: "Os links testados na home funcionam",
+    "fast-load": "Carrega rápido no celular",
+    "stable-layout": "Nada pula de lugar enquanto a página carrega",
+  },
   newAnalysis: "Nova análise",
   reportCta: "Quer ajuda pra resolver o que apareceu aqui?",
+  printButton: "Imprimir ou salvar PDF",
+  printFooter: (host) => `Diagnóstico gerado em ${host}`,
   backToReport: "Voltar ao relatório",
   nextStepButton: "Ver como corrigir →",
   nextStepButtonClean: "Falar sobre o site →",
@@ -310,6 +335,10 @@ const pt: Dictionary = {
     "no-https": () => ({
       title: "O site não é servido em HTTPS.",
       description: "Navegadores marcam a conexão como não segura, e isso afasta visitante e cliente.",
+    }),
+    "no-https-redirect": () => ({
+      title: "O site tem HTTPS, mas não leva o visitante até ele.",
+      description: "Quem digita o endereço sem o https:// continua na versão não segura, e o navegador mostra o aviso de conexão não segura.",
     }),
     "invalid-certificate": () => ({
       title: "O certificado de segurança do site não é confiável.",
@@ -408,6 +437,7 @@ const pt: Dictionary = {
   recommendation: {
     "no-https": "Ativar um certificado HTTPS válido e configurar o servidor pra redirecionar automaticamente o tráfego de HTTP pra HTTPS.",
     "invalid-certificate": "Renovar ou reinstalar o certificado e conferir se o servidor envia a cadeia completa, com o certificado intermediário.",
+    "no-https-redirect": "Configurar o servidor pra redirecionar todo acesso por http:// pro mesmo endereço em https://.",
     "no-hsts": "Adicionar o cabeçalho HSTS pra garantir que o navegador sempre use HTTPS nas próximas visitas.",
     "no-csp": "Configurar um cabeçalho Content-Security-Policy adequado ao site, restringindo de onde scripts podem ser carregados.",
     "no-clickjacking-protection": "Configurar proteção contra clickjacking e revisar os cabeçalhos de segurança.",
@@ -432,7 +462,7 @@ const en: Dictionary = {
   documentTitle: "lsdias.dev, website diagnostics",
   subheadline: "We find yours in under a minute: performance, SEO, accessibility and security, all at once.",
   homeHeadline: "Find out what's holding your site back.",
-  homeIntro: "Seven real checks running at the same time. You can follow each one alongside.",
+  homeIntro: "Seven real checks running at the same time. You can follow each one as it runs.",
   analyzeLabel: "Site address",
   urlPlaceholder: "yoursite.com",
   runButton: "Run diagnosis",
@@ -506,6 +536,7 @@ const en: Dictionary = {
     unknown: "We couldn't measure this time. Worth trying again.",
   },
   partialMeasure: "partly measured",
+  loadTime: (seconds) => `Loads in ${seconds.toLocaleString("en-US", { maximumFractionDigits: 1 })}s on phones`,
   coverageNote: (measured) =>
     `Score based on ${measured} of 4 categories. The others couldn't be measured, see why below.`,
   blockedNote:
@@ -526,8 +557,24 @@ const en: Dictionary = {
   imageWithoutSource: "(image with no address in the HTML)",
   moreAffected: (count) => `and ${count} more`,
   noIssues: "We didn't find any problems in the checks we ran.",
+  passesHeading: "What's working",
+  passesToggle: (count) => (count === 1 ? "See the check that passed" : `See the ${count} checks that passed`),
+  pass: {
+    https: "Secure connection: the site loads over HTTPS",
+    "security-headers": "The server's extra protections are on",
+    title: "The page has a title of its own",
+    description: "The page has a description for Google",
+    viewport: "Fits phone screens",
+    "alt-images": "Images have alternative text",
+    sitemap: "Has a sitemap that helps Google find the pages",
+    links: "The links tested on the home page work",
+    "fast-load": "Loads fast on phones",
+    "stable-layout": "Nothing jumps around while the page loads",
+  },
   newAnalysis: "New analysis",
   reportCta: "Want help fixing what showed up here?",
+  printButton: "Print or save as PDF",
+  printFooter: (host) => `Report generated at ${host}`,
   backToReport: "Back to the report",
   nextStepButton: "See how to fix it →",
   nextStepButtonClean: "Talk about the site →",
@@ -583,6 +630,10 @@ const en: Dictionary = {
     "no-https": () => ({
       title: "The site isn't served over HTTPS.",
       description: "Browsers flag the connection as not secure, which drives visitors and customers away.",
+    }),
+    "no-https-redirect": () => ({
+      title: "The site has HTTPS, but doesn't send visitors to it.",
+      description: "Anyone who types the address without https:// stays on the unsecured version, and the browser shows the not-secure warning.",
     }),
     "invalid-certificate": () => ({
       title: "The site's security certificate isn't trusted.",
@@ -679,6 +730,7 @@ const en: Dictionary = {
   recommendation: {
     "no-https": "Set up a valid HTTPS certificate and configure the server to automatically redirect HTTP traffic to HTTPS.",
     "invalid-certificate": "Renew or reinstall the certificate and make sure the server sends the full chain, including the intermediate certificate.",
+    "no-https-redirect": "Configure the server to redirect every http:// request to the same address over https://.",
     "no-hsts": "Add the HSTS header so the browser always uses HTTPS on future visits.",
     "no-csp": "Set up a Content-Security-Policy header suited to the site, restricting where scripts can be loaded from.",
     "no-clickjacking-protection": "Set up clickjacking protection and review the site's security headers.",
