@@ -23,6 +23,7 @@ import { isBlockedHost } from "@/lib/safeFetch";
 import { normalizeUrl } from "@/lib/url";
 import type { AnalyzeReport } from "@/lib/report";
 import type { CheckResults } from "@/lib/checkResults";
+import type { StepKey } from "@/lib/scanSteps";
 import type { AnalyzeError, AnalyzeErrorCode } from "@/lib/analyzeError";
 
 export const dynamic = "force-dynamic";
@@ -60,7 +61,7 @@ function errorResponse(error: AnalyzeError, status: number, headers?: Record<str
 // The loading screen's step events each task completes. The page fetch
 // feeds two (meta tags and image alt text) and the https check feeds
 // the security-header step too, since both derive from one request.
-const TASK_STEPS: Record<CheckKey, string[]> = {
+const TASK_STEPS: Record<CheckKey, StepKey[]> = {
   https: ["https", "securityHeaders"],
   page: ["metaTags", "altImages"],
   sitemapRobots: ["sitemapRobots"],

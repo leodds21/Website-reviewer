@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LoadingSequence } from "./components/LoadingSequence";
-import { IdleScreen } from "./components/IdleScreen";
+import { HomeScreen } from "./components/HomeScreen";
 import { ReportScreen } from "./components/ReportScreen";
 import { NextStepScreen } from "./components/NextStepScreen";
 import { useAnalysis } from "./hooks/useAnalysis";
@@ -26,33 +25,42 @@ export default function Home() {
   const topIssues = report ? prioritizeIssues(report.issues).slice(0, 2) : [];
 
   return (
-    <main className="flex flex-1 flex-col items-center px-6 py-16">
-      {/* tabIndex -1 makes this focusable programmatically but not in
-          the Tab order, so the focus move on stage change doesn't add a
-          stop keyboard users have to pass through afterwards. */}
-      <div ref={stageRef} tabIndex={-1} className="w-full max-w-md focus:outline-none">
-        {stage === "idle" && <IdleScreen url={url} onUrlChange={setUrl} onSubmit={handleSubmit} error={error} />}
+    // tabIndex -1 makes this focusable programmatically but not in the
+    // Tab order, so the focus move on stage change doesn't add a stop
+    // keyboard users have to pass through afterwards.
+    <div ref={stageRef} tabIndex={-1} className="flex flex-1 flex-col focus:outline-none">
+      {(stage === "idle" || stage === "analyzing") && (
+        <HomeScreen
+          url={url}
+          onUrlChange={setUrl}
+          onSubmit={handleSubmit}
+          error={error}
+          analyzing={stage === "analyzing"}
+          // Only a run in progress has steps to show: after "Nova análise"
+          // or a failed run, the plan starts over instead of showing the
+          // previous analysis as done.
+          completedSteps={stage === "analyzing" ? completedSteps : []}
+        />
+      )}
 
-        {stage === "analyzing" && <LoadingSequence completedSteps={completedSteps} />}
+      {stage === "report" && report && (
+        <ReportScreen
+          report={report}
+          onNextStep={() => {
+            setManualReview(false);
+            setStage("next-step");
+          }}
+          onManualAnalysis={() => {
+            setManualReview(true);
+            setStage("next-step");
+          }}
+          onNewAnalysis={() => setStage("idle")}
+        />
+      )}
 
-        {stage === "report" && report && (
-          <ReportScreen
-            report={report}
-            onNextStep={() => {
-              setManualReview(false);
-              setStage("next-step");
-            }}
-            onManualAnalysis={() => {
-              setManualReview(true);
-              setStage("next-step");
-            }}
-          />
-        )}
-
-        {stage === "next-step" && report && (
-          <NextStepScreen report={report} topIssues={topIssues} manualReview={manualReview} />
-        )}
-      </div>
-    </main>
+      {stage === "next-step" && report && (
+        <NextStepScreen report={report} topIssues={topIssues} manualReview={manualReview} onBack={() => setStage("report")} />
+      )}
+    </div>
   );
 }

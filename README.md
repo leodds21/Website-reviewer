@@ -37,8 +37,8 @@ Precisa de `PAGESPEED_API_KEY` (Google PageSpeed Insights API) e `NEXT_PUBLIC_FO
 ```
 app/
   api/analyze/route.ts    — rota SSE que orquestra as checagens e a PageSpeed API
-  page.tsx                 — fluxo de 4 estágios: input, analisando, relatório, próximo passo
-  components/               — ScoreRing, CategoryCard, IssueList, LoadingSequence
+  page.tsx                 — fluxo de estágios: início/análise, relatório, próximo passo
+  components/               — HomeScreen + ScanPlan, ReportScreen + ScoreSummary + Findings, NextStepScreen
   i18n/                     — tradução PT/EN, inteira no cliente
 lib/
   checks/                   — cada checagem própria isolada em arquivo

@@ -3,6 +3,7 @@ import type { Severity } from "@/lib/score";
 import type { AnalyzeError, AnalyzeErrorCode } from "@/lib/analyzeError";
 import type { ContactErrorCode } from "@/app/hooks/useContactForm";
 import type { FailureReason } from "@/lib/checkFailure";
+import type { StepKey } from "@/lib/scanSteps";
 
 /**
  * Turns a raw retry delay into something a person would actually say —
@@ -32,11 +33,22 @@ type IssueParams = Record<string, string | number> | undefined;
 
 type Dictionary = {
   documentTitle: string;
-  headline: string[];
+  // Metadata description (layout.tsx); the home screen has its own intro.
   subheadline: string;
+  homeHeadline: string;
+  homeIntro: string;
   analyzeLabel: string;
   urlPlaceholder: string;
   runButton: string;
+  runningButton: string;
+  // The plan of real checks on the home screen, which doubles as live
+  // progress once the analysis runs (components/ScanPlan.tsx).
+  scanPlan: {
+    heading: string;
+    progress: (done: number, total: number) => string;
+    status: Record<"waiting" | "running" | "done", string>;
+    steps: Record<StepKey, { name: string; description: string }>;
+  };
   privacyNote: string;
   privacyLinkLabel: string;
   close: string;
@@ -44,17 +56,7 @@ type Dictionary = {
     title: string;
     sections: { label: string; text: string }[];
   };
-  loadingKicker: string;
-  loadingHeadline: string;
-  loadingSubtitle: string;
-  loadingSteps: {
-    validating: string;
-    performance: string;
-    seo: string;
-    accessibility: string;
-    security: string;
-    finishing: string;
-  };
+  overallScore: string;
   scoreLabelOk: string;
   scoreLabelAttention: string;
   scoreLabelCritical: string;
@@ -80,17 +82,20 @@ type Dictionary = {
   manualHeadline: string;
   manualBody: string;
   manualMessagePrefill: (domain: string) => string;
-  whatWeFound: string;
   // Per-finding disclosure: the recommendation, plus the specific
   // elements when the check knows them (lib/issues.ts `affected`).
   howToFix: string;
+  // Findings grouped by what to do about them (components/Findings.tsx).
+  findingGroups: Record<IssueSeverity, string>;
+  optionalNote: string;
+  showOptional: (count: number) => string;
   affectedHeading: Partial<Record<IssueCode, (count: number) => string>>;
   imageWithoutSource: string;
   moreAffected: (count: number) => string;
-  points: (count: number) => string;
   noIssues: string;
-  showAllPoints: (count: number) => string;
-  showLess: string;
+  newAnalysis: string;
+  reportCta: string;
+  backToReport: string;
   nextStepButton: string;
   // The same next step when the report found nothing to fix: an offer to
   // talk, instead of a "how to fix it" screen with nothing in it.
@@ -148,12 +153,28 @@ type Dictionary = {
 
 const pt: Dictionary = {
   documentTitle: "lsdias.dev, diagnóstico de site",
-  headline: ["Todo site tem", "um ponto fraco."],
   subheadline:
     "A gente encontra o seu em menos de um minuto: performance, SEO, acessibilidade e segurança, tudo junto.",
-  analyzeLabel: "Analisar",
+  homeHeadline: "Descubra o que está atrapalhando o seu site.",
+  homeIntro: "Sete checagens reais rodando ao mesmo tempo. Você acompanha cada uma ao lado.",
+  analyzeLabel: "Endereço do site",
   urlPlaceholder: "seusite.com.br",
   runButton: "Rodar diagnóstico",
+  runningButton: "Analisando…",
+  scanPlan: {
+    heading: "Plano da varredura",
+    progress: (done, total) => `${done} / ${total} concluídas`,
+    status: { waiting: "em espera", running: "verificando", done: "concluída" },
+    steps: {
+      https: { name: "https", description: "Conexão segura e certificado" },
+      securityHeaders: { name: "cabeçalhos", description: "Proteções do servidor" },
+      metaTags: { name: "meta tags", description: "Título, descrição e viewport" },
+      altImages: { name: "imagens", description: "Texto alternativo numa amostra" },
+      sitemapRobots: { name: "sitemap", description: "sitemap.xml e robots.txt" },
+      brokenLinks: { name: "links", description: "Links da home que levam a erro" },
+      pagespeed: { name: "pagespeed", description: "Velocidade e acessibilidade, medidas pelo Google" },
+    },
+  },
   privacyNote: "O relatório fica em cache por até 6 horas e depois é descartado. Alguns serviços técnicos processam os dados nesse meio-tempo.",
   privacyLinkLabel: "Como tratamos seus dados",
   close: "Fechar",
@@ -178,17 +199,7 @@ const pt: Dictionary = {
       },
     ],
   },
-  loadingKicker: "Analisando",
-  loadingHeadline: "Rodando as checagens.",
-  loadingSubtitle: "Isso leva menos de um minuto, e são checagens de verdade rodando, não é decoração.",
-  loadingSteps: {
-    validating: "Validando endereço",
-    performance: "Testando desempenho",
-    seo: "Verificando SEO",
-    accessibility: "Analisando acessibilidade",
-    security: "Conferindo segurança",
-    finishing: "Preparando relatório",
-  },
+  overallScore: "Nota geral",
   scoreLabelOk: "Está bem",
   scoreLabelAttention: "Precisa de atenção",
   scoreLabelCritical: "Tem problemas sérios",
@@ -228,18 +239,20 @@ const pt: Dictionary = {
   manualBody:
     "Como o site bloqueou a análise automática, posso revisar ele direto no navegador e te mandar o que encontrar.",
   manualMessagePrefill: (domain) => `Quero uma análise manual de ${domain}.`,
-  whatWeFound: "O que encontramos",
   howToFix: "Como resolver",
+  findingGroups: { critico: "Resolver primeiro", atencao: "Corrigir depois", sugestao: "Melhorias opcionais" },
+  optionalNote: "não mudam a nota",
+  showOptional: (count) => (count === 1 ? "Ver a melhoria opcional" : `Ver as ${count} melhorias opcionais`),
   affectedHeading: {
     "missing-alt": (count) => (count === 1 ? "A imagem afetada" : `As ${count} imagens afetadas`),
     "broken-links": (count) => (count === 1 ? "O link quebrado" : `Os ${count} links quebrados`),
   },
   imageWithoutSource: "(imagem sem endereço no HTML)",
   moreAffected: (count) => `e mais ${count}`,
-  points: (count) => `${count} ${count === 1 ? "ponto" : "pontos"}`,
   noIssues: "Não encontramos problema nenhum nas checagens que rodamos.",
-  showAllPoints: (count) => `Ver todos os ${count} ${count === 1 ? "ponto" : "pontos"} ↓`,
-  showLess: "Mostrar menos ↑",
+  newAnalysis: "Nova análise",
+  reportCta: "Quer ajuda pra resolver o que apareceu aqui?",
+  backToReport: "Voltar ao relatório",
   nextStepButton: "Ver como corrigir →",
   nextStepButtonClean: "Falar sobre o site →",
   cleanHeadline: "O site passou nas checagens que fizemos.",
@@ -415,11 +428,27 @@ const pt: Dictionary = {
 
 const en: Dictionary = {
   documentTitle: "lsdias.dev, website diagnostics",
-  headline: ["Every site has", "a weak spot."],
   subheadline: "We find yours in under a minute: performance, SEO, accessibility and security, all at once.",
-  analyzeLabel: "Analyze",
+  homeHeadline: "Find out what's holding your site back.",
+  homeIntro: "Seven real checks running at the same time. You can follow each one alongside.",
+  analyzeLabel: "Site address",
   urlPlaceholder: "yoursite.com",
   runButton: "Run diagnosis",
+  runningButton: "Analyzing…",
+  scanPlan: {
+    heading: "Scan plan",
+    progress: (done, total) => `${done} / ${total} done`,
+    status: { waiting: "waiting", running: "checking", done: "done" },
+    steps: {
+      https: { name: "https", description: "Secure connection and certificate" },
+      securityHeaders: { name: "headers", description: "Server protections" },
+      metaTags: { name: "meta tags", description: "Title, description and viewport" },
+      altImages: { name: "images", description: "Alt text on a sample" },
+      sitemapRobots: { name: "sitemap", description: "sitemap.xml and robots.txt" },
+      brokenLinks: { name: "links", description: "Homepage links that lead to errors" },
+      pagespeed: { name: "pagespeed", description: "Speed and accessibility, measured by Google" },
+    },
+  },
   privacyNote: "The report is cached for up to 6 hours and then discarded. Some technical services process the data in the meantime.",
   privacyLinkLabel: "How we handle your data",
   close: "Close",
@@ -444,17 +473,7 @@ const en: Dictionary = {
       },
     ],
   },
-  loadingKicker: "Analyzing",
-  loadingHeadline: "Running the checks.",
-  loadingSubtitle: "This takes under a minute, and these are real checks running, not decoration.",
-  loadingSteps: {
-    validating: "Validating address",
-    performance: "Testing performance",
-    seo: "Checking SEO",
-    accessibility: "Analyzing accessibility",
-    security: "Checking security",
-    finishing: "Preparing report",
-  },
+  overallScore: "Overall score",
   scoreLabelOk: "Looking good",
   scoreLabelAttention: "Needs attention",
   scoreLabelCritical: "Has serious problems",
@@ -493,18 +512,20 @@ const en: Dictionary = {
   manualHeadline: "This site can be looked at up close, without relying on a bot.",
   manualBody: "Since the site blocked the automated analysis, I can review it directly in a browser and send you what I find.",
   manualMessagePrefill: (domain) => `I'd like a manual review of ${domain}.`,
-  whatWeFound: "What we found",
   howToFix: "How to fix it",
+  findingGroups: { critico: "Fix first", atencao: "Fix next", sugestao: "Optional improvements" },
+  optionalNote: "don't affect the score",
+  showOptional: (count) => (count === 1 ? "See the optional improvement" : `See the ${count} optional improvements`),
   affectedHeading: {
     "missing-alt": (count) => (count === 1 ? "The affected image" : `The ${count} affected images`),
     "broken-links": (count) => (count === 1 ? "The broken link" : `The ${count} broken links`),
   },
   imageWithoutSource: "(image with no address in the HTML)",
   moreAffected: (count) => `and ${count} more`,
-  points: (count) => `${count} ${count === 1 ? "point" : "points"}`,
   noIssues: "We didn't find any problems in the checks we ran.",
-  showAllPoints: (count) => `See all ${count} ${count === 1 ? "point" : "points"} ↓`,
-  showLess: "Show less ↑",
+  newAnalysis: "New analysis",
+  reportCta: "Want help fixing what showed up here?",
+  backToReport: "Back to the report",
   nextStepButton: "See how to fix it →",
   nextStepButtonClean: "Talk about the site →",
   cleanHeadline: "The site passed the checks we ran.",
