@@ -49,16 +49,19 @@ function ScoreMeter({ score, severity }: { score: number; severity: Severity }) 
   );
 }
 
-function CategoryRow({ category, result }: { category: CategoryKey; result: CategoryScore }) {
+function CategoryRow({ category, result, loadSeconds }: { category: CategoryKey; result: CategoryScore; loadSeconds?: number }) {
   const { t } = useLanguage();
   // Every category answers something: its score, or why it couldn't be
   // measured ("?? unknown" covers reports cached before reasons existed).
+  // Otherwise, for Performance, the number behind it in plain terms.
   const note =
     result.score === null
       ? (t.unavailableReason[result.reason] ?? t.unavailableReason.unknown)
       : result.partial
         ? t.partialMeasure
-        : null;
+        : loadSeconds !== undefined
+          ? t.loadTime(loadSeconds)
+          : null;
 
   return (
     <li className="border-b border-[var(--color-line)] py-3">
@@ -119,7 +122,12 @@ export function ScoreSummary({ report }: { report: AnalyzeReport }) {
 
       <ul className="flex flex-col border-t border-[var(--color-line)]">
         {CATEGORY_KEYS.map((key) => (
-          <CategoryRow key={key} category={key} result={report.score[key]} />
+          <CategoryRow
+            key={key}
+            category={key}
+            result={report.score[key]}
+            loadSeconds={key === "performance" ? report.loadSeconds : undefined}
+          />
         ))}
       </ul>
 

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { PARTIAL_REPORT, REPORT_WITH_FINDINGS, analyze, mockAnalysis, mockAnalysisError } from "./fixtures";
+import { CLEAN_REPORT, PARTIAL_REPORT, REPORT_WITH_FINDINGS, analyze, mockAnalysis, mockAnalysisError } from "./fixtures";
 
 test.describe("home", () => {
   test("lists the seven real checks before anything runs", async ({ page }) => {
@@ -12,6 +12,15 @@ test.describe("home", () => {
     await expect(plan.getByRole("progressbar", { name: "Progresso" })).toHaveAttribute("aria-valuenow", "0");
     await expect(plan.getByText("0%")).toBeVisible();
   });
+
+  test("keeps the live progress on screen while the checks run, phone included", async ({ page }) => {
+    // Never answered, so the analysis stays running for the assertion.
+    await page.route("**/api/analyze?**", () => {});
+    await analyze(page, "exemplo.com.br");
+
+    await expect(page.getByRole("button", { name: "Analisando…" })).toBeDisabled();
+    await expect(page.getByRole("progressbar", { name: "Progresso" })).toBeInViewport();
+  });
 });
 
 test.describe("report", () => {
@@ -19,10 +28,14 @@ test.describe("report", () => {
     await mockAnalysis(page, REPORT_WITH_FINDINGS);
     await analyze(page, "exemplo.com.br");
 
+    // The finished plan stays up for a moment before the report replaces it.
+    await expect(page.getByRole("status")).toHaveText("7 / 7 concluídas");
     await expect(page.getByRole("heading", { level: 1, name: "Relatório de exemplo.com.br" })).toBeAttached();
+    await expect(page).toHaveTitle(/^56 · exemplo.com.br | /);
     const summary = page.getByRole("complementary", { name: "Nota geral" });
     await expect(summary.getByText("56", { exact: true })).toBeVisible();
     await expect(summary.getByText("2 críticos")).toBeVisible();
+    await expect(summary.getByText("Carrega em 2,4s no celular")).toBeVisible();
 
     await expect(page.getByRole("heading", { level: 2, name: "Resolver primeiro" })).toBeVisible();
     await expect(page.getByRole("heading", { level: 2, name: "Corrigir depois" })).toBeVisible();
@@ -55,6 +68,24 @@ test.describe("report", () => {
     await expect(linksFinding.getByRole("link")).toHaveCount(0);
   });
 
+  test("lists what's working, collapsed under the findings", async ({ page }) => {
+    await mockAnalysis(page, REPORT_WITH_FINDINGS);
+    await analyze(page, "exemplo.com.br");
+
+    const passes = page.getByRole("region", { name: "O que está certo" });
+    await expect(passes.getByText("Carrega rápido no celular")).toBeHidden();
+    await passes.getByText("Ver os 2 pontos que passaram").click();
+    await expect(passes.getByText("Carrega rápido no celular")).toBeVisible();
+  });
+
+  test("opens what's working right away when nothing is wrong", async ({ page }) => {
+    await mockAnalysis(page, CLEAN_REPORT);
+    await analyze(page, "tudocerto.com.br");
+
+    await expect(page.getByText("Não encontramos problema nenhum nas checagens que rodamos.")).toBeVisible();
+    await expect(page.getByText("Conexão segura: o site abre em HTTPS")).toBeVisible();
+  });
+
   test("explains unmeasured categories and offers a manual review for a blocking site", async ({ page }) => {
     await mockAnalysis(page, PARTIAL_REPORT);
     await analyze(page, "bloqueado.com.br");
@@ -75,16 +106,81 @@ test.describe("report", () => {
     await page.getByRole("button", { name: "Ver como corrigir →" }).first().click();
     await expect(page.getByRole("heading", { name: "O que pode ser feito", exact: true })).toBeVisible();
     await expect(page.getByLabel("E-mail")).toBeVisible();
+    await page.getByLabel("Nome").fill("Ana");
+    await page.getByLabel("Mensagem").fill("Quero ajuda com o HTTPS.");
 
     await page.getByRole("button", { name: /Voltar ao relatório/ }).click();
     await expect(page.getByRole("heading", { level: 2, name: "Resolver primeiro" })).toBeVisible();
 
+    // Going back to the report doesn't throw away what was typed.
+    await page.getByRole("button", { name: "Ver como corrigir →" }).first().click();
+    await expect(page.getByLabel("Nome")).toHaveValue("Ana");
+    await expect(page.getByLabel("Mensagem")).toHaveValue("Quero ajuda com o HTTPS.");
+    await page.getByRole("button", { name: /Voltar ao relatório/ }).click();
+
     await page.getByRole("button", { name: "Nova análise" }).click();
     await expect(page.getByLabel("Endereço do site")).toHaveValue("exemplo.com.br");
+    await expect(page).not.toHaveTitle(/exemplo.com.br/);
     // The plan starts over, not showing the previous run as done.
     const plan = page.getByRole("region", { name: /plano da varredura/i });
     await expect(plan.getByRole("status")).toHaveText("0 / 7 concluídas");
     await expect(plan.getByText("em espera")).toHaveCount(7);
+  });
+
+  test("puts the report in the address bar, so it can be shared, reloaded and navigated", async ({ page }) => {
+    await mockAnalysis(page, REPORT_WITH_FINDINGS);
+    await analyze(page, "exemplo.com.br");
+    const reportHeading = page.getByRole("heading", { level: 2, name: "Resolver primeiro" });
+    await expect(reportHeading).toBeVisible();
+    await expect(page).toHaveURL(/[?&]url=exemplo.com.br/);
+    await expect(page).toHaveURL(/[?&]lang=pt/);
+
+    // A reload (or the link opened elsewhere) runs it again and lands on the report.
+    await page.reload();
+    await expect(reportHeading).toBeVisible();
+    await expect(page.getByLabel("Endereço do site")).toHaveCount(0);
+
+    // Back and forward move between the app's screens.
+    await page.getByRole("button", { name: "Ver como corrigir →" }).first().click();
+    await expect(page.getByLabel("E-mail")).toBeVisible();
+    await page.goBack();
+    await expect(reportHeading).toBeVisible();
+    await page.getByRole("button", { name: "Nova análise" }).click();
+    await expect(page).not.toHaveURL(/[?&]url=/);
+    await page.goBack();
+    await expect(reportHeading).toBeVisible();
+    // One entry per screen, even across the reload: one more step back is home.
+    await page.goBack();
+    await expect(page.getByLabel("Endereço do site")).toBeVisible();
+    await expect(page).not.toHaveURL(/[?&]url=/);
+  });
+
+  test("opens a shared report link directly", async ({ page }) => {
+    await mockAnalysis(page, REPORT_WITH_FINDINGS);
+    await page.goto("/?lang=pt&url=exemplo.com.br");
+
+    await expect(page.getByRole("heading", { level: 1, name: "Relatório de exemplo.com.br" })).toBeAttached();
+    await page.getByRole("button", { name: "Nova análise" }).click();
+    await expect(page.getByLabel("Endereço do site")).toHaveValue("exemplo.com.br");
+  });
+
+  test("prints a clean copy, with every section open and no buttons", async ({ page }) => {
+    await mockAnalysis(page, REPORT_WITH_FINDINGS);
+    await analyze(page, "exemplo.com.br");
+    await expect(page.getByRole("button", { name: "Imprimir ou salvar PDF" })).toBeVisible();
+    const optional = page.getByText("Falta o cabeçalho Content-Security-Policy.");
+
+    await page.evaluate(() => window.dispatchEvent(new Event("beforeprint")));
+    await page.emulateMedia({ media: "print" });
+    await expect(page.getByRole("button", { name: "Nova análise" })).toBeHidden();
+    await expect(page.getByRole("button", { name: "Imprimir ou salvar PDF" })).toBeHidden();
+    await expect(page.getByText("Diagnóstico gerado em scan.lsdias.dev")).toBeVisible();
+    await expect(page.getByText("Carrega rápido no celular")).toBeVisible();
+    await expect(optional).toBeVisible();
+
+    await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+    await page.emulateMedia({ media: "screen" });
+    await expect(page.getByText("Carrega rápido no celular")).toBeHidden();
   });
 
   test("never scrolls sideways", async ({ page }) => {

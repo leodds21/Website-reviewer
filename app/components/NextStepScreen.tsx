@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Loader2, Check } from "lucide-react";
 import { AppHeader, Brand, ErrorNote, PageContainer, buttonClass } from "./Chrome";
 import { useLanguage } from "@/app/i18n/LanguageContext";
@@ -30,8 +31,18 @@ export function NextStepScreen({
       : { kicker: t.nextStepKicker, headline: t.nextStepHeadline, body: t.nextStepBody };
   const { contact, setContact, submitting, justSucceeded, succeeded, errorCode, submitContact } = useContactForm({
     domain: report.domain,
-    initialMessage: manualReview ? t.manualMessagePrefill(report.domain) : "",
   });
+
+  // This screen stays mounted (hidden) while the report is open, so the
+  // manual-review request can arrive after the form already exists. The
+  // first time it does, it fills an empty message, never over one the
+  // visitor already wrote. Adjusted during render, React's pattern for
+  // state that follows a prop, rather than in an effect.
+  const [manualPrefilled, setManualPrefilled] = useState(false);
+  if (manualReview && !manualPrefilled) {
+    setManualPrefilled(true);
+    if (!contact.message) setContact({ ...contact, message: t.manualMessagePrefill(report.domain) });
+  }
 
   // One short summary sentence tying the critical findings together,
   // right before the form; null when nothing critical was found.

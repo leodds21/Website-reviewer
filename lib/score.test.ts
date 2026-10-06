@@ -15,6 +15,16 @@ describe("aggregateScore", () => {
     expect(strongSite.overallSeverity).toBe("ok");
   });
 
+  it("scores HTTPS that works without the http redirect as attention, not 0", () => {
+    const noRedirect = aggregateScore({
+      pagespeed: { scores: { performance: 90, accessibility: 95, "best-practices": 100, seo: 88 } },
+      https: { passed: true, finalUrl: "https://x.com/", redirectedFromHttp: false, noHttpRedirect: true },
+    });
+
+    expect(noRedirect.security.score).toBe(75); // média(50, 100)
+    expect(noRedirect.security.severity).toBe("atencao");
+  });
+
   it("drives security straight to 0 when https fails, regardless of everything else", () => {
     const noHttps = aggregateScore({
       pagespeed: { scores: { performance: 90, accessibility: 95, "best-practices": 92, seo: 88 } },

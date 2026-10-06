@@ -13,6 +13,12 @@ export type HttpsCheckResult = {
   // intermediate certificate). Distinct from "no-https": the site
   // does serve TLS, it's just not one a client should trust.
   certificateError?: boolean;
+  // True when plain http:// answered on its own, without redirecting,
+  // while https:// works too: the site has HTTPS, but a visitor who
+  // types the bare address stays on the unencrypted version. Only set
+  // when that was actually observed (never for a request that already
+  // started on https://).
+  noHttpRedirect?: boolean;
   // Present whenever the request actually got a response — lets
   // parseSecurityHeaders (lib/checks/securityHeaders.ts) read HSTS/
   // CSP/frame protections off the same fetch instead of requesting
@@ -55,34 +61,73 @@ async function fetchFinal(url: string, signal?: AbortSignal): Promise<Response> 
   return response;
 }
 
+type HttpsAttempt = { response: Response } | { certificateError: true; url: string } | { unreachable: true; url: string };
+
+/** Asks https:// directly, for when the plain-http request didn't settle the question. */
+async function tryHttps(httpUrl: string, signal?: AbortSignal): Promise<HttpsAttempt> {
+  const httpsUrl = new URL(httpUrl);
+  httpsUrl.protocol = "https:";
+  try {
+    return { response: await fetchFinal(httpsUrl.toString(), signal) };
+  } catch (error) {
+    if (isCertificateError(error)) return { certificateError: true, url: httpsUrl.toString() };
+    if (signal?.aborted) throw error;
+    return { unreachable: true, url: httpsUrl.toString() };
+  }
+}
+
 /**
  * The plain-http request was refused (a firewall answering 403 before
  * any redirect), so it can't tell us whether the site upgrades to
- * HTTPS. Asks https:// directly instead: a response of any status over
- * a trusted connection proves the site serves HTTPS. Without this, a
- * site with HTTPS and HSTS got a critical "no HTTPS" finding.
+ * HTTPS. A response of any status over a trusted https:// connection
+ * proves the site serves HTTPS. Without this, a site with HTTPS and
+ * HSTS got a critical "no HTTPS" finding.
  */
 async function checkHttpsDirectly(httpUrl: string, refusedStatus: number, signal?: AbortSignal): Promise<HttpsCheckResult> {
-  const httpsUrl = new URL(httpUrl);
-  httpsUrl.protocol = "https:";
-
-  let response: Response;
-  try {
-    response = await fetchFinal(httpsUrl.toString(), signal);
-  } catch (error) {
-    if (isCertificateError(error)) {
-      return { passed: false, finalUrl: httpsUrl.toString(), redirectedFromHttp: false, certificateError: true };
-    }
+  const attempt = await tryHttps(httpUrl, signal);
+  if ("certificateError" in attempt) {
+    return { passed: false, finalUrl: attempt.url, redirectedFromHttp: false, certificateError: true };
+  }
+  if ("unreachable" in attempt) {
     // Refused over http and unreachable over https: we genuinely don't
     // know, so no verdict rather than a "no HTTPS" guess.
-    throw new HttpStatusError(refusedStatus, `HTTP recusado (${refusedStatus}) e HTTPS inacessível: ${httpsUrl.host}`);
+    throw new HttpStatusError(refusedStatus, `HTTP recusado (${refusedStatus}) e HTTPS inacessível: ${new URL(attempt.url).host}`);
   }
 
   return {
-    passed: response.url.startsWith("https://"),
-    finalUrl: response.url,
+    passed: attempt.response.url.startsWith("https://"),
+    finalUrl: attempt.response.url,
     redirectedFromHttp: false,
-    headers: response.headers,
+    headers: attempt.response.headers,
+  };
+}
+
+/**
+ * Plain http:// answered normally and stayed unencrypted. That alone
+ * doesn't mean "no HTTPS": many sites serve both and just never
+ * redirect (example.com does). Asking https:// tells the two apart, so
+ * the report says "doesn't redirect" instead of a false critical "no
+ * HTTPS" with security at 0.
+ */
+async function checkHttpsAlongside(httpResponse: Response, signal?: AbortSignal): Promise<HttpsCheckResult> {
+  const attempt = await tryHttps(httpResponse.url, signal);
+  if ("certificateError" in attempt) {
+    return { passed: false, finalUrl: attempt.url, redirectedFromHttp: false, certificateError: true };
+  }
+  // An https:// that answers at all, even with a refusal, still proves
+  // the site serves HTTPS; one that bounces back to http:// doesn't.
+  if ("unreachable" in attempt || !attempt.response.url.startsWith("https://")) {
+    return { passed: false, finalUrl: httpResponse.url, redirectedFromHttp: false, headers: httpResponse.headers };
+  }
+
+  // The secure version's headers, not the plain one's: HSTS and the
+  // other protections only mean anything over https.
+  return {
+    passed: true,
+    finalUrl: attempt.response.url,
+    redirectedFromHttp: false,
+    noHttpRedirect: true,
+    headers: attempt.response.headers,
   };
 }
 
@@ -93,8 +138,10 @@ export async function checkHttps(url: string, signal?: AbortSignal): Promise<Htt
     const response = await fetchFinal(requestedUrl, signal);
     const finalUrl = response.url;
 
-    if (finalUrl.startsWith("http://") && isBotBlockStatus(response.status)) {
-      return await checkHttpsDirectly(finalUrl, response.status, signal);
+    if (finalUrl.startsWith("http://")) {
+      return isBotBlockStatus(response.status)
+        ? await checkHttpsDirectly(finalUrl, response.status, signal)
+        : await checkHttpsAlongside(response, signal);
     }
 
     return {

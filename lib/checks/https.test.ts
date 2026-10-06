@@ -38,13 +38,51 @@ describe("checkHttps", () => {
     await expect(checkHttps("example.com")).rejects.toMatchObject({ name: "HttpStatusError", status: 403 });
   });
 
-  it("still fails a plain-http site that answers normally and never upgrades", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(fakeResponse("http://example.com/", 200));
+  it("still fails a plain-http site whose https:// can't be reached", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(fakeResponse("http://example.com/", 200))
+      .mockRejectedValueOnce(new TypeError("fetch failed"));
 
     const result = await checkHttps("example.com");
 
     expect(result.passed).toBe(false);
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(result.noHttpRedirect).toBeUndefined();
+  });
+
+  it("passes, flagged as not redirecting, when http:// answers on its own but https:// works too", async () => {
+    const secure = fakeResponse("https://example.com/");
+    (secure.headers as Headers).set("strict-transport-security", "max-age=1");
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(fakeResponse("http://example.com/", 200))
+      .mockResolvedValueOnce(secure);
+
+    const result = await checkHttps("example.com");
+
+    expect(result).toMatchObject({ passed: true, noHttpRedirect: true, finalUrl: "https://example.com/" });
+    // The secure version's headers, for the hardening checks.
+    expect(result.headers?.get("strict-transport-security")).toBe("max-age=1");
+  });
+
+  it("still fails when https:// just bounces back to http://", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(fakeResponse("http://example.com/", 200))
+      .mockResolvedValueOnce(fakeResponse("http://example.com/", 200));
+
+    const result = await checkHttps("example.com");
+
+    expect(result.passed).toBe(false);
+  });
+
+  it("reports a broken certificate on the https:// side of a plain-http site", async () => {
+    const error = new Error("fetch failed");
+    (error as { cause?: unknown }).cause = { code: "CERT_HAS_EXPIRED" };
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(fakeResponse("http://example.com/", 200))
+      .mockRejectedValueOnce(error);
+
+    const result = await checkHttps("example.com");
+
+    expect(result).toMatchObject({ passed: false, certificateError: true });
   });
 
   it("passes when the final URL is https", async () => {
@@ -66,7 +104,9 @@ describe("checkHttps", () => {
   });
 
   it("fails when the final URL is still http", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(fakeResponse("http://example.com/"));
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(fakeResponse("http://example.com/"))
+      .mockRejectedValueOnce(new TypeError("fetch failed"));
 
     const result = await checkHttps("http://example.com");
 

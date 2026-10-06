@@ -35,6 +35,30 @@ export const REPORT_WITH_FINDINGS: AnalyzeReport = {
       affected: ["/img/hero.jpg", "", "data:image/png"],
     },
   ],
+  passed: [
+    { category: "seo", code: "title" },
+    { category: "performance", code: "fast-load" },
+  ],
+  loadSeconds: 2.4,
+};
+
+export const CLEAN_REPORT: AnalyzeReport = {
+  domain: "tudocerto.com.br",
+  platform: null,
+  checkedAt: "2026-10-05T12:00:00.000Z",
+  score: {
+    overall: 97,
+    overallSeverity: "ok",
+    performance: { score: 95, severity: "ok", partial: false },
+    seo: { score: 100, severity: "ok", partial: false },
+    accessibility: { score: 96, severity: "ok", partial: false },
+    security: { score: 98, severity: "ok", partial: false },
+  },
+  issues: [],
+  passed: [
+    { category: "security", code: "https" },
+    { category: "seo", code: "sitemap" },
+  ],
 };
 
 export const PARTIAL_REPORT: AnalyzeReport = {
