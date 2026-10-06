@@ -57,7 +57,7 @@ type PageSpeedApiResponse = {
 // import.
 if (!process.env.PAGESPEED_API_KEY && !process.env.VITEST) {
   console.warn(
-    '[lsdias] PAGESPEED_API_KEY não está configurada — toda análise vai reportar Performance (e parte de SEO/Acessibilidade/Segurança) como "não avaliado" até essa variável de ambiente ser definida.',
+    '[lsdias] PAGESPEED_API_KEY não está configurada — toda análise vai reportar Performance (e parte de SEO/Acessibilidade/Segurança) como "não medido" até essa variável de ambiente ser definida.',
   );
 }
 
@@ -141,28 +141,22 @@ export async function runPageSpeed(url: string, signal?: AbortSignal): Promise<P
     return typeof raw === "number" ? Math.round(raw * 100) : undefined;
   };
 
+  const audits = data.lighthouseResult?.audits;
+  // An audit's pass/fail, or undefined when it's missing or didn't
+  // apply to this page (score: null), never a guess either way.
+  const passes = (score: number | null | undefined) => (typeof score === "number" ? score === 1 : undefined);
+  const fails = (score: number | null | undefined) => (typeof score === "number" ? score < 1 : undefined);
+
   // Rounded to one decimal — the raw millisecond figure varies run to
   // run, and a false extra digit of precision doesn't help anyone.
-  const lcpMs = data.lighthouseResult?.audits?.["largest-contentful-paint"]?.numericValue;
+  const lcpMs = audits?.["largest-contentful-paint"]?.numericValue;
   const lcpSeconds = typeof lcpMs === "number" ? Math.round((lcpMs / 1000) * 10) / 10 : undefined;
 
-  const rawCls = data.lighthouseResult?.audits?.["cumulative-layout-shift"]?.numericValue;
+  const rawCls = audits?.["cumulative-layout-shift"]?.numericValue;
   const clsValue = typeof rawCls === "number" ? Math.round(rawCls * 1000) / 1000 : undefined;
 
-  const contrastScore = data.lighthouseResult?.audits?.["color-contrast"]?.score;
-  const hasColorContrastIssues = typeof contrastScore === "number" ? contrastScore < 1 : undefined;
-
-  const rawTtfb = data.lighthouseResult?.audits?.["server-response-time"]?.numericValue;
+  const rawTtfb = audits?.["server-response-time"]?.numericValue;
   const ttfbMs = typeof rawTtfb === "number" ? Math.round(rawTtfb) : undefined;
-
-  const headingOrderScore = data.lighthouseResult?.audits?.["heading-order"]?.score;
-  const hasHeadingOrderIssues = typeof headingOrderScore === "number" ? headingOrderScore < 1 : undefined;
-
-  const formLabelScore = data.lighthouseResult?.audits?.label?.score;
-  const hasFormLabelIssues = typeof formLabelScore === "number" ? formLabelScore < 1 : undefined;
-
-  const audits = data.lighthouseResult?.audits;
-  const passes = (score: number | null | undefined) => (typeof score === "number" ? score === 1 : undefined);
 
   return {
     scores: {
@@ -173,10 +167,10 @@ export async function runPageSpeed(url: string, signal?: AbortSignal): Promise<P
     },
     lcpSeconds,
     clsValue,
-    hasColorContrastIssues,
+    hasColorContrastIssues: fails(audits?.["color-contrast"]?.score),
     ttfbMs,
-    hasHeadingOrderIssues,
-    hasFormLabelIssues,
+    hasHeadingOrderIssues: fails(audits?.["heading-order"]?.score),
+    hasFormLabelIssues: fails(audits?.label?.score),
     hasTitle: passes(audits?.["document-title"]?.score),
     hasDescription: passes(audits?.["meta-description"]?.score),
     hasViewport: passes(audits?.viewport?.score),
