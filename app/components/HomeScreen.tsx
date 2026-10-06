@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { AppHeader, Brand, ErrorNote, PageContainer } from "./Chrome";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { PrivacyPolicyDialog } from "./PrivacyPolicyDialog";
@@ -31,6 +32,19 @@ export function HomeScreen({
   completedSteps: StepKey[];
 }) {
   const { locale, t } = useLanguage();
+  const planRef = useRef<HTMLElement>(null);
+
+  // On a phone the plan sits below the form, out of view: without this,
+  // starting an analysis only changes the button's text and the live
+  // progress happens offscreen. Side by side (desktop) it's already in
+  // view, so nothing moves.
+  useEffect(() => {
+    const plan = planRef.current;
+    if (!analyzing || !plan) return;
+    if (plan.getBoundingClientRect().bottom <= window.innerHeight) return;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    plan.scrollIntoView({ block: "start", behavior: reduceMotion ? "auto" : "smooth" });
+  }, [analyzing]);
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -82,7 +96,7 @@ export function HomeScreen({
           </div>
         </section>
 
-        <ScanPlan running={analyzing} completedSteps={completedSteps} />
+        <ScanPlan ref={planRef} running={analyzing} completedSteps={completedSteps} />
       </PageContainer>
     </div>
   );

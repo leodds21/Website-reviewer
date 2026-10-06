@@ -12,6 +12,15 @@ test.describe("home", () => {
     await expect(plan.getByRole("progressbar", { name: "Progresso" })).toHaveAttribute("aria-valuenow", "0");
     await expect(plan.getByText("0%")).toBeVisible();
   });
+
+  test("keeps the live progress on screen while the checks run, phone included", async ({ page }) => {
+    // Never answered, so the analysis stays running for the assertion.
+    await page.route("**/api/analyze?**", () => {});
+    await analyze(page, "exemplo.com.br");
+
+    await expect(page.getByRole("button", { name: "Analisando…" })).toBeDisabled();
+    await expect(page.getByRole("progressbar", { name: "Progresso" })).toBeInViewport();
+  });
 });
 
 test.describe("report", () => {
