@@ -1,177 +1,87 @@
 @import "tailwindcss";
 
+/* Console theme: a sober near-black ground, flat surfaces separated by
+   hairlines, and one brand blue (lsdias.dev's) carrying the visual
+   weight. Text tones are all checked against --color-bg for >=4.5:1. */
 :root {
-  --color-bg: #f2f2f3;
-  --color-text: #1d1f20;
-  --color-accent: #5980a6;
-  --color-accent-700: #416180;
-  --color-accent-800: #2c455d;
-  --color-accent-900: #1d2d3d;
-  --color-divider: color-mix(in srgb, #1d1f20 16%, transparent);
-  --color-neutral-200: #e7e7ea;
-  --color-neutral-600: #7a7a7d;
-  --color-neutral-700: #5d5d60;
-  /* Reserved for severity indicators (labels, left borders, bars) —
-     never as a fill behind content, never carrying the brand's own
-     visual weight. Desaturated to sit beside the blueprint's muted
-     blues instead of reading as a stoplight palette, and all three
-     checked against --color-bg for >=4.5:1 (WCAG AA for normal text),
-     since each is used as text and not only as a decorative mark. */
-  --color-severity-critico: #a8433f;
-  --color-severity-atencao: #8a6522;
-  --color-severity-ok: #43694e;
+  --color-bg: #0b0d12;
+  --color-surface: #0f1626;
+  --color-field: #111827;
+  --color-line: #1c2536;
+  --color-line-strong: #2a3650;
+  --color-text: #edf4ff;
+  --color-body: #dbe7f5;
+  --color-muted: #aab8ca;
+  --color-subtle: #8193ae;
+  --color-accent: #2b6fe8;
+  --color-accent-hover: #3d7ef0;
+  --color-link: #7fc4ff;
+  --color-label: #68b5ff;
+  /* Reserved for severity: marks, labels and the score meter, never
+     the brand's own weight. Each pairs a mark color with a lighter
+     text tone, so labels stay readable on the dark ground. */
+  --color-severity-critico: #ff8a7a;
+  --color-severity-critico-text: #ffb3a8;
+  --color-severity-atencao: #f2b84b;
+  --color-severity-atencao-text: #f5cd80;
+  --color-severity-ok: #6fd3a8;
+  --color-severity-ok-text: #9fddbf;
+  --color-severity-sugestao: #9fb2cc;
 }
 
+/* Feeds the font-heading / font-body / font-mono utilities. */
 @theme inline {
-  --color-bg: var(--color-bg);
-  --color-text: var(--color-text);
-  --color-accent: var(--color-accent);
-  --color-accent-700: var(--color-accent-700);
-  --color-accent-800: var(--color-accent-800);
-  --color-accent-900: var(--color-accent-900);
-  --color-divider: var(--color-divider);
-  --color-neutral-200: var(--color-neutral-200);
-  --color-neutral-600: var(--color-neutral-600);
-  --color-neutral-700: var(--color-neutral-700);
-  --color-severity-critico: var(--color-severity-critico);
-  --color-severity-atencao: var(--color-severity-atencao);
-  --color-severity-ok: var(--color-severity-ok);
-  --font-heading: var(--font-heading), sans-serif;
-  --font-body: var(--font-body), sans-serif;
+  --font-heading: var(--font-space-grotesk), sans-serif;
+  --font-body: var(--font-manrope), sans-serif;
+  --font-mono: var(--font-jetbrains-mono), monospace;
 }
 
-/* A faint drafting-table grid across the whole canvas, not just inside
-   cards — the blueprint metaphor extends to the ground it sits on.
-   32px squares echo the corner marks' proportions; kept low-contrast
-   enough to read as texture, never competing with content. */
-body {
-  background-color: var(--color-bg);
-  background-image:
-    linear-gradient(color-mix(in srgb, var(--color-text) 5%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, var(--color-text) 5%, transparent) 1px, transparent 1px);
-  background-size: 32px 32px;
-  color: var(--color-text);
-  font-family: var(--font-body), sans-serif;
+/* In the base layer so component utility classes (a heading's own color
+   or weight) always win over these defaults. */
+@layer base {
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-body);
+    font-family: var(--font-manrope), sans-serif;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-space-grotesk), sans-serif;
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  input::placeholder, textarea::placeholder {
+    color: var(--color-subtle);
+  }
 }
 
-h1, h2, h3, h4 {
-  font-family: var(--font-heading), sans-serif;
-  font-weight: 600;
-}
-
-/* Blueprint frame: square corners, hairline border, "+" registration
-   marks — the wireframe aesthetic every card in the mockup wears. */
-.blueprint {
-  position: relative;
-  border: 1px solid var(--color-divider);
-}
-
-.blueprint > .corner {
-  position: absolute;
-  width: 11px;
-  height: 11px;
-  color: color-mix(in srgb, var(--color-text) 55%, transparent);
-}
-.blueprint > .corner::before,
-.blueprint > .corner::after {
-  content: "";
-  position: absolute;
-  background: currentColor;
-}
-.blueprint > .corner::before { left: 5px; top: 0; width: 1px; height: 100%; }
-.blueprint > .corner::after { top: 5px; left: 0; width: 100%; height: 1px; }
-.blueprint > .corner.tl { top: -6px; left: -6px; }
-.blueprint > .corner.tr { top: -6px; right: -6px; }
-.blueprint > .corner.bl { bottom: -6px; left: -6px; }
-.blueprint > .corner.br { bottom: -6px; right: -6px; }
-
-@keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.fade-in-up {
-  animation: fade-in-up 150ms ease-out;
-}
-
-/* Determinate progress: the loading screen knows exactly how many of
-   the 6 real checks have settled, so the bar fills toward that real
-   fraction instead of faking an indeterminate slide with no
-   relationship to actual completion. The fill is a real child element
-   (not a ::after) specifically so the shimmer below can live inside
-   it, clipped to the filled width rather than sweeping the whole
-   track regardless of progress. */
-.progress-track {
-  position: relative;
-  overflow: hidden;
-  background: var(--color-neutral-200);
-}
-.progress-fill {
-  position: relative;
-  height: 100%;
-  overflow: hidden;
-  background: var(--color-accent-700);
-}
-
-/* A soft sheen sweeping across the filled portion — keeps the bar
-   visibly alive even in the moments its width barely changes, the
-   same "still working" signal an indeterminate bar gives, without
-   pretending progress isn't real. Width itself is animated per frame
+/* The progress bar under the scan plan. Its width is animated per frame
    by useSmoothProgress, so it deliberately has no CSS transition. */
-@keyframes shimmer {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(250%); }
-}
-.progress-shimmer {
-  position: absolute;
-  inset: 0;
-  width: 40%;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, white 45%, transparent), transparent);
-  animation: shimmer 1.8s ease-in-out infinite;
+.progress-fill {
+  height: 100%;
+  background: var(--color-accent);
 }
 
-/* Two square rings expand outward from the current step's marker and
-   fade — a "scanning" pulse that reads as active work, not just a dot
-   quietly changing opacity in place. Staggered via animation-delay so
-   a ring is always mid-expansion. */
-@keyframes ping-square {
-  from { transform: scale(1); opacity: 0.7; }
-  to { transform: scale(2.6); opacity: 0; }
+/* "Verificando": a dot that breathes while its check is in flight. */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }
-.ping-ring {
-  position: absolute;
-  inset: 0;
-  border: 1.5px solid var(--color-accent-700);
-  animation: ping-square 1.6s ease-out infinite;
+.pulse-dot {
+  animation: pulse-dot 1.2s ease-in-out infinite;
 }
 
-/* A completed step's marker snaps into place with a small overshoot
-   instead of silently appearing — completion should register as a
-   tactile beat, not a quiet state flip nobody notices. */
-@keyframes pop-in {
-  0% { transform: scale(0.3); opacity: 0; }
-  65% { transform: scale(1.3); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
-}
-.step-done-marker {
-  animation: pop-in 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-/* A visibly stronger ring than the 1px border-color swap used
-   elsewhere — keyboard users need an indicator that survives at a
-   glance, not one that depends on noticing a hairline color change. */
+/* A clearly visible ring: keyboard users need an indicator that
+   survives at a glance on a dark ground. */
 :focus-visible {
-  outline: 2px solid var(--color-accent-700);
+  outline: 2px solid var(--color-link);
   outline-offset: 2px;
 }
 
-/* Clears the UA default so a <dialog> can be styled entirely through
-   .blueprint and our own utility classes.
-   Split in two deliberately: border/padding use the plain element
-   selector so its low specificity always loses to whatever Tailwind
-   utility classes (.blueprint's border, .p-5) a given dialog sets —
-   this only clears the UA default. Positioning needs [open] instead
-   (matching modal dialogs only, when actually shown), and nothing
-   here competes with it, so its slightly higher specificity is fine. */
+/* Clears the UA default so a <dialog> is styled entirely by utility
+   classes. Border/padding use the plain element selector so any utility
+   wins; positioning needs [open], matching modal dialogs only. */
 dialog {
   border: none;
   padding: 0;
@@ -182,7 +92,7 @@ dialog[open] {
   margin: auto;
 }
 dialog::backdrop {
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.6);
 }
 
 @media (prefers-reduced-motion: reduce) {
