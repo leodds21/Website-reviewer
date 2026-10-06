@@ -65,6 +65,12 @@ function averageOf(components: (number | null)[]): number | null {
   return available.length === 0 ? null : average(available);
 }
 
+// The https signal for a site whose secure version works but isn't the
+// default. Alone or averaged with a clean best-practices score it lands
+// in "atencao" (50 to 75): matching the finding's severity, and clearly
+// above the 0 of a site with no HTTPS at all.
+const HTTPS_WITHOUT_REDIRECT_SCORE = 50;
+
 // Which checks each category draws on — what "partial" and the
 // unavailable reason are computed from.
 const CATEGORY_SOURCES = {
@@ -139,12 +145,16 @@ export function aggregateScore(input: Partial<CheckResults>, failures: CheckFail
   // a missing https check makes the whole category indisponivel, not a
   // guess based on best-practices alone. A failed https check is a
   // complete answer on its own, so nothing else missing makes it partial.
+  // HTTPS that works but isn't the default (http:// never redirects)
+  // counts for less than full marks, not for nothing: the secure
+  // version exists, visitors just have to ask for it.
+  const httpsSignal = input.https?.noHttpRedirect ? HTTPS_WITHOUT_REDIRECT_SCORE : 100;
   const security = !input.https
     ? finalize(null, CATEGORY_SOURCES.security, failures)
     : !input.https.passed
       ? finalize(0, [], failures)
       : finalize(
-          averageOf([100, input.pagespeed?.scores["best-practices"] ?? null]),
+          averageOf([httpsSignal, input.pagespeed?.scores["best-practices"] ?? null]),
           CATEGORY_SOURCES.security,
           failures,
         );
