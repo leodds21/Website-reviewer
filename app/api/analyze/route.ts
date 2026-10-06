@@ -289,6 +289,7 @@ export async function GET(request: Request) {
             score,
             issues,
             passed: derivePasses(results),
+            loadSeconds: results.pagespeed?.lcpSeconds,
             platform,
             // Drives the "este site recusa ferramentas automáticas" note
             // and the manual-analysis offer in the report.
