@@ -1,6 +1,6 @@
 import { safeFetch } from "../safeFetch";
 import { LINK_CHECK_TIMEOUT_MS } from "../timeouts";
-import { isBotBlockStatus } from "../httpStatus";
+import { UnreachableError, isBotBlockStatus } from "../httpStatus";
 
 // A conservative cap, not an exhaustive crawl: this fires one request
 // per sampled link, concurrently, against the site being analyzed —
@@ -32,7 +32,9 @@ function extractLinkUrls(html: string, baseUrl: string): string[] {
   for (const match of html.matchAll(HREF_PATTERN)) {
     if (urls.length >= MAX_LINKS_SAMPLED) break;
 
-    const raw = match[1].trim();
+    // Attribute values are HTML: "/busca?a=1&amp;b=2" means "&", and
+    // requesting the literal "&amp;" can 404 a link that works fine.
+    const raw = match[1].trim().replace(/&amp;/gi, "&");
     if (!raw || raw.startsWith("#")) continue;
     if (/^(mailto|tel|javascript):/i.test(raw)) continue;
 
@@ -91,7 +93,7 @@ export async function checkBrokenLinks(html: string, baseUrl: string, signal?: A
   const results = await Promise.all(urls.map((url) => isReachable(url, signal)));
 
   if (urls.length > 0 && results.every((reachable) => reachable === null)) {
-    throw new Error(`Nenhum dos ${urls.length} links amostrados pôde ser verificado.`);
+    throw new UnreachableError(`Nenhum dos ${urls.length} links amostrados pôde ser verificado.`);
   }
 
   const brokenUrls = urls.filter((_, index) => results[index] === false);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { classifyCheckFailure, primaryReason } from "./checkFailure";
-import { HttpStatusError } from "./httpStatus";
+import { HttpStatusError, UnreachableError } from "./httpStatus";
 import { PageSpeedError } from "./pagespeed";
 import { BlockedHostError } from "./safeFetch";
 
@@ -44,7 +44,9 @@ describe("classifyCheckFailure", () => {
 
   it("calls network-level failures unreachable", () => {
     expect(classifyCheckFailure(new TypeError("fetch failed"))).toBe("unreachable");
-    expect(classifyCheckFailure(new Error("Origem inacessível: https://x.com"))).toBe("unreachable");
+    expect(classifyCheckFailure(new UnreachableError("Origem inacessível: https://x.com"))).toBe("unreachable");
+    // By type, not by wording: an unrelated message mentioning it stays unknown.
+    expect(classifyCheckFailure(new Error("cache inacessível"))).toBe("unknown");
     expect(classifyCheckFailure(new BlockedHostError("10.0.0.1"))).toBe("unreachable");
   });
 

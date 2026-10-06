@@ -1,7 +1,7 @@
 import { readTextCapped, safeFetch } from "../safeFetch";
 import { normalizeUrl } from "../url";
 import { CHECK_TIMEOUT_MS } from "../timeouts";
-import { HttpStatusError, isBotBlockStatus } from "../httpStatus";
+import { HttpStatusError, UnreachableError, isBotBlockStatus } from "../httpStatus";
 
 export type SitemapRobotsCheckResult = {
   // null means "we couldn't determine this", never "it's missing" — a
@@ -87,7 +87,7 @@ export async function checkSitemapRobots(url: string, signal?: AbortSignal): Pro
     if (blockedStatus !== undefined) {
       throw new HttpStatusError(blockedStatus, `Origem recusou a checagem: ${origin} respondeu ${blockedStatus}`);
     }
-    throw new Error(`Origem inacessível: ${origin}`);
+    throw new UnreachableError(`Origem inacessível: ${origin}`);
   }
 
   return { hasSitemap: sitemap.found, hasRobotsTxt: robots.found };

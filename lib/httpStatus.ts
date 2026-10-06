@@ -23,3 +23,16 @@ export class HttpStatusError extends Error {
     this.name = "HttpStatusError";
   }
 }
+
+/**
+ * A check that made several requests and got no usable answer from any
+ * of them (sitemap and robots.txt both unreachable, no sampled link
+ * verifiable). Typed so the route reads it as "unreachable" by class,
+ * not by matching words in the message.
+ */
+export class UnreachableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UnreachableError";
+  }
+}
