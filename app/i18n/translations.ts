@@ -46,6 +46,7 @@ type Dictionary = {
   scanPlan: {
     heading: string;
     progress: (done: number, total: number) => string;
+    progressLabel: string;
     status: Record<"waiting" | "running" | "done", string>;
     steps: Record<StepKey, { name: string; description: string }>;
   };
@@ -164,6 +165,7 @@ const pt: Dictionary = {
   scanPlan: {
     heading: "Plano da varredura",
     progress: (done, total) => `${done} / ${total} concluídas`,
+    progressLabel: "Progresso",
     status: { waiting: "em espera", running: "verificando", done: "concluída" },
     steps: {
       https: { name: "https", description: "Conexão segura e certificado" },
@@ -438,6 +440,7 @@ const en: Dictionary = {
   scanPlan: {
     heading: "Scan plan",
     progress: (done, total) => `${done} / ${total} done`,
+    progressLabel: "Progress",
     status: { waiting: "waiting", running: "checking", done: "done" },
     steps: {
       https: { name: "https", description: "Secure connection and certificate" },

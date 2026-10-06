@@ -9,6 +9,8 @@ test.describe("home", () => {
     await expect(plan.getByRole("listitem")).toHaveCount(7);
     await expect(plan.getByText("em espera")).toHaveCount(7);
     await expect(plan.getByRole("status")).toHaveText("0 / 7 concluídas");
+    await expect(plan.getByRole("progressbar", { name: "Progresso" })).toHaveAttribute("aria-valuenow", "0");
+    await expect(plan.getByText("0%")).toBeVisible();
   });
 });
 
