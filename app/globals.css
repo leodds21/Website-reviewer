@@ -131,10 +131,14 @@ dialog::backdrop {
     margin: 14mm;
   }
 
-  /* A finding split across two pages is hard to read on paper. */
+  /* A finding split across two pages is hard to read on paper, and a
+     section heading left alone at the foot of a page reads as nothing. */
   li,
   aside {
     break-inside: avoid;
+  }
+  h2 {
+    break-after: avoid;
   }
 }
 
