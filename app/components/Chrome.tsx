@@ -29,8 +29,8 @@ export const buttonClass = {
 
 /**
  * The <summary> of every collapsible block: link-colored label, no
- * native marker, and a chevron that flips when open. Put it inside a
- * <details className="group">; `className` sets size and spacing.
+ * native marker, and a chevron that flips when open. Put it directly
+ * inside a <details>; `className` sets size and spacing.
  */
 export function ToggleSummary({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
@@ -38,9 +38,24 @@ export function ToggleSummary({ children, className = "" }: { children: React.Re
       className={`cursor-pointer list-none items-center gap-1 text-[var(--color-link)] hover:underline [&::-webkit-details-marker]:hidden ${className}`}
     >
       {children}
-      <span aria-hidden="true" className="inline-block transition-transform group-open:rotate-180">
-        ⌄
-      </span>
+      {/* An SVG, not a "⌄" glyph: the glyph sits low in the line, so
+          flipping it made it jump up. The flip keys off this summary's
+          own <details>, not any open ancestor, so the "Como resolver"
+          toggles inside an open optional list don't start out flipped. */}
+      <svg
+        aria-hidden="true"
+        width="12"
+        height="12"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="shrink-0 transition-transform duration-200 motion-reduce:transition-none [details[open]>summary>&]:rotate-180"
+      >
+        <path d="M6 9l6 6 6-6" />
+      </svg>
     </summary>
   );
 }
