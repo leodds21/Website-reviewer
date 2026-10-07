@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { AppHeader, Brand, PageContainer, buttonClass } from "./Chrome";
 import { Findings } from "./Findings";
 import { Passes } from "./Passes";
+import { TopIssues } from "./TopIssues";
 import { ScoreSummary } from "./ScoreSummary";
 import { useLanguage } from "@/app/i18n/LanguageContext";
 import type { AnalyzeReport } from "@/lib/report";
@@ -114,6 +115,7 @@ export function ReportScreen({
             </div>
           )}
 
+          <TopIssues issues={report.issues} score={report.score} />
           <Findings issues={report.issues} score={report.score} />
           <Passes passes={report.passed ?? []} open={report.issues.length === 0} />
 
