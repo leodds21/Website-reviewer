@@ -7,7 +7,7 @@ import { NextStepScreen } from "./components/NextStepScreen";
 import { useAnalysis } from "./hooks/useAnalysis";
 import { useStageFocus } from "./hooks/useStageFocus";
 import { backToReport, useReportLink } from "./hooks/useReportLink";
-import { prioritizeIssues } from "@/lib/issues";
+import { topIssues } from "@/lib/issues";
 import { useLanguage } from "./i18n/LanguageContext";
 
 export default function Home() {
@@ -56,7 +56,6 @@ export default function Home() {
     run(url);
   }
 
-  const topIssues = report ? prioritizeIssues(report.issues).slice(0, 2) : [];
 
   return (
     // tabIndex -1 makes this focusable programmatically but not in the
@@ -99,7 +98,7 @@ export default function Home() {
             />
           </div>
           <div hidden={stage !== "next-step"} className="flex flex-1 flex-col">
-            <NextStepScreen report={openReport} topIssues={topIssues} manualReview={manualReview} onBack={() => backToReport(setStage)} />
+            <NextStepScreen report={openReport} topIssues={topIssues(openReport.issues, openReport.score)} manualReview={manualReview} onBack={() => backToReport(setStage)} />
           </div>
         </>
       )}

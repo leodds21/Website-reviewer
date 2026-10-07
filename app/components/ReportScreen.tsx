@@ -114,7 +114,7 @@ export function ReportScreen({
             </div>
           )}
 
-          <Findings issues={report.issues} />
+          <Findings issues={report.issues} score={report.score} />
           <Passes passes={report.passed ?? []} open={report.issues.length === 0} />
 
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[var(--color-line)] pt-8 print:hidden">
