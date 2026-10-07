@@ -350,6 +350,22 @@ describe("GET /api/analyze", () => {
     }
   });
 
+  it("answers a report link from the cache, and never starts an analysis for one past it", async () => {
+    const domain = "route-test-cached-only.example";
+    const cachedOnly = (url: string) =>
+      new Request(`http://localhost/api/analyze?url=${encodeURIComponent(url)}&cached=only`, { headers: { "x-forwarded-for": "route-test-cached-only.ip" } });
+    vi.mocked(checkHttps).mockClear();
+
+    const miss = await GET(cachedOnly(domain));
+    expect(miss.status).toBe(404);
+    expect(await miss.json()).toEqual({ code: "not-cached" });
+    expect(checkHttps).not.toHaveBeenCalled();
+
+    await readSseEvents(await GET(requestFor(domain, "route-test-cached-only.ip")));
+    const hit = await GET(cachedOnly(domain));
+    expect((await readSseEvents(hit))[0].event).toBe("done");
+  });
+
   it("keeps two paths on the same host from colliding in the cache", async () => {
     const host = "route-test-path.example";
     const first = await GET(requestFor(`${host}/a`, "route-test-path.ip"));
