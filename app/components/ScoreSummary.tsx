@@ -72,7 +72,12 @@ function ScoreBreakdown({ score, components }: { score: number; components: Scor
 
   if (components.length === 1) {
     const [only] = components;
-    const sentence = t.scoreSingleSource[only.key]?.(only.value) || `${t.scoreSingleMeasurement} ${t.scoreComponent[only.key](only.value)}.`;
+    const sentence =
+      only.key === "google-performance"
+        ? t.scoreFromGoogle(only.value)
+        : only.key === "https" && only.value === 0
+          ? t.securityWithoutHttps
+          : `${t.scoreSingleMeasurement} ${t.scoreComponent[only.key](only.value)}.`;
     return <p className="pb-1 text-xs leading-relaxed text-[var(--color-muted)]">{sentence}</p>;
   }
 
