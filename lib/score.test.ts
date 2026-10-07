@@ -1,5 +1,31 @@
 import { describe, expect, it } from "vitest";
 import { aggregateScore } from "./score";
+import { SCORE_SCENARIOS } from "./scoreScenarios";
+
+// Today's scores for four representative sites, pinned so that making
+// the score explainable can't quietly change a single number.
+describe("score table", () => {
+  const TABLE = {
+    good: { overall: 99, performance: 96, seo: 100, accessibility: 99, security: 100 },
+    average: { overall: 73, performance: 71, seo: 67, accessibility: 88, security: 67 },
+    bad: { overall: 21, performance: 31, seo: 26, accessibility: 28, security: 0 },
+    blocked: { overall: 100, performance: null, seo: null, accessibility: null, security: 100 },
+  };
+
+  for (const [name, expected] of Object.entries(TABLE)) {
+    it(`keeps the ${name} site's scores`, () => {
+      const { input, failures } = SCORE_SCENARIOS[name as keyof typeof SCORE_SCENARIOS];
+      const score = aggregateScore(input, failures);
+      expect({
+        overall: score.overall,
+        performance: score.performance.score,
+        seo: score.seo.score,
+        accessibility: score.accessibility.score,
+        security: score.security.score,
+      }).toEqual(expected);
+    });
+  }
+});
 
 describe("aggregateScore", () => {
   it("blends https + best-practices into security, and lands on severity ok for a strong site", () => {
