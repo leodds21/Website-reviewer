@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { deriveIssues, prioritizeIssues, type Issue } from "./issues";
+import { deriveIssues, rankIssues, topIssues, type Issue } from "./issues";
+import { COMPONENT_ISSUES, aggregateScore, issueScoreImpact } from "./score";
+import { SCORE_SCENARIOS } from "./scoreScenarios";
 
 describe("deriveIssues", () => {
   it("falls back to Lighthouse's audits for the page basics when our own fetch of the page failed", () => {
@@ -412,26 +414,128 @@ describe("deriveIssues — performance consolidation", () => {
   });
 });
 
-describe("prioritizeIssues", () => {
-  const issue = (code: Issue["code"], severity: Issue["severity"]): Issue => ({ category: "seo", severity, code });
+describe("rankIssues and topIssues", () => {
+  const issue = (code: Issue["code"], severity: Issue["severity"], category: Issue["category"] = "seo"): Issue => ({ category, severity, code });
+  // A score with nothing measured: every finding's impact is 0, so the
+  // order falls back to severity and then the original order.
+  const noScore = aggregateScore({});
 
-  it("puts critical first, then attention, then suggestions, keeping the original order within each", () => {
-    const ordered = prioritizeIssues([
-      issue("no-sitemap", "sugestao"),
+  it("has nothing to rank when there are no findings", () => {
+    expect(rankIssues([], noScore)).toEqual([]);
+    expect(topIssues([], noScore)).toEqual([]);
+  });
+
+  it("returns one or two entries when that's all there is, never padding to three", () => {
+    expect(topIssues([issue("no-title", "critico")], noScore).map((i) => i.code)).toEqual(["no-title"]);
+    expect(topIssues([issue("no-title", "critico"), issue("no-description", "atencao")], noScore)).toHaveLength(2);
+  });
+
+  it("keeps three when there are more, across categories", () => {
+    const issues = [
       issue("no-description", "atencao"),
-      issue("no-title", "critico"),
-      issue("generic-title", "atencao"),
-    ]);
+      issue("no-https", "critico", "security"),
+      issue("color-contrast", "atencao", "accessibility"),
+      issue("slow-load-impact", "critico", "performance"),
+      issue("broken-links", "atencao"),
+    ];
+    expect(topIssues(issues, noScore).map((i) => i.code)).toEqual(["no-https", "slow-load-impact", "no-description"]);
+  });
 
-    expect(ordered.map((i) => i.code)).toEqual(["no-title", "no-description", "generic-title", "no-sitemap"]);
+  it("never lets a suggestion fill a slot, and leaves only suggestions out entirely", () => {
+    expect(topIssues([issue("no-sitemap", "sugestao"), issue("no-csp", "sugestao", "security")], noScore)).toEqual([]);
+    expect(topIssues([issue("no-sitemap", "sugestao"), issue("no-description", "atencao")], noScore).map((i) => i.code)).toEqual([
+      "no-description",
+    ]);
+  });
+
+  it("puts a critical finding above an attention one even when the attention one costs more points", () => {
+    // Average site: the missing description costs 25 SEO points, more
+    // than anything critical could here — yet critical still comes first.
+    const { input } = SCORE_SCENARIOS.average;
+    const score = aggregateScore(input);
+    const ranked = rankIssues([issue("no-description", "atencao"), issue("no-viewport", "critico", "accessibility")], score);
+    expect(ranked.map((i) => i.code)).toEqual(["no-viewport", "no-description"]);
+  });
+
+  it("breaks a tie in severity by the points each finding costs", () => {
+    const { input } = SCORE_SCENARIOS.average;
+    const score = aggregateScore(input);
+    const issues = deriveIssues(input);
+    // All attention-level. Points each one takes off its category: slow
+    // load 29 (performance is Google's 71 alone), HTTPS redirect 25 and
+    // description 25 (tied, so deriveIssues' order), alt text 8, broken
+    // links 6, contrast 4, and the generic title nothing.
+    expect(rankIssues(issues, score).filter((i) => i.severity === "atencao").map((i) => i.code)).toEqual([
+      "slow-load-impact",
+      "no-https-redirect",
+      "no-description",
+      "missing-alt",
+      "broken-links",
+      "color-contrast",
+      "generic-title",
+    ]);
+  });
+
+  it("keeps the original order on a full tie, every time", () => {
+    const issues = [issue("generic-title", "atencao"), issue("heading-order", "atencao", "accessibility")];
+    expect(rankIssues(issues, noScore).map((i) => i.code)).toEqual(["generic-title", "heading-order"]);
+    expect(rankIssues(issues, noScore)).toEqual(rankIssues(issues, noScore));
+  });
+
+  it("orders by severity alone for a report cached before scores kept their measurements", () => {
+    const cachedScore = { ...aggregateScore(SCORE_SCENARIOS.average.input) };
+    for (const key of ["performance", "seo", "accessibility", "security"] as const) {
+      const category = cachedScore[key];
+      if (category.score !== null) cachedScore[key] = { score: category.score, severity: category.severity, partial: category.partial };
+    }
+    const issues = deriveIssues(SCORE_SCENARIOS.average.input);
+    const bySeverity = [...issues].sort((a, b) => ["critico", "atencao", "sugestao"].indexOf(a.severity) - ["critico", "atencao", "sugestao"].indexOf(b.severity));
+    expect(rankIssues(issues, cachedScore)).toEqual(bySeverity);
   });
 
   it("doesn't reorder the array it was given", () => {
     const original = [issue("no-sitemap", "sugestao"), issue("no-title", "critico")];
-
-    prioritizeIssues(original);
-
+    rankIssues(original, noScore);
     expect(original[0].code).toBe("no-sitemap");
+  });
+});
+
+// The score explanation and "Corrija primeiro" must describe the same
+// findings: no copy, no second set of rules, no drift between them.
+describe("score explanation and top issues stay coherent", () => {
+  for (const name of ["average", "bad"] as const) {
+    it(`draws the ${name} site's top issues from the report's own findings and measurements`, () => {
+      const { input, failures } = SCORE_SCENARIOS[name];
+      const score = aggregateScore(input, failures);
+      const issues = deriveIssues(input);
+      const top = topIssues(issues, score);
+
+      expect(top.length).toBeGreaterThan(0);
+      for (const entry of top) {
+        // The very same finding object the report lists, not a copy.
+        expect(issues).toContain(entry);
+        // Its impact is exactly its measurement's share of the overall score.
+        const category = score[entry.category];
+        const component = category.score === null ? undefined : category.components?.find((c) => COMPONENT_ISSUES[c.key].includes(entry.code));
+        const scored = [score.performance, score.seo, score.accessibility, score.security].filter((c) => c.score !== null).length;
+        expect(issueScoreImpact(entry, score)).toBe(component ? component.lost / scored : 0);
+      }
+    });
+  }
+
+  it("puts the bad site's missing HTTPS first, the finding that zeroes security", () => {
+    const { input } = SCORE_SCENARIOS.bad;
+    const top = topIssues(deriveIssues(input), aggregateScore(input));
+    expect(top[0].code).toBe("no-https");
+    expect(top.every((entry) => entry.severity === "critico")).toBe(true);
+  });
+
+  it("never turns a check that couldn't run into a top issue", () => {
+    const { input, failures } = SCORE_SCENARIOS.blocked;
+    const issues = deriveIssues(input);
+    // Blocked page, PageSpeed, sitemap and links are failures, not findings.
+    expect(issues.every((entry) => entry.severity === "sugestao")).toBe(true);
+    expect(topIssues(issues, aggregateScore(input, failures))).toEqual([]);
   });
 });
 
