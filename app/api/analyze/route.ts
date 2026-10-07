@@ -162,6 +162,12 @@ export async function GET(request: Request) {
   const cached = await getCached<AnalyzeReport>(cacheKey);
   if (cached) return new Response(sseFrame("done", cached), { headers: SSE_HEADERS });
 
+  // Opening a report link asks for the cached report only: a link alone
+  // (crafted, or just old) must not start a new analysis that spends
+  // PageSpeed quota and the visitor's own rate limit. Past the cache,
+  // the page offers to run it, and only a click does.
+  if (searchParams.get("cached") === "only") return errorResponse({ code: "not-cached" }, 404);
+
   // The leftmost entry in x-forwarded-for is whatever the client
   // itself claims — trivially spoofable with a header. The rightmost
   // entry is the one appended by our own trusted edge (Vercel), so
