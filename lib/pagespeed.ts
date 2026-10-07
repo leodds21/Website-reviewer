@@ -1,23 +1,10 @@
 import { normalizeUrl } from "./url";
+import { PageSpeedError } from "./pageSpeedError";
 import { PAGESPEED_TIMEOUT_MS } from "./timeouts";
 
 const PAGESPEED_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed";
 
-/**
- * Carries the response status alongside the message, so a caller can
- * tell "Google's quota for this key ran out" (429) apart from "the URL
- * we sent was rejected" or "the key itself is bad" (4xx) without
- * re-parsing the message string.
- */
-export class PageSpeedError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-  ) {
-    super(message);
-    this.name = "PageSpeedError";
-  }
-}
+export { PageSpeedError };
 
 // Only the handful of fields this file actually reads out of Google's
 // much larger Lighthouse response — not a full schema.
