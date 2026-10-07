@@ -23,10 +23,23 @@ type StepStatus = "waiting" | "running" | "done";
 
 function StatusMark({ status }: { status: StepStatus }) {
   if (status === "done") {
+    // The ring is lsdias.dev's scanner "ping": it plays once, when the
+    // check lands (this branch mounts at that moment), and never again.
     return (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true" className="text-[var(--color-severity-ok)]">
-        <path d="M5 12.5l4.5 4.5L19 7.5" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
+      <span aria-hidden="true" className="relative inline-flex">
+        <span className="scan-ping" />
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          className="text-[var(--color-severity-ok)]"
+        >
+          <path d="M5 12.5l4.5 4.5L19 7.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </span>
     );
   }
   if (status === "running") {
@@ -40,7 +53,7 @@ function StatusMark({ status }: { status: StepStatus }) {
  * always agree. Shown before a run too ("0%"), so the panel doesn't
  * change height when the analysis starts.
  */
-function ScanProgress({ percent }: { percent: number }) {
+function ScanProgress({ percent, live = false }: { percent: number; live?: boolean }) {
   const { t } = useLanguage();
   // Whole numbers only, and never 100 before the server says it's done.
   const shown = Math.floor(percent);
@@ -59,7 +72,7 @@ function ScanProgress({ percent }: { percent: number }) {
         <span className="font-mono text-sm text-[var(--color-text)] tabular-nums">{shown}%</span>
       </div>
       <div className="h-[3px] overflow-hidden rounded-b-lg bg-[var(--color-line)]">
-        <div className="progress-fill" style={{ width: `${percent}%` }} />
+        <div className={`progress-fill${live ? " is-live" : ""}`} style={{ width: `${percent}%` }} />
       </div>
     </div>
   );
@@ -70,7 +83,7 @@ function ScanProgress({ percent }: { percent: number }) {
 // while nothing is (an idle screen would drift up toward 80%). Mounting
 // it per run also starts every analysis from 0%.
 function LiveScanProgress({ realPercent }: { realPercent: number }) {
-  return <ScanProgress percent={useSmoothProgress(realPercent)} />;
+  return <ScanProgress percent={useSmoothProgress(realPercent)} live />;
 }
 
 /**
@@ -110,28 +123,40 @@ export function ScanPlan({
         </span>
       </div>
 
-      <ol className="flex flex-1 flex-col py-1">
-        {SCAN_STEPS.map((key, index) => {
-          const status: StepStatus = completed.has(key) ? "done" : running ? "running" : "waiting";
-          const step = t.scanPlan.steps[key];
-          return (
-            <li
-              key={key}
-              className="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-0.5 border-b border-[var(--color-line)]/60 px-5 py-3 last:border-b-0 sm:grid-cols-[1.5rem_9rem_minmax(0,1fr)_auto]"
-            >
-              <span className="font-mono text-xs text-[var(--color-subtle)]">{String(index + 1).padStart(2, "0")}</span>
-              <span className="font-mono text-sm text-[var(--color-text)]">{step.name}</span>
-              <span className="col-start-2 row-start-2 text-[13px] text-[var(--color-subtle)] sm:col-start-3 sm:row-start-1">
-                {step.description}
-              </span>
-              <span className="col-start-3 row-start-1 flex items-center justify-end gap-2 font-mono text-xs text-[var(--color-subtle)] sm:col-start-4">
-                <StatusMark status={status} />
-                {t.scanPlan.status[status]}
-              </span>
-            </li>
-          );
-        })}
-      </ol>
+      <div className="relative flex flex-1 flex-col">
+        <ol className="flex flex-1 flex-col py-1">
+          {SCAN_STEPS.map((key, index) => {
+            const status: StepStatus = completed.has(key) ? "done" : running ? "running" : "waiting";
+            const step = t.scanPlan.steps[key];
+            return (
+              <li
+                key={key}
+                className="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-0.5 border-b border-[var(--color-line)]/60 px-5 py-3 last:border-b-0 sm:grid-cols-[1.5rem_9rem_minmax(0,1fr)_auto]"
+              >
+                <span className="font-mono text-xs text-[var(--color-subtle)]">{String(index + 1).padStart(2, "0")}</span>
+                <span className="font-mono text-sm text-[var(--color-text)]">{step.name}</span>
+                <span className="col-start-2 row-start-2 text-[13px] text-[var(--color-subtle)] sm:col-start-3 sm:row-start-1">
+                  {step.description}
+                </span>
+                <span className="col-start-3 row-start-1 flex items-center justify-end gap-2 font-mono text-xs text-[var(--color-subtle)] sm:col-start-4">
+                  <StatusMark status={status} />
+                  {t.scanPlan.status[status]}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+
+        {/* lsdias.dev's scanner, over the list it's checking: a faint
+            grid and a band of light sweeping down it, only while a run
+            is in progress. Decorative; the live region above says the
+            same thing in words. */}
+        {running && (
+          <div aria-hidden="true" className="scan-overlay">
+            <div className="scan-sweep" />
+          </div>
+        )}
+      </div>
 
       {running ? <LiveScanProgress realPercent={realPercent} /> : <ScanProgress percent={0} />}
     </section>
