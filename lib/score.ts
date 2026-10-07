@@ -154,11 +154,12 @@ function finalize(measurements: Measurement[], sources: CheckKey[], failures: Ch
  * number as-is (nothing of ours adds signal there); the others blend
  * Lighthouse with our own checks.
  *
- * Only checks that produce a critico/atencao finding feed the score, so
- * every point lost shows up in the findings list. Suggestion-level ones
- * (sitemap, security hardening headers) are listed but never lower the
- * score, and robots.txt isn't scored at all: without one, crawlers
- * simply index everything, which is fine for most sites.
+ * Of our own checks, only those that produce a critico/atencao finding
+ * feed the score. Suggestion-level ones (sitemap, security hardening
+ * headers) are listed but never lower it, and robots.txt isn't scored
+ * at all: without one, crawlers simply index everything, which is fine
+ * for most sites. Google's own category scores can lose points with no
+ * finding of ours behind them; the kept components make that visible.
  *
  * Every input is optional: a check that failed to run (e.g. every
  * fetch blocked by a broken TLS certificate) contributes nothing
