@@ -11,6 +11,8 @@ test.describe("home", () => {
     await expect(plan.getByRole("status")).toHaveText("0 / 7 concluídas");
     await expect(plan.getByRole("progressbar", { name: "Progresso" })).toHaveAttribute("aria-valuenow", "0");
     await expect(plan.getByText("0%")).toBeVisible();
+    // The scan animation belongs to a run, not to the idle plan.
+    await expect(plan.locator(".scan-overlay")).toHaveCount(0);
   });
 
   test("keeps the live progress on screen while the checks run, phone included", async ({ page }) => {
@@ -20,6 +22,7 @@ test.describe("home", () => {
 
     await expect(page.getByRole("button", { name: "Analisando…" })).toBeDisabled();
     await expect(page.getByRole("progressbar", { name: "Progresso" })).toBeInViewport();
+    await expect(page.locator(".scan-overlay")).toHaveCount(1);
   });
 });
 
