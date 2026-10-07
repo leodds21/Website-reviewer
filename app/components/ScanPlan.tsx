@@ -21,7 +21,10 @@ const TOTAL_WEIGHT = SCAN_STEPS.reduce((sum, key) => sum + STEP_WEIGHT[key], 0);
 
 type StepStatus = "waiting" | "running" | "done";
 
-function StatusMark({ status }: { status: StepStatus }) {
+// How far apart the idle wave reaches each row, top to bottom.
+const IDLE_WAVE_STEP_S = 0.28;
+
+function StatusMark({ status, index }: { status: StepStatus; index: number }) {
   if (status === "done") {
     // The ring is lsdias.dev's scanner "ping": it plays once, when the
     // check lands (this branch mounts at that moment), and never again.
@@ -45,7 +48,15 @@ function StatusMark({ status }: { status: StepStatus }) {
   if (status === "running") {
     return <span aria-hidden="true" className="pulse-dot h-2 w-2 rounded-full bg-[var(--color-link)]" />;
   }
-  return <span aria-hidden="true" className="h-2 w-2 rounded-full border border-[var(--color-line-strong)]" />;
+  // Waiting only exists while nothing runs, so the standby wave stops by
+  // itself when an analysis starts and comes back after it.
+  return (
+    <span
+      aria-hidden="true"
+      className="idle-wave h-2 w-2 rounded-full border border-[var(--color-line-strong)]"
+      style={{ animationDelay: `${index * IDLE_WAVE_STEP_S}s` }}
+    />
+  );
 }
 
 /**
@@ -139,7 +150,7 @@ export function ScanPlan({
                   {step.description}
                 </span>
                 <span className="col-start-3 row-start-1 flex items-center justify-end gap-2 font-mono text-xs text-[var(--color-subtle)] sm:col-start-4">
-                  <StatusMark status={status} />
+                  <StatusMark status={status} index={index} />
                   {t.scanPlan.status[status]}
                 </span>
               </li>
