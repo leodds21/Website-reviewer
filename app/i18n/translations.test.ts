@@ -133,3 +133,13 @@ describe("loadTime", () => {
     expect(DICTIONARIES.pt.loadTime(3)).toBe("Carrega em 3s no celular");
   });
 });
+
+describe("scoreComponent", () => {
+  it("says there was nothing to check instead of a vacuous 100%", () => {
+    expect(DICTIONARIES.pt.scoreComponent["alt-images"](100, 0)).toBe("Nenhuma imagem na página para checar");
+    expect(DICTIONARIES.pt.scoreComponent["alt-images"](75, 12)).toBe("Imagens com texto alternativo: 75%");
+    expect(DICTIONARIES.en.scoreComponent.links(100, 0)).toBe("No home page links to check");
+    // Reports cached before counts existed keep the percentage.
+    expect(DICTIONARIES.pt.scoreComponent.links(100)).toBe("Links da home funcionando: 100%");
+  });
+});

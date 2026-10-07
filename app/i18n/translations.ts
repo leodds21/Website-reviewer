@@ -74,7 +74,8 @@ type Dictionary = {
   scoreBreakdownStart: string;
   scoreBreakdownTotal: string;
   scoreSingleMeasurement: string;
-  scoreComponent: Record<ScoreComponentKey, (value: number) => string>;
+  // count: elements a share was taken over (links, alt-images); 0 = nothing to check.
+  scoreComponent: Record<ScoreComponentKey, (value: number, count?: number) => string>;
   scoreFromGoogle: (value: number) => string;
   securityWithoutHttps: string;
   categories: Record<"performance" | "seo" | "accessibility" | "security", string>;
@@ -248,10 +249,11 @@ const pt: Dictionary = {
     "google-seo": (value) => `Avaliação de SEO do Google: ${value}`,
     title: (value) => (value === 100 ? "Título da página presente" : "Título da página ausente"),
     description: (value) => (value === 100 ? "Meta description presente" : "Meta description ausente"),
-    links: (value) => `Links da home funcionando: ${Math.round(value)}%`,
+    links: (value, count) => (count === 0 ? "Nenhum link na home para checar" : `Links da home funcionando: ${Math.round(value)}%`),
     "google-accessibility": (value) => `Avaliação de acessibilidade do Google: ${value}`,
     viewport: (value) => (value === 100 ? "Ajuste para celular presente" : "Ajuste para celular ausente"),
-    "alt-images": (value) => `Imagens com texto alternativo: ${Math.round(value)}%`,
+    "alt-images": (value, count) =>
+      count === 0 ? "Nenhuma imagem na página para checar" : `Imagens com texto alternativo: ${Math.round(value)}%`,
     https: (value) => (value === 100 ? "HTTPS ativo, com redirecionamento" : value === 0 ? "Sem HTTPS confiável" : "HTTPS sem redirecionamento"),
     "google-best-practices": (value) => `Boas práticas do Google: ${value}`,
   },
@@ -370,6 +372,7 @@ const pt: Dictionary = {
     timeout: () => "O site demorou demais pra responder e desistimos de esperar. Tenta de novo em instantes.",
     offline: () => "Você parece estar sem conexão. Confere sua internet e tenta de novo.",
     unknown: () => "Não conseguimos concluir a análise. Tenta de novo em instantes.",
+    "not-cached": () => "O relatório desse link não está mais guardado. Rode o diagnóstico pra ver o resultado de agora.",
   },
   issue: {
     "no-https": () => ({
@@ -571,10 +574,10 @@ const en: Dictionary = {
     "google-seo": (value) => `Google's SEO score: ${value}`,
     title: (value) => (value === 100 ? "Page title present" : "Page title missing"),
     description: (value) => (value === 100 ? "Meta description present" : "Meta description missing"),
-    links: (value) => `Home page links working: ${Math.round(value)}%`,
+    links: (value, count) => (count === 0 ? "No home page links to check" : `Home page links working: ${Math.round(value)}%`),
     "google-accessibility": (value) => `Google's accessibility score: ${value}`,
     viewport: (value) => (value === 100 ? "Phone screen fit present" : "Phone screen fit missing"),
-    "alt-images": (value) => `Images with alternative text: ${Math.round(value)}%`,
+    "alt-images": (value, count) => (count === 0 ? "No images on the page to check" : `Images with alternative text: ${Math.round(value)}%`),
     https: (value) => (value === 100 ? "HTTPS on, with redirect" : value === 0 ? "No trusted HTTPS" : "HTTPS without redirect"),
     "google-best-practices": (value) => `Google's best practices: ${value}`,
   },
@@ -690,6 +693,7 @@ const en: Dictionary = {
     timeout: () => "The site took too long to respond and we stopped waiting. Try again in a moment.",
     offline: () => "You appear to be offline. Check your connection and try again.",
     unknown: () => "We couldn't finish the analysis. Try again in a moment.",
+    "not-cached": () => "This link's report is no longer stored. Run the diagnosis to see the current result.",
   },
   issue: {
     "no-https": () => ({

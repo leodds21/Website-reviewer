@@ -83,11 +83,18 @@ export function HomeScreen({
             </button>
           </form>
 
-          {error && (
-            // The typed URL stays in the field, so recovering is "fix the
-            // typo and press the button again", not starting over.
-            <ErrorNote>{translateAnalysisError(locale, error)}</ErrorNote>
-          )}
+          {error &&
+            (error.code === "not-cached" ? (
+              // A report link past the cache: nothing went wrong, so a
+              // neutral note, with the address already in the field.
+              <p role="status" className="rounded-lg border border-[var(--color-line)] px-4 py-3 text-sm leading-relaxed text-[var(--color-muted)]">
+                {translateAnalysisError(locale, error)}
+              </p>
+            ) : (
+              // The typed URL stays in the field, so recovering is "fix the
+              // typo and press the button again", not starting over.
+              <ErrorNote>{translateAnalysisError(locale, error)}</ErrorNote>
+            ))}
 
           {/* A div, not a <p>: the privacy link carries its <dialog>,
               which can't live inside a paragraph. */}

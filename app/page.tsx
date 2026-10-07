@@ -27,10 +27,10 @@ export default function Home() {
   const [analyzedUrl, setAnalyzedUrl] = useState("");
 
   const run = useCallback(
-    (site: string) => {
+    (site: string, options?: { cachedOnly?: boolean }) => {
       setUrl(site);
       setAnalyzedUrl(site.trim());
-      startAnalysis(site);
+      startAnalysis(site, options);
     },
     [startAnalysis],
   );
