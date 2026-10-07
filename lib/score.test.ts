@@ -240,3 +240,65 @@ describe("aggregateScore", () => {
     expect(result.seo.score).toBe(60);
   });
 });
+
+describe("score explanation (components)", () => {
+  const categories = ["performance", "seo", "accessibility", "security"] as const;
+
+  for (const [name, { input, failures }] of Object.entries(SCORE_SCENARIOS)) {
+    it(`explains every ${name} score with the measurements it was averaged from`, () => {
+      const score = aggregateScore(input, failures);
+      for (const key of categories) {
+        const category = score[key];
+        if (category.score === null) continue;
+        const components = category.components ?? [];
+        const values = components.map((component) => component.value);
+        // The score is the average of exactly these measurements…
+        expect(Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)).toBe(category.score);
+        // …and what they took off adds up to exactly what's missing from 100.
+        expect(components.reduce((sum, component) => sum + component.lost, 0)).toBe(100 - category.score);
+        for (const component of components) {
+          expect(Number.isInteger(component.lost)).toBe(true);
+          expect(component.lost).toBeGreaterThanOrEqual(0);
+          // Each shown loss is within a point of the exact share.
+          expect(Math.abs(component.lost - (100 - component.value) / components.length)).toBeLessThan(1);
+        }
+      }
+    });
+  }
+
+  it("spells out the average site's SEO: description missing costs the most", () => {
+    const { seo } = aggregateScore(SCORE_SCENARIOS.average.input);
+    expect(seo.score === null ? [] : seo.components).toEqual([
+      { key: "google-seo", value: 92, lost: 2 },
+      { key: "title", value: 100, lost: 0 },
+      { key: "description", value: 0, lost: 25 },
+      { key: "links", value: 75, lost: 6 },
+    ]);
+  });
+
+  it("closes the sum when a three-way average doesn't divide evenly", () => {
+    const { accessibility } = aggregateScore({
+      pagespeed: { scores: { accessibility: 90 } },
+      metaTags: { hasViewport: false, hasTitle: true, title: "X", hasDescription: true, description: "d" },
+      altImages: { sampledCount: 3, missingAltCount: 1, missingAltSrcs: ["a"] },
+    });
+    // (90 + 0 + 66.67) / 3 = 52.2 → 52; exact losses 3.33 + 33.33 + 11.11 = 47.8 → 48.
+    expect(accessibility.score).toBe(52);
+    const components = accessibility.score === null ? [] : (accessibility.components ?? []);
+    expect(components.map((component) => component.lost)).toEqual([3, 34, 11]);
+  });
+
+  it("explains a site without HTTPS with that one measurement, at 0", () => {
+    const { security } = aggregateScore(SCORE_SCENARIOS.bad.input);
+    expect(security.score === null ? [] : security.components).toEqual([{ key: "https", value: 0, lost: 100 }]);
+  });
+
+  it("has nothing to explain for a category that couldn't be measured", () => {
+    const { performance } = aggregateScore(SCORE_SCENARIOS.blocked.input, SCORE_SCENARIOS.blocked.failures);
+    expect(performance).toEqual({ score: null, severity: "indisponivel", reason: "blocked" });
+  });
+
+  it("gives the same explanation for the same results", () => {
+    expect(aggregateScore(SCORE_SCENARIOS.average.input)).toEqual(aggregateScore(SCORE_SCENARIOS.average.input));
+  });
+});
