@@ -12,5 +12,6 @@ export default defineConfig({
     // one opt in per-file via a `// @vitest-environment jsdom` comment.
     environment: "node",
     include: ["**/*.test.ts", "**/*.test.tsx"],
+    setupFiles: ["./vitest.setup.ts"],
   },
 });
