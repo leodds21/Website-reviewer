@@ -63,6 +63,78 @@
   background: var(--color-accent);
 }
 
+/* While a run is going the bar's leading edge glows, so it reads as
+   live rather than as a static fill. */
+.progress-fill.is-live {
+  box-shadow: 0 0 10px 1px rgb(127 196 255 / 0.55);
+}
+
+/* The scan over the plan's list, after lsdias.dev's scanner visual:
+   same blue, same grid step, same sweep curve and pacing. Only mounted
+   while a run is in progress. */
+.scan-overlay {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgb(79 163 255 / 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(79 163 255 / 0.07) 1px, transparent 1px);
+  background-size: 24px 24px;
+  animation: scan-fade-in 0.6s ease-out both;
+}
+
+/* As tall as the list, with the band drawn on its bottom edge: moving
+   the whole element from -100% to 0 carries the band from the top of
+   the list to the bottom with a transform alone, so it stays smooth.
+   With reduced motion, the rule at the end of this file collapses the
+   sweep and the ping to their last frame, where both are invisible:
+   what's left is the still grid. */
+.scan-sweep {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: screen;
+  animation: scan-sweep 4.2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+.scan-sweep::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -32px;
+  height: 64px;
+  background:
+    linear-gradient(to bottom, transparent calc(50% - 0.5px), rgb(190 225 255 / 0.7) calc(50% - 0.5px), rgb(190 225 255 / 0.7) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+    linear-gradient(to bottom, rgb(127 196 255 / 0), rgb(127 196 255 / 0.22) 50%, rgb(127 196 255 / 0));
+}
+
+@keyframes scan-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scan-sweep {
+  0% { opacity: 0; transform: translateY(-100%); }
+  10% { opacity: 1; }
+  62% { opacity: 1; }
+  72% { opacity: 0; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(0); }
+}
+
+/* The radar ping when a check lands: a ring that grows and fades, once. */
+.scan-ping {
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  border: 1.5px solid var(--color-severity-ok);
+  animation: scan-ping 0.9s ease-out both;
+}
+
+@keyframes scan-ping {
+  0% { opacity: 0.8; transform: scale(0.3); }
+  100% { opacity: 0; transform: scale(2.2); }
+}
+
 /* "Verificando": a dot that breathes while its check is in flight. */
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
