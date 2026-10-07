@@ -5,6 +5,7 @@ import type { ContactErrorCode } from "@/app/hooks/useContactForm";
 import type { FailureReason } from "@/lib/checkFailure";
 import type { StepKey } from "@/lib/scanSteps";
 import type { PassCode } from "@/lib/passes";
+import type { ScoreComponentKey } from "@/lib/score";
 
 /**
  * Turns a raw retry delay into something a person would actually say —
@@ -67,6 +68,14 @@ type Dictionary = {
   issueSummary: (counts: Record<IssueSeverity, number>) => string[];
   scoreExplanationToggle: string;
   scoreExplanation: string;
+  overallArithmetic: (scores: number[], exact: number, overall: number) => string;
+  scoreBreakdownToggle: string;
+  scoreBreakdownIntro: (measurements: number) => string;
+  scoreBreakdownStart: string;
+  scoreBreakdownTotal: string;
+  scoreSingleMeasurement: string;
+  scoreComponent: Record<ScoreComponentKey, (value: number) => string>;
+  scoreSingleSource: Partial<Record<ScoreComponentKey, (value: number) => string>>;
   categories: Record<"performance" | "seo" | "accessibility" | "security", string>;
   // Category states and finding severities share one label set.
   severity: Record<Severity | IssueSeverity, string>;
@@ -90,6 +99,11 @@ type Dictionary = {
   howToFix: string;
   // Findings grouped by what to do about them (components/Findings.tsx).
   findingGroups: Record<IssueSeverity, string>;
+  topIssuesHeading: string;
+  topIssuesNone: string;
+  // Only critical and attention findings reach "Corrija primeiro".
+  impactLabel: Record<Exclude<IssueSeverity, "sugestao">, string>;
+  viewDetails: string;
   optionalNote: string;
   showOptional: (count: number) => string;
   affectedHeading: Partial<Record<IssueCode, (count: number) => string>>;
@@ -220,7 +234,30 @@ const pt: Dictionary = {
     ].filter((part): part is string => Boolean(part)),
   scoreExplanationToggle: "Como calculamos esta nota",
   scoreExplanation:
-    "A nota geral é a média simples das quatro categorias, sem nenhuma valer mais que a outra. Cada categoria junta a medição do Google com as nossas checagens, e só os pontos marcados como crítico ou atenção tiram nota: sugestões aparecem na lista, mas não mudam o número. Uma categoria \"não medido\" fica fora da conta e mostra o motivo; nesse caso, a nota geral avisa em quantas categorias se baseia. \"Medido em parte\" quer dizer que algumas checagens daquela categoria não conseguiram rodar.",
+    "A nota geral é a média simples das categorias, sem nenhuma valer mais que a outra. Cada categoria, por sua vez, é a média das medições dela: as notas do Google e as nossas checagens. Em \"Entenda esta nota\", cada categoria mostra quanto cada medição tirou. Sugestões aparecem na lista, mas não mudam o número. Uma categoria \"não medido\" fica fora da conta e mostra o motivo. \"Medido em parte\" quer dizer que algumas checagens daquela categoria não conseguiram rodar.",
+  overallArithmetic: (scores, exact, overall) =>
+    `(${scores.join(" + ")}) ÷ ${scores.length} = ${exact.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}${exact === overall ? "" : ` → ${overall}`}`,
+  scoreBreakdownToggle: "Entenda esta nota",
+  scoreBreakdownIntro: (measurements) => `Média de ${measurements} medições: cada uma vale 1/${measurements} da nota.`,
+  scoreBreakdownStart: "Partindo de",
+  scoreBreakdownTotal: "Nota",
+  scoreSingleMeasurement: "Só uma medição entrou nesta nota:",
+  scoreComponent: {
+    "google-performance": (value) => `Nota de desempenho do Google: ${value}`,
+    "google-seo": (value) => `Avaliação de SEO do Google: ${value}`,
+    title: (value) => (value === 100 ? "Título da página presente" : "Título da página ausente"),
+    description: (value) => (value === 100 ? "Meta description presente" : "Meta description ausente"),
+    links: (value) => `Links da home funcionando: ${Math.round(value)}%`,
+    "google-accessibility": (value) => `Avaliação de acessibilidade do Google: ${value}`,
+    viewport: (value) => (value === 100 ? "Ajuste para celular presente" : "Ajuste para celular ausente"),
+    "alt-images": (value) => `Imagens com texto alternativo: ${Math.round(value)}%`,
+    https: (value) => (value === 100 ? "HTTPS ativo, com redirecionamento" : value === 0 ? "Sem HTTPS confiável" : "HTTPS sem redirecionamento"),
+    "google-best-practices": (value) => `Boas práticas do Google: ${value}`,
+  },
+  scoreSingleSource: {
+    "google-performance": (value) => `Vem direto do Google PageSpeed, medido como celular: ${value}.`,
+    https: (value) => (value === 0 ? "Sem HTTPS confiável, a segurança fica em 0, independente do resto." : ""),
+  },
   categories: {
     performance: "Performance",
     seo: "SEO",
@@ -251,7 +288,11 @@ const pt: Dictionary = {
     "Como o site bloqueou a análise automática, posso revisar ele direto no navegador e te mandar o que encontrar.",
   manualMessagePrefill: (domain) => `Quero uma análise manual de ${domain}.`,
   howToFix: "Como resolver",
-  findingGroups: { critico: "Resolver primeiro", atencao: "Corrigir depois", sugestao: "Melhorias opcionais" },
+  findingGroups: { critico: "Críticos", atencao: "Atenção", sugestao: "Melhorias opcionais" },
+  topIssuesHeading: "Corrija primeiro",
+  topIssuesNone: "Nenhum problema prioritário. Só melhorias opcionais abaixo.",
+  impactLabel: { critico: "Alto impacto", atencao: "Médio impacto" },
+  viewDetails: "Ver detalhes",
   optionalNote: "não mudam a nota",
   showOptional: (count) => (count === 1 ? "Ver a melhoria opcional" : `Ver as ${count} melhorias opcionais`),
   affectedHeading: {
@@ -518,7 +559,30 @@ const en: Dictionary = {
     ].filter((part): part is string => Boolean(part)),
   scoreExplanationToggle: "How we calculate this score",
   scoreExplanation:
-    "The overall score is a simple average of the four categories, none weighted more than another. Each category combines Google's measurement with our own checks, and only findings marked critical or attention cost points: suggestions show up in the list but don't change the number. A category marked \"not measured\" is left out and shows the reason; when that happens, the overall score says how many categories it's based on. \"Partly measured\" means some of that category's checks couldn't run.",
+    "The overall score is a simple average of the categories, none weighted more than another. Each category is in turn the average of its measurements: Google's scores and our own checks. Under \"Understand this score\", each category shows how much each measurement took off. Suggestions show up in the list but don't change the number. A category marked \"not measured\" is left out and shows the reason. \"Partly measured\" means some of that category's checks couldn't run.",
+  overallArithmetic: (scores, exact, overall) =>
+    `(${scores.join(" + ")}) ÷ ${scores.length} = ${exact.toLocaleString("en-US", { maximumFractionDigits: 2 })}${exact === overall ? "" : ` → ${overall}`}`,
+  scoreBreakdownToggle: "Understand this score",
+  scoreBreakdownIntro: (measurements) => `Average of ${measurements} measurements: each is worth 1/${measurements} of the score.`,
+  scoreBreakdownStart: "Starting from",
+  scoreBreakdownTotal: "Score",
+  scoreSingleMeasurement: "Only one measurement went into this score:",
+  scoreComponent: {
+    "google-performance": (value) => `Google's performance score: ${value}`,
+    "google-seo": (value) => `Google's SEO score: ${value}`,
+    title: (value) => (value === 100 ? "Page title present" : "Page title missing"),
+    description: (value) => (value === 100 ? "Meta description present" : "Meta description missing"),
+    links: (value) => `Home page links working: ${Math.round(value)}%`,
+    "google-accessibility": (value) => `Google's accessibility score: ${value}`,
+    viewport: (value) => (value === 100 ? "Phone screen fit present" : "Phone screen fit missing"),
+    "alt-images": (value) => `Images with alternative text: ${Math.round(value)}%`,
+    https: (value) => (value === 100 ? "HTTPS on, with redirect" : value === 0 ? "No trusted HTTPS" : "HTTPS without redirect"),
+    "google-best-practices": (value) => `Google's best practices: ${value}`,
+  },
+  scoreSingleSource: {
+    "google-performance": (value) => `Straight from Google PageSpeed, measured as a phone: ${value}.`,
+    https: (value) => (value === 0 ? "Without trusted HTTPS, security stays at 0 regardless of anything else." : ""),
+  },
   categories: {
     performance: "Performance",
     seo: "SEO",
@@ -547,7 +611,11 @@ const en: Dictionary = {
   manualBody: "Since the site blocked the automated analysis, I can review it directly in a browser and send you what I find.",
   manualMessagePrefill: (domain) => `I'd like a manual review of ${domain}.`,
   howToFix: "How to fix it",
-  findingGroups: { critico: "Fix first", atencao: "Fix next", sugestao: "Optional improvements" },
+  findingGroups: { critico: "Critical", atencao: "Needs attention", sugestao: "Optional improvements" },
+  topIssuesHeading: "Fix these first",
+  topIssuesNone: "Nothing urgent: only optional improvements below.",
+  impactLabel: { critico: "High impact", atencao: "Medium impact" },
+  viewDetails: "View details",
   optionalNote: "don't affect the score",
   showOptional: (count) => (count === 1 ? "See the optional improvement" : `See the ${count} optional improvements`),
   affectedHeading: {
