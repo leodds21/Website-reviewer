@@ -272,7 +272,7 @@ describe("score explanation (components)", () => {
       { key: "google-seo", value: 92, lost: 2 },
       { key: "title", value: 100, lost: 0 },
       { key: "description", value: 0, lost: 25 },
-      { key: "links", value: 75, lost: 6 },
+      { key: "links", value: 75, lost: 6, count: 8 },
     ]);
   });
 
@@ -286,6 +286,17 @@ describe("score explanation (components)", () => {
     expect(accessibility.score).toBe(52);
     const components = accessibility.score === null ? [] : (accessibility.components ?? []);
     expect(components.map((component) => component.lost)).toEqual([3, 34, 11]);
+  });
+
+  it("says how many elements a share was taken over, 0 when there was nothing to check", () => {
+    const { seo, accessibility } = aggregateScore({
+      altImages: { sampledCount: 0, missingAltCount: 0, missingAltSrcs: [] },
+      brokenLinks: { checkedCount: 0, brokenCount: 0, brokenUrls: [] },
+    });
+    // Still scored as clean, as before; the count is what lets the
+    // breakdown say "nothing to check" instead of "100%".
+    expect(seo.score === null ? [] : seo.components).toEqual([{ key: "links", value: 100, lost: 0, count: 0 }]);
+    expect(accessibility.score === null ? [] : accessibility.components).toEqual([{ key: "alt-images", value: 100, lost: 0, count: 0 }]);
   });
 
   it("explains a site without HTTPS with that one measurement, at 0", () => {

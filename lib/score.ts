@@ -25,7 +25,16 @@ export type ScoreComponentKey =
  * (100 - value) / N points off a perfect 100. `lost` is that, rounded
  * so a category's losses add up to exactly 100 minus its score.
  */
-export type ScoreComponent = { key: ScoreComponentKey; value: number; lost: number };
+export type ScoreComponent = {
+  key: ScoreComponentKey;
+  value: number;
+  lost: number;
+  // For the share-of-elements measurements (alt-images, links): how
+  // many elements it was taken over. 0 means there was nothing to check
+  // (scored as clean, see altImagesScore), which the breakdown must say
+  // instead of a misleading "100% of images".
+  count?: number;
+};
 
 // A category always carries an answer: a score (flagged partial when
 // some of its sources failed, so the UI can say "medido em parte"), or
@@ -123,7 +132,7 @@ function pointsLost(values: number[], score: number): number[] {
   return lost;
 }
 
-type Measurement = { key: ScoreComponentKey; value: number | null };
+type Measurement = { key: ScoreComponentKey; value: number | null; count?: number };
 
 // A category is the plain average of the measurements that ran, and
 // those same measurements are kept as its explanation, so the score and
@@ -133,7 +142,7 @@ type Measurement = { key: ScoreComponentKey; value: number | null };
 // skip a single category), hence "measurement-failed".
 function finalize(measurements: Measurement[], sources: CheckKey[], failures: CheckFailures): CategoryScore {
   const reasons = sources.map((key) => failures[key]);
-  const taken = measurements.filter((measurement): measurement is { key: ScoreComponentKey; value: number } => measurement.value !== null);
+  const taken = measurements.filter((measurement): measurement is Measurement & { value: number } => measurement.value !== null);
   if (taken.length === 0) {
     return { score: null, severity: "indisponivel", reason: primaryReason(reasons) ?? "measurement-failed" };
   }
@@ -185,7 +194,7 @@ export function aggregateScore(input: Partial<CheckResults>, failures: CheckFail
       { key: "google-seo", value: input.pagespeed?.scores.seo ?? null },
       { key: "title", value: booleanSignal(input.metaTags ? input.metaTags.hasTitle : lighthouse?.hasTitle) },
       { key: "description", value: booleanSignal(input.metaTags ? input.metaTags.hasDescription : lighthouse?.hasDescription) },
-      { key: "links", value: input.brokenLinks ? brokenLinksScore(input.brokenLinks) : null },
+      { key: "links", value: input.brokenLinks ? brokenLinksScore(input.brokenLinks) : null, count: input.brokenLinks?.checkedCount },
     ],
     CATEGORY_SOURCES.seo,
     failures,
@@ -199,7 +208,7 @@ export function aggregateScore(input: Partial<CheckResults>, failures: CheckFail
       // one undescribed image would count as a flat 0 (our own sample is
       // proportional), and Lighthouse's accessibility score above already
       // accounts for it. It still produces the finding (lib/issues.ts).
-      { key: "alt-images", value: input.altImages ? altImagesScore(input.altImages) : null },
+      { key: "alt-images", value: input.altImages ? altImagesScore(input.altImages) : null, count: input.altImages?.sampledCount },
     ],
     CATEGORY_SOURCES.accessibility,
     failures,
