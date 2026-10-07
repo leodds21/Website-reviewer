@@ -67,7 +67,11 @@ function CriticalFinding({ issue }: { issue: Issue }) {
   const { t } = useLanguage();
   const { title, description, recommendation } = useIssueText(issue);
   return (
-    <li className="flex flex-col gap-3.5 rounded-lg border border-[var(--color-severity-critico)]/25 bg-[var(--color-severity-critico)]/[0.04] p-5 sm:p-6">
+    <li
+      id={`finding-${issue.code}`}
+      tabIndex={-1}
+      className="flex scroll-mt-6 flex-col gap-3.5 rounded-lg border border-[var(--color-severity-critico)]/25 bg-[var(--color-severity-critico)]/[0.04] p-5 sm:p-6"
+    >
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h3 className="text-xl tracking-[-0.01em]">{title}</h3>
         <span className="font-mono text-[11px] tracking-[0.14em] text-[var(--color-subtle)] uppercase">{t.categories[issue.category]}</span>
@@ -88,7 +92,11 @@ function FindingRow({ issue }: { issue: Issue }) {
   const { t } = useLanguage();
   const { title, description, recommendation } = useIssueText(issue);
   return (
-    <li className="flex flex-col gap-1 border-b border-[var(--color-line)] px-5 pt-4 pb-2 last:border-b-0 sm:px-6">
+    <li
+      id={`finding-${issue.code}`}
+      tabIndex={-1}
+      className="flex scroll-mt-6 flex-col gap-1 border-b border-[var(--color-line)] px-5 pt-4 pb-2 last:border-b-0 sm:px-6"
+    >
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h3 className="text-base font-semibold">{title}</h3>
         <span className="font-mono text-[11px] tracking-[0.14em] text-[var(--color-subtle)] uppercase">{t.categories[issue.category]}</span>
@@ -118,9 +126,10 @@ function GroupHeading({ id, severity, count }: { id: string; severity: IssueSeve
 }
 
 /**
- * Findings grouped by what to do about them, most urgent first:
- * "resolver primeiro" (critical), "corrigir depois" (attention), and
- * optional improvements, collapsed since they never cost points.
+ * Every finding, grouped by severity, most urgent first: critical,
+ * attention, and optional improvements, collapsed since they never cost
+ * points. Within a group, the report's one ranking (rankIssues), so
+ * the order matches "Corrija primeiro" above.
  */
 export function Findings({ issues, score }: { issues: Issue[]; score: AggregatedScore }) {
   const { t } = useLanguage();
