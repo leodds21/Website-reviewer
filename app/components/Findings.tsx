@@ -4,7 +4,8 @@ import { ToggleSummary } from "./Chrome";
 import { SeverityMark } from "./SeverityMark";
 import { useLanguage } from "@/app/i18n/LanguageContext";
 import { translateIssue, translateRecommendation } from "@/app/i18n/translations";
-import { prioritizeIssues, type Issue, type IssueSeverity } from "@/lib/issues";
+import { rankIssues, type Issue, type IssueSeverity } from "@/lib/issues";
+import type { AggregatedScore } from "@/lib/score";
 
 // Enough to locate the problem; the checks themselves sample at most
 // 20 images and 10 links.
@@ -121,14 +122,14 @@ function GroupHeading({ id, severity, count }: { id: string; severity: IssueSeve
  * "resolver primeiro" (critical), "corrigir depois" (attention), and
  * optional improvements, collapsed since they never cost points.
  */
-export function Findings({ issues }: { issues: Issue[] }) {
+export function Findings({ issues, score }: { issues: Issue[]; score: AggregatedScore }) {
   const { t } = useLanguage();
 
   if (issues.length === 0) {
     return <p className="rounded-lg border border-[var(--color-line)] p-6 text-[15px] text-[var(--color-muted)]">{t.noIssues}</p>;
   }
 
-  const ordered = prioritizeIssues(issues);
+  const ordered = rankIssues(issues, score);
   const groups = GROUP_ORDER.map((severity) => ({ severity, items: ordered.filter((issue) => issue.severity === severity) })).filter(
     (group) => group.items.length > 0,
   );

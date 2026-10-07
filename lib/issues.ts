@@ -1,4 +1,5 @@
 import type { CheckResults } from "./checkResults";
+import { issueScoreImpact, type AggregatedScore } from "./score";
 
 export type IssueCategory = "performance" | "seo" | "accessibility" | "security";
 /**
@@ -14,13 +15,37 @@ export type IssueSeverity = "critico" | "atencao" | "sugestao";
 const SEVERITY_RANK: Record<IssueSeverity, number> = { critico: 0, atencao: 1, sugestao: 2 };
 
 /**
- * Most important first: severity, then the order deriveIssues found
- * them in (Array.prototype.sort is stable). The single ordering both the
- * report and the next-step screen use, so "top issues" means the same
- * thing everywhere.
+ * Most important first, one ordering for the whole report: severity
+ * always comes first (a critical finding is never outranked by a
+ * cheaper-to-ignore one, whatever it costs in points), then the points
+ * of the overall score it accounts for (issueScoreImpact), then the
+ * order deriveIssues found them in, so equal cases always come out the
+ * same way. Each finding is one entry however many elements it covers:
+ * deriveIssues already groups them.
+ *
+ * Only real findings about the site can be ranked: a check that failed
+ * to run is a FailureReason on its category, never an Issue, and
+ * what's working lives in `passed`.
  */
-export function prioritizeIssues(issues: Issue[]): Issue[] {
-  return [...issues].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
+export function rankIssues(issues: Issue[], score: AggregatedScore): Issue[] {
+  return issues
+    .map((issue, order) => ({ issue, order, impact: issueScoreImpact(issue, score) }))
+    .sort((a, b) => SEVERITY_RANK[a.issue.severity] - SEVERITY_RANK[b.issue.severity] || b.impact - a.impact || a.order - b.order)
+    .map(({ issue }) => issue);
+}
+
+const TOP_ISSUES = 3;
+
+/**
+ * "Corrija primeiro": the first of the ranked findings that actually
+ * need fixing. Suggestions never cost points and are optional by
+ * definition, so they never fill a slot; fewer than three real
+ * problems means fewer than three entries.
+ */
+export function topIssues(issues: Issue[], score: AggregatedScore): Issue[] {
+  return rankIssues(issues, score)
+    .filter((issue) => issue.severity !== "sugestao")
+    .slice(0, TOP_ISSUES);
 }
 
 export type IssueCode =
