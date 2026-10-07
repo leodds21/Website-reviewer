@@ -75,7 +75,8 @@ type Dictionary = {
   scoreBreakdownTotal: string;
   scoreSingleMeasurement: string;
   scoreComponent: Record<ScoreComponentKey, (value: number) => string>;
-  scoreSingleSource: Partial<Record<ScoreComponentKey, (value: number) => string>>;
+  scoreFromGoogle: (value: number) => string;
+  securityWithoutHttps: string;
   categories: Record<"performance" | "seo" | "accessibility" | "security", string>;
   // Category states and finding severities share one label set.
   severity: Record<Severity | IssueSeverity, string>;
@@ -254,10 +255,8 @@ const pt: Dictionary = {
     https: (value) => (value === 100 ? "HTTPS ativo, com redirecionamento" : value === 0 ? "Sem HTTPS confiável" : "HTTPS sem redirecionamento"),
     "google-best-practices": (value) => `Boas práticas do Google: ${value}`,
   },
-  scoreSingleSource: {
-    "google-performance": (value) => `Vem direto do Google PageSpeed, medido como celular: ${value}.`,
-    https: (value) => (value === 0 ? "Sem HTTPS confiável, a segurança fica em 0, independente do resto." : ""),
-  },
+  scoreFromGoogle: (value) => `Vem direto do Google PageSpeed, medido como celular: ${value}.`,
+  securityWithoutHttps: "Sem HTTPS confiável, a segurança fica em 0, independente do resto.",
   categories: {
     performance: "Performance",
     seo: "SEO",
@@ -579,10 +578,8 @@ const en: Dictionary = {
     https: (value) => (value === 100 ? "HTTPS on, with redirect" : value === 0 ? "No trusted HTTPS" : "HTTPS without redirect"),
     "google-best-practices": (value) => `Google's best practices: ${value}`,
   },
-  scoreSingleSource: {
-    "google-performance": (value) => `Straight from Google PageSpeed, measured as a phone: ${value}.`,
-    https: (value) => (value === 0 ? "Without trusted HTTPS, security stays at 0 regardless of anything else." : ""),
-  },
+  scoreFromGoogle: (value) => `Straight from Google PageSpeed, measured as a phone: ${value}.`,
+  securityWithoutHttps: "Without trusted HTTPS, security stays at 0 regardless of anything else.",
   categories: {
     performance: "Performance",
     seo: "SEO",
