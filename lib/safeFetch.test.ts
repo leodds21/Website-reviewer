@@ -1,8 +1,38 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { lookup as lookupCallback } from "node:dns";
 import { lookup } from "node:dns/promises";
-import { BlockedHostError, isBlockedHost, readTextCapped, safeFetch } from "./safeFetch";
+import { BlockedHostError, guardedLookup, isBlockedHost, readTextCapped, safeFetch } from "./safeFetch";
 
 vi.mock("node:dns/promises", () => ({ lookup: vi.fn() }));
+vi.mock("node:dns", () => ({ lookup: vi.fn() }));
+
+// What the connection-time lookup resolves, in node:dns's callback shape.
+function resolvesTo(...addresses: string[]) {
+  vi.mocked(lookupCallback).mockImplementation(((_host: string, _options: unknown, callback: (error: null, list: unknown) => void) =>
+    callback(null, addresses.map((address) => ({ address, family: 4 })))) as unknown as typeof lookupCallback);
+}
+
+describe("guardedLookup (the address the connection actually uses)", () => {
+  it("refuses a private address at connect time, even if the earlier check saw a public one (DNS rebinding)", async () => {
+    resolvesTo("169.254.169.254");
+    const result = await new Promise<{ error: unknown }>((resolve) => guardedLookup("rebind.example", { all: false }, (error) => resolve({ error })));
+    expect(result.error).toBeInstanceOf(BlockedHostError);
+  });
+
+  it("hands public addresses to the connection, in the shape it asked for", async () => {
+    resolvesTo("93.184.216.34", "93.184.216.35");
+    const single = await new Promise<unknown[]>((resolve) => guardedLookup("example.com", { all: false }, (...args) => resolve(args)));
+    expect(single).toEqual([null, "93.184.216.34", 4]);
+    const all = await new Promise<unknown[]>((resolve) => guardedLookup("example.com", { all: true }, (...args) => resolve(args)));
+    expect(all[1]).toHaveLength(2);
+  });
+
+  it("refuses the whole host if any of its addresses is private", async () => {
+    resolvesTo("93.184.216.34", "10.0.0.5");
+    const result = await new Promise<{ error: unknown }>((resolve) => guardedLookup("mixed.example", { all: true }, (error) => resolve({ error })));
+    expect(result.error).toBeInstanceOf(BlockedHostError);
+  });
+});
 
 // dns.promises.lookup is overloaded (single address vs array vs family
 // variants), which trips up vi.mocked()'s inferred call signature — this

@@ -1,6 +1,30 @@
 import { expect, test, type Page } from "@playwright/test";
 import { CLEAN_REPORT, PARTIAL_REPORT, REPORT_WITH_FINDINGS, analyze, mockAnalysis, mockAnalysisError } from "./fixtures";
 
+test.describe("security policy", () => {
+  test("runs the page on a per-request script nonce, with nothing blocked", async ({ page }) => {
+    const violations: string[] = [];
+    page.on("console", (message) => {
+      if (/Content Security Policy/i.test(message.text())) violations.push(message.text());
+    });
+
+    const first = await page.goto("/?lang=pt");
+    const csp = first!.headers()["content-security-policy"];
+    const scriptSrc = csp.split(";").find((directive) => directive.trim().startsWith("script-src"))!;
+    expect(scriptSrc).toMatch(/'nonce-[^']+' 'strict-dynamic'/);
+    expect(scriptSrc).not.toContain("unsafe-inline");
+
+    // A fresh nonce on every view.
+    const second = await page.goto("/?lang=pt");
+    expect(second!.headers()["content-security-policy"]).not.toBe(csp);
+
+    // The page still hydrates and works under it.
+    await page.getByLabel("Endereço do site").fill("exemplo.com.br");
+    await expect(page.getByRole("button", { name: /Rodar diagnóstico/ })).toBeEnabled();
+    expect(violations).toEqual([]);
+  });
+});
+
 test.describe("home", () => {
   test("lists the seven real checks before anything runs", async ({ page }) => {
     await page.goto("/?lang=pt");
@@ -229,6 +253,28 @@ test.describe("report", () => {
     await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
     await page.emulateMedia({ media: "screen" });
     await expect(page.getByText("Carrega rápido no celular")).toBeHidden();
+  });
+
+  test("offers to run a link whose report is no longer cached, instead of running it", async ({ page }) => {
+    let analyses = 0;
+    // Routes registered later win, so the general mock goes first.
+    await mockAnalysis(page, REPORT_WITH_FINDINGS);
+    await page.route("**/api/analyze?**", (route) => {
+      if (new URL(route.request().url()).searchParams.get("cached") === "only") {
+        return route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ code: "not-cached" }) });
+      }
+      analyses++;
+      return route.fallback();
+    });
+    await page.goto("/?lang=pt&url=exemplo.com.br");
+
+    await expect(page.getByText("O relatório desse link não está mais guardado.", { exact: false })).toBeVisible();
+    await expect(page.getByLabel("Endereço do site")).toHaveValue("exemplo.com.br");
+    expect(analyses).toBe(0);
+
+    await page.getByRole("button", { name: /Rodar diagnóstico/ }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Relatório de exemplo.com.br" })).toBeAttached();
+    expect(analyses).toBe(1);
   });
 
   test("never scrolls sideways", async ({ page }) => {

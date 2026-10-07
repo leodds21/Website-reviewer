@@ -1,5 +1,5 @@
 import { HttpStatusError, UnreachableError, isBotBlockStatus } from "./httpStatus";
-import { PageSpeedError } from "./pagespeed";
+import { PageSpeedError } from "./pageSpeedError";
 
 /**
  * Why a check couldn't produce a result, in terms the report can turn
