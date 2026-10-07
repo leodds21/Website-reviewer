@@ -11,10 +11,31 @@ export const REPORT_WITH_FINDINGS: AnalyzeReport = {
   score: {
     overall: 56,
     overallSeverity: "atencao",
-    performance: { score: 100, severity: "ok", partial: false },
-    seo: { score: 66, severity: "atencao", partial: false },
-    accessibility: { score: 58, severity: "atencao", partial: false },
-    security: { score: 0, severity: "critico", partial: false },
+    // The measurements are the ones that average to these scores, with
+    // losses rounded the way lib/score.ts rounds them.
+    performance: { score: 100, severity: "ok", partial: false, components: [{ key: "google-performance", value: 100, lost: 0 }] },
+    seo: {
+      score: 66,
+      severity: "atencao",
+      partial: false,
+      components: [
+        { key: "google-seo", value: 89, lost: 3 },
+        { key: "title", value: 100, lost: 0 },
+        { key: "description", value: 0, lost: 25 },
+        { key: "links", value: 75, lost: 6 },
+      ],
+    },
+    accessibility: {
+      score: 58,
+      severity: "atencao",
+      partial: false,
+      components: [
+        { key: "google-accessibility", value: 49, lost: 17 },
+        { key: "viewport", value: 100, lost: 0 },
+        { key: "alt-images", value: 25, lost: 25 },
+      ],
+    },
+    security: { score: 0, severity: "critico", partial: false, components: [{ key: "https", value: 0, lost: 100 }] },
   },
   issues: [
     { category: "security", severity: "critico", code: "no-https" },
