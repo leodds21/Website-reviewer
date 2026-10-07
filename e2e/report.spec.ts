@@ -36,14 +36,14 @@ test.describe("report", () => {
     // The finished plan stays up for a moment before the report replaces it.
     await expect(page.getByRole("status")).toHaveText("7 / 7 concluídas");
     await expect(page.getByRole("heading", { level: 1, name: "Relatório de exemplo.com.br" })).toBeAttached();
-    await expect(page).toHaveTitle(/^56 · exemplo.com.br | /);
+    await expect(page).toHaveTitle("56 · exemplo.com.br | lsdias.dev, diagnóstico de site");
     const summary = page.getByRole("complementary", { name: "Nota geral" });
     await expect(summary.getByText("56", { exact: true })).toBeVisible();
     await expect(summary.getByText("2 críticos")).toBeVisible();
     await expect(summary.getByText("Carrega em 2,4s no celular")).toBeVisible();
 
-    await expect(page.getByRole("heading", { level: 2, name: "Resolver primeiro" })).toBeVisible();
-    await expect(page.getByRole("heading", { level: 2, name: "Corrigir depois" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Críticos" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Atenção" })).toBeVisible();
     await expect(page.getByRole("heading", { level: 3, name: "O site não é servido em HTTPS." })).toBeVisible();
 
     // Suggestions never cost points, so they wait behind one toggle.
@@ -51,6 +51,49 @@ test.describe("report", () => {
     await expect(optional.getByRole("heading", { level: 3 })).toBeHidden();
     await optional.getByText("Ver a melhoria opcional").click();
     await expect(optional.getByRole("heading", { level: 3, name: /Content-Security-Policy/ })).toBeVisible();
+  });
+
+  test("starts with what to fix first, each item leading to its full finding", async ({ page }) => {
+    await mockAnalysis(page, REPORT_WITH_FINDINGS);
+    await analyze(page, "exemplo.com.br");
+
+    const top = page.getByRole("region", { name: "Corrija primeiro" });
+    const items = top.getByRole("listitem");
+    // Critical first (HTTPS zeroes security, then the alt text), then the
+    // attention finding costing the most points; never the suggestion.
+    await expect(items).toHaveCount(3);
+    await expect(items.nth(0)).toContainText("O site não é servido em HTTPS.");
+    await expect(items.nth(0)).toContainText("Alto impacto");
+    await expect(items.nth(1)).toContainText("3 de 4 imagens");
+    await expect(items.nth(2)).toContainText("Falta a meta description.");
+    await expect(items.nth(2)).toContainText("Médio impacto");
+
+    await items.nth(2).getByRole("button", { name: /Ver detalhes/ }).click();
+    const finding = page.locator("#finding-no-description");
+    await expect(finding).toBeFocused();
+    await expect(finding).toBeInViewport();
+  });
+
+  test("explains each category's score from the measurements it was averaged from", async ({ page }) => {
+    await mockAnalysis(page, REPORT_WITH_FINDINGS);
+    await analyze(page, "exemplo.com.br");
+    const summary = page.getByRole("complementary", { name: "Nota geral" });
+
+    const seo = summary.getByRole("listitem").filter({ hasText: "SEO" });
+    await seo.getByText("Entenda esta nota").click();
+    await expect(seo.getByText("Média de 4 medições: cada uma vale 1/4 da nota.")).toBeVisible();
+    // From 100, what each measurement took off, most first: 100 − 25 − 6 − 3 − 0 = 66.
+    const lines = seo.locator("dl > div");
+    await expect(lines).toHaveText([/Partindo de\s*100/, /Meta description ausente\s*−25/, /Links da home funcionando: 75%\s*−6/, /Avaliação de SEO do Google: 89\s*−3/, /Título da página presente\s*0/, /Nota\s*66/]);
+
+    // A score straight from one source says so instead of a made-up subtraction.
+    const security = summary.getByRole("listitem").filter({ hasText: "Segurança" });
+    await security.getByText("Entenda esta nota").click();
+    await expect(security.getByText("Sem HTTPS confiável, a segurança fica em 0, independente do resto.")).toBeVisible();
+
+    // The overall score's own arithmetic.
+    await summary.getByText("Como calculamos esta nota").click();
+    await expect(summary.getByText("(100 + 66 + 58 + 0) ÷ 4 = 56")).toBeVisible();
   });
 
   test("shows how to fix each finding and which elements it's about, as plain text", async ({ page }) => {
@@ -115,7 +158,7 @@ test.describe("report", () => {
     await page.getByLabel("Mensagem").fill("Quero ajuda com o HTTPS.");
 
     await page.getByRole("button", { name: /Voltar ao relatório/ }).click();
-    await expect(page.getByRole("heading", { level: 2, name: "Resolver primeiro" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Críticos" })).toBeVisible();
 
     // Going back to the report doesn't throw away what was typed.
     await page.getByRole("button", { name: "Ver como corrigir →" }).first().click();
@@ -125,7 +168,7 @@ test.describe("report", () => {
 
     await page.getByRole("button", { name: "Nova análise" }).click();
     await expect(page.getByLabel("Endereço do site")).toHaveValue("exemplo.com.br");
-    await expect(page).not.toHaveTitle(/exemplo.com.br/);
+    await expect(page).toHaveTitle("lsdias.dev, diagnóstico de site");
     // The plan starts over, not showing the previous run as done.
     const plan = page.getByRole("region", { name: /plano da varredura/i });
     await expect(plan.getByRole("status")).toHaveText("0 / 7 concluídas");
@@ -135,9 +178,9 @@ test.describe("report", () => {
   test("puts the report in the address bar, so it can be shared, reloaded and navigated", async ({ page }) => {
     await mockAnalysis(page, REPORT_WITH_FINDINGS);
     await analyze(page, "exemplo.com.br");
-    const reportHeading = page.getByRole("heading", { level: 2, name: "Resolver primeiro" });
+    const reportHeading = page.getByRole("heading", { level: 2, name: "Críticos" });
     await expect(reportHeading).toBeVisible();
-    await expect(page).toHaveURL(/[?&]url=exemplo.com.br/);
+    await expect(page).toHaveURL(/[?&]url=exemplo\.com\.br(&|$)/);
     await expect(page).toHaveURL(/[?&]lang=pt/);
 
     // A reload (or the link opened elsewhere) runs it again and lands on the report.
@@ -193,6 +236,7 @@ test.describe("report", () => {
     await analyze(page, "exemplo.com.br");
     await page.getByText("Ver a melhoria opcional").click();
     for (const toggle of await page.getByText("Como resolver", { exact: true }).all()) await toggle.click();
+    for (const toggle of await page.getByText("Entenda esta nota", { exact: true }).all()) await toggle.click();
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow).toBeLessThanOrEqual(0);

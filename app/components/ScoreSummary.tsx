@@ -7,7 +7,7 @@ import { useLanguage } from "@/app/i18n/LanguageContext";
 import type { CategoryKey } from "@/app/i18n/translations";
 import type { AnalyzeReport } from "@/lib/report";
 import type { IssueSeverity } from "@/lib/issues";
-import type { CategoryScore, Severity } from "@/lib/score";
+import type { CategoryScore, ScoreComponent, Severity } from "@/lib/score";
 
 const CATEGORY_KEYS: CategoryKey[] = ["performance", "seo", "accessibility", "security"];
 
@@ -49,6 +49,53 @@ function ScoreMeter({ score, severity }: { score: number; severity: Severity }) 
   );
 }
 
+/** One line of a breakdown: a label that wraps, its number kept to the right. Never a table, so it reads at 320px. */
+function BreakdownLine({ label, value, total = false }: { label: string; value: string; total?: boolean }) {
+  return (
+    <div
+      className={`flex items-baseline justify-between gap-3 py-1.5 ${total ? "font-semibold text-[var(--color-text)]" : "border-b border-[var(--color-line)]/70"}`}
+    >
+      <dt className="min-w-0">{label}</dt>
+      <dd className="shrink-0 font-mono tabular-nums">{value}</dd>
+    </div>
+  );
+}
+
+/**
+ * Why a category got its score, from the measurements it was actually
+ * averaged from (lib/score.ts): from 100, what each one took off, most
+ * first. A score that comes from a single measurement says where it
+ * comes from instead of dressing it up as 100-minus-something.
+ */
+function ScoreBreakdown({ score, components }: { score: number; components: ScoreComponent[] }) {
+  const { t } = useLanguage();
+
+  if (components.length === 1) {
+    const [only] = components;
+    const sentence = t.scoreSingleSource[only.key]?.(only.value) || `${t.scoreSingleMeasurement} ${t.scoreComponent[only.key](only.value)}.`;
+    return <p className="pb-1 text-xs leading-relaxed text-[var(--color-muted)]">{sentence}</p>;
+  }
+
+  // Array sort is stable: equal losses keep the measurements' own order.
+  const byLoss = [...components].sort((a, b) => b.lost - a.lost);
+  return (
+    <div className="flex flex-col gap-1.5 pb-1 text-xs text-[var(--color-muted)]">
+      <p className="leading-relaxed">{t.scoreBreakdownIntro(components.length)}</p>
+      <dl className="flex flex-col">
+        <BreakdownLine label={t.scoreBreakdownStart} value="100" />
+        {byLoss.map((component) => (
+          <BreakdownLine
+            key={component.key}
+            label={t.scoreComponent[component.key](component.value)}
+            value={component.lost > 0 ? `−${component.lost}` : "0"}
+          />
+        ))}
+        <BreakdownLine label={t.scoreBreakdownTotal} value={String(score)} total />
+      </dl>
+    </div>
+  );
+}
+
 function CategoryRow({ category, result, loadSeconds }: { category: CategoryKey; result: CategoryScore; loadSeconds?: number }) {
   const { t } = useLanguage();
   // Every category answers something: its score, or why it couldn't be
@@ -76,13 +123,21 @@ function CategoryRow({ category, result, loadSeconds }: { category: CategoryKey;
         </span>
       </div>
       {note && <p className="mt-1 pl-[18px] text-xs leading-snug text-[var(--color-subtle)]">{note}</p>}
+      {/* Reports cached before categories kept their measurements have nothing to break down. */}
+      {result.score !== null && result.components && (
+        <details className="pl-[18px]">
+          <ToggleSummary className="inline-flex min-h-10 text-xs">{t.scoreBreakdownToggle}</ToggleSummary>
+          <ScoreBreakdown score={result.score} components={result.components} />
+        </details>
+      )}
     </li>
   );
 }
 
 export function ScoreSummary({ report }: { report: AnalyzeReport }) {
   const { t } = useLanguage();
-  const measured = CATEGORY_KEYS.filter((key) => report.score[key].score !== null).length;
+  const measuredScores = CATEGORY_KEYS.map((key) => report.score[key].score).filter((score): score is number => score !== null);
+  const measured = measuredScores.length;
 
   const counts: Record<IssueSeverity, number> = { critico: 0, atencao: 0, sugestao: 0 };
   for (const issue of report.issues) counts[issue.severity]++;
@@ -134,6 +189,13 @@ export function ScoreSummary({ report }: { report: AnalyzeReport }) {
       <details>
         <ToggleSummary className="flex min-h-11 text-[13px]">{t.scoreExplanationToggle}</ToggleSummary>
         <p className="mt-1 text-[13px] leading-relaxed text-[var(--color-muted)]">{t.scoreExplanation}</p>
+        {/* The overall score's own arithmetic: the plain average of the
+            category scores above, the same one lib/score.ts takes. */}
+        {measured > 1 && (
+          <p className="mt-2 font-mono text-xs text-[var(--color-body)]">
+            {t.overallArithmetic(measuredScores, measuredScores.reduce((sum, score) => sum + score, 0) / measured, overall)}
+          </p>
+        )}
       </details>
     </aside>
   );
