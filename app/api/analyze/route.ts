@@ -130,6 +130,9 @@ async function* settleInOrder<T extends Record<string, Promise<unknown>>>(
 }
 
 export async function GET(request: Request) {
+  // When the platform stops this function (maxDuration), with a few
+  // seconds kept for scoring, caching and closing the stream.
+  const deadline = Date.now() + (maxDuration - 5) * 1000;
   const { searchParams } = new URL(request.url);
   const rawUrl = (searchParams.get("url") ?? "").trim();
 
@@ -224,18 +227,46 @@ export async function GET(request: Request) {
         // since its whole job is testing whether a plain-http request
         // gets upgraded — feeding it an already-https URL made "site
         // doesn't serve HTTPS at all" nearly unreachable as a finding.
-        const pageFetch = fetchHtml(target, abortController.signal);
+        const httpsCheck = checkHttps(rawUrl, abortController.signal);
+
+        // Every other check goes to https:// first. A site that only
+        // serves plain HTTP refuses that, which used to leave its whole
+        // report at the security score alone (overall 0). So a check that
+        // fails retries over http:// once the https check confirms there
+        // is no usable HTTPS: the site's other problems still get found,
+        // and the missing HTTPS is still its own critical finding.
+        const httpTarget = new URL(target);
+        httpTarget.protocol = "http:";
+        async function withHttpFallback<T>(run: (url: string) => Promise<T>): Promise<T> {
+          try {
+            return await run(target);
+          } catch (error) {
+            const https = await httpsCheck.catch(() => null);
+            if (!https || https.passed || abortController.signal.aborted) throw error;
+            return run(httpTarget.toString());
+          }
+        }
+
+        const pageFetch = withHttpFallback(async (url) => ({ url, html: await fetchHtml(url, abortController.signal) }));
 
         const tasks = {
-          https: checkHttps(rawUrl, abortController.signal),
+          https: httpsCheck,
           page: pageFetch,
-          sitemapRobots: checkSitemapRobots(target, abortController.signal),
-          pagespeed: runPageSpeed(target, abortController.signal),
+          sitemapRobots: withHttpFallback((url) => checkSitemapRobots(url, abortController.signal)),
+          // A retry can't wait PageSpeed's full time a second time: it gets
+          // whatever is left before the platform cuts the function off.
+          pagespeed: withHttpFallback((url) =>
+            runPageSpeed(
+              url,
+              url === target ? abortController.signal : AbortSignal.any([abortController.signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))]),
+            ),
+          ),
           // Waits on the same fetch page/metaTags/altImages already use
           // (see the "page" outcome below) instead of fetching the page a
           // second time — only the up-to-10 link checks themselves are
           // new requests, against links the site's own home page links to.
-          brokenLinks: pageFetch.then((html) => checkBrokenLinks(html, target, abortController.signal)),
+          // Resolved against the address the page actually came from.
+          brokenLinks: pageFetch.then(({ html, url }) => checkBrokenLinks(html, url, abortController.signal)),
         };
 
         for await (const outcome of settleInOrder(tasks)) {
@@ -251,9 +282,9 @@ export async function GET(request: Request) {
             // metaTags and altImages both just parse this same fetch —
             // they used to each fetch the page independently, tripling
             // traffic against the (third-party) site being analyzed.
-            results.metaTags = parseMetaTags(outcome.value);
-            results.altImages = parseAltImages(outcome.value);
-            platform = detectTech(outcome.value).platform;
+            results.metaTags = parseMetaTags(outcome.value.html);
+            results.altImages = parseAltImages(outcome.value.html);
+            platform = detectTech(outcome.value.html).platform;
           } else if (outcome.key === "https") {
             // securityHeaders reads off the same response checkHttps
             // already fetched — no request of its own, so it isn't a
