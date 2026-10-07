@@ -302,6 +302,43 @@ describe("GET /api/analyze", () => {
     expect(checkHttps).not.toHaveBeenCalled();
   });
 
+  it("analyzes an HTTP-only site over http:// instead of stopping at the security score", async () => {
+    vi.mocked(fetchHtml).mockClear();
+    vi.mocked(checkHttps).mockResolvedValueOnce({ passed: false, finalUrl: "http://route-test-httponly.example/", redirectedFromHttp: false });
+    // Nothing answers on https://, the plain-http version works.
+    vi.mocked(fetchHtml).mockImplementation(async (url: string) => {
+      if (url.startsWith("https://")) throw new TypeError("fetch failed");
+      return HAPPY_HTML;
+    });
+    vi.mocked(checkSitemapRobots).mockImplementation(async (url: string) => {
+      if (url.startsWith("https://")) throw new TypeError("fetch failed");
+      return HAPPY.sitemapRobots;
+    });
+    vi.mocked(runPageSpeed).mockImplementation(async (url: string) => {
+      if (url.startsWith("https://")) throw new PageSpeedError("Lighthouse returned error: FAILED_DOCUMENT_REQUEST", 400);
+      return HAPPY.pagespeed;
+    });
+
+    const events = await readSseEvents(await GET(requestFor("route-test-httponly.example", "route-test-httponly.ip")));
+    const report = events.find((event) => event.event === "done")!.data as AnalyzeReport;
+
+    expect(vi.mocked(fetchHtml).mock.calls.map(([url]) => url)).toEqual(["https://route-test-httponly.example/", "http://route-test-httponly.example/"]);
+    expect(report.score.seo.score).not.toBeNull();
+    expect(report.score.performance.score).toBe(90);
+    // The missing HTTPS is still the critical finding, security still 0.
+    expect(report.score.security.score).toBe(0);
+    expect(report.issues.some((issue) => issue.code === "no-https")).toBe(true);
+  });
+
+  it("doesn't retry over http:// when the site does serve HTTPS", async () => {
+    vi.mocked(fetchHtml).mockClear();
+    vi.mocked(fetchHtml).mockRejectedValueOnce(new HttpStatusError(403, "A página respondeu 403."));
+
+    await readSseEvents(await GET(requestFor("route-test-https-fails.example", "route-test-https-fails.ip")));
+
+    expect(fetchHtml).toHaveBeenCalledTimes(1);
+  });
+
   it("doesn't count a cached report against the rate limit (reopening a report link)", async () => {
     const domain = "route-test-cache-rl.example";
     await readSseEvents(await GET(requestFor(domain, "route-test-cache-rl.ip")));
@@ -311,6 +348,22 @@ describe("GET /api/analyze", () => {
       expect(response.status).toBe(200);
       expect((await readSseEvents(response))[0].event).toBe("done");
     }
+  });
+
+  it("answers a report link from the cache, and never starts an analysis for one past it", async () => {
+    const domain = "route-test-cached-only.example";
+    const cachedOnly = (url: string) =>
+      new Request(`http://localhost/api/analyze?url=${encodeURIComponent(url)}&cached=only`, { headers: { "x-forwarded-for": "route-test-cached-only.ip" } });
+    vi.mocked(checkHttps).mockClear();
+
+    const miss = await GET(cachedOnly(domain));
+    expect(miss.status).toBe(404);
+    expect(await miss.json()).toEqual({ code: "not-cached" });
+    expect(checkHttps).not.toHaveBeenCalled();
+
+    await readSseEvents(await GET(requestFor(domain, "route-test-cached-only.ip")));
+    const hit = await GET(cachedOnly(domain));
+    expect((await readSseEvents(hit))[0].event).toBe("done");
   });
 
   it("keeps two paths on the same host from colliding in the cache", async () => {

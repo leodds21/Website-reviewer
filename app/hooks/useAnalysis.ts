@@ -42,7 +42,9 @@ export function useAnalysis() {
   // nobody (and so no state setter fires after unmount).
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  const startAnalysis = useCallback(async (url: string) => {
+  // cachedOnly: only a report already cached (opening a report link);
+  // otherwise the API answers "not-cached" and nothing is analyzed.
+  const startAnalysis = useCallback(async (url: string, { cachedOnly = false }: { cachedOnly?: boolean } = {}) => {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -64,7 +66,7 @@ export function useAnalysis() {
     const timeout = setTimeout(() => controller.abort(new DOMException("timeout", "TimeoutError")), OVERALL_TIMEOUT_MS);
 
     try {
-      const response = await fetch(`/api/analyze?url=${encodeURIComponent(url)}`, {
+      const response = await fetch(`/api/analyze?url=${encodeURIComponent(url)}${cachedOnly ? "&cached=only" : ""}`, {
         signal: controller.signal,
         headers: { Accept: "text/event-stream" },
       });

@@ -20,9 +20,10 @@ function addressFor(site: string | null): string {
  * Mirrors the open report in the address bar (?url=site.com), so the
  * link can be sent to someone, a reload reopens the report, and the
  * browser's back button moves between home, report and contact step
- * instead of leaving the app. Opening a link runs the analysis again;
- * the server answers from its cache when the last one is under 6 hours
- * old, so a shared link opens instantly within that window.
+ * instead of leaving the app. Opening a link shows its report while
+ * the server still has it cached (6 hours); after that, the home screen
+ * with the address filled in and an offer to run it again, so a link
+ * alone never starts an analysis.
  *
  * Each screen is a history entry tagged with its stage. An entry that
  * already matches the screen (after a back/forward) is left alone,
@@ -40,7 +41,7 @@ export function useReportLink({
   setStage: (stage: Stage) => void;
   analyzedUrl: string;
   hasReport: boolean;
-  run: (site: string) => void;
+  run: (site: string, options?: { cachedOnly?: boolean }) => void;
 }) {
   // True from opening a link (or reloading one) until its report is up:
   // that entry already has the right address and is claimed in place,
@@ -54,7 +55,7 @@ export function useReportLink({
     const site = linkedSite();
     if (!site) return;
     openingLink.current = true;
-    run(site);
+    run(site, { cachedOnly: true });
   }, [run]);
 
   useEffect(() => {
@@ -83,7 +84,11 @@ export function useReportLink({
       const wanted = (event.state?.stage as LinkedStage | undefined) ?? (site ? "report" : "idle");
       if (!site || wanted === "idle") setStage("idle");
       else if (hasReport && site === analyzedUrl) setStage(wanted);
-      else run(site);
+      else {
+        // Same as opening a link: the cached report, or an offer to run it.
+        openingLink.current = true;
+        run(site, { cachedOnly: true });
+      }
     }
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);

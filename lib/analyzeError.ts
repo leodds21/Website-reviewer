@@ -26,6 +26,10 @@ export type AnalyzeErrorCode =
   | "site-unreachable"
   | "timeout"
   | "offline"
-  | "unknown";
+  | "unknown"
+  // A report link was opened, but its report is no longer cached (6h).
+  // Not a failure: the page offers to run the analysis instead of
+  // spending quota on a link nobody chose to run.
+  | "not-cached";
 
 export type AnalyzeError = { code: AnalyzeErrorCode; retryAfterSeconds?: number };

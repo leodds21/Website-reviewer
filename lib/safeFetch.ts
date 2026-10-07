@@ -1,5 +1,7 @@
+import { lookup as lookupCallback, type LookupAddress, type LookupOptions } from "node:dns";
 import { lookup } from "node:dns/promises";
 import { BlockList, isIPv4, isIPv6 } from "node:net";
+import { Agent, fetch as undiciFetch } from "undici";
 import { SITE_URL } from "./siteUrl";
 
 const MAX_REDIRECTS = 5;
@@ -114,12 +116,10 @@ export class BlockedHostError extends Error {
  * a domain name that *resolves* to one (e.g. an attacker-controlled
  * DNS record pointing at 169.254.169.254 or a machine on the private
  * network) sails right through it. Resolves the hostname and checks
- * every returned address. Doesn't defend against DNS rebinding (the
- * record changing between this check and the fetch actually
- * connecting) — that needs pinning the resolved IP into the request
- * itself, out of scope for this pass; this closes the much more common
- * case of a domain that's simply configured to point somewhere
- * internal.
+ * every returned address. This is the fast, clear first line; the
+ * address the connection actually uses is checked again by
+ * guardedLookup, which is what stops DNS rebinding (a record that
+ * answers a public IP here and a private one a moment later).
  *
  * Also rejects any port other than 80/443/default — otherwise a public
  * hostname is a free pass to probe internal services on other ports
@@ -151,6 +151,34 @@ async function assertHostAllowed(url: URL): Promise<void> {
   if (blocked) throw new BlockedHostError(`${url.hostname} (resolve para ${blocked.address})`);
 }
 
+type LookupCallback = (error: NodeJS.ErrnoException | null, address: string | LookupAddress[], family?: number) => void;
+
+/**
+ * The DNS lookup every connection to a target site goes through: the
+ * addresses it resolves are the ones the socket connects to, so
+ * refusing a blocked one here can't be raced by a DNS record that
+ * changes after assertHostAllowed looked (DNS rebinding).
+ */
+export function guardedLookup(hostname: string, options: LookupOptions, callback: LookupCallback): void {
+  lookupCallback(hostname, { ...options, all: true }, (error, addresses) => {
+    if (error) return callback(error, []);
+    const blocked = addresses.find((entry) => isBlockedHost(entry.address));
+    if (blocked) return callback(new BlockedHostError(`${hostname} (conecta em ${blocked.address})`), []);
+    if (options.all) return callback(null, addresses);
+    return callback(null, addresses[0].address, addresses[0].family);
+  });
+}
+
+const guardedAgent = new Agent({ connect: { lookup: guardedLookup } });
+
+// undici's own fetch, not the global one: the global fetch is Node's
+// bundled copy of undici, a different version that rejects this
+// package's Agent ("invalid onRequestStart method"). Same package on
+// both sides works on every supported Node.
+function fetchGuarded(url: URL, init: RequestInit): Promise<Response> {
+  return undiciFetch(url, { ...(init as object), dispatcher: guardedAgent }) as unknown as Promise<Response>;
+}
+
 /**
  * fetch() that revalidates the host on every redirect hop, not just the
  * starting URL. Plain `fetch(url, {redirect: "follow"})` would happily
@@ -166,7 +194,7 @@ export async function safeFetch(url: string, init: RequestInit = {}): Promise<Re
   const requestInit = withDefaultHeaders(init);
 
   for (let redirects = 0; redirects < MAX_REDIRECTS; redirects++) {
-    const response = await fetch(currentUrl, { ...requestInit, redirect: "manual" });
+    const response = await fetchGuarded(currentUrl, { ...requestInit, redirect: "manual" });
 
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get("location");

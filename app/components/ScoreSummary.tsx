@@ -77,7 +77,7 @@ function ScoreBreakdown({ score, components }: { score: number; components: Scor
         ? t.scoreFromGoogle(only.value)
         : only.key === "https" && only.value === 0
           ? t.securityWithoutHttps
-          : `${t.scoreSingleMeasurement} ${t.scoreComponent[only.key](only.value)}.`;
+          : `${t.scoreSingleMeasurement} ${t.scoreComponent[only.key](only.value, only.count)}.`;
     return <p className="pb-1 text-xs leading-relaxed text-[var(--color-muted)]">{sentence}</p>;
   }
 
@@ -91,7 +91,7 @@ function ScoreBreakdown({ score, components }: { score: number; components: Scor
         {byLoss.map((component) => (
           <BreakdownLine
             key={component.key}
-            label={t.scoreComponent[component.key](component.value)}
+            label={t.scoreComponent[component.key](component.value, component.count)}
             value={component.lost > 0 ? `−${component.lost}` : "0"}
           />
         ))}
