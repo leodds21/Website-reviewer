@@ -109,23 +109,28 @@ function parseTargetUrl(input: string): ParsedTargetUrl {
  * order, not a scripted sequence, so a slow check really does keep the
  * client waiting on that label.
  */
-async function* settleInOrder<T extends Record<string, Promise<unknown>>>(
-  tasks: T,
-): AsyncGenerator<
-  { [K in keyof T]: { key: K; value: Awaited<T[K]> } | { key: K; error: unknown } }[keyof T]
-> {
-  const pending = new Map(
-    Object.entries(tasks).map(([key, promise]) => [
+type Settled<T extends Record<string, Promise<unknown>>> = {
+  [K in keyof T]: { key: K; value: Awaited<T[K]> } | { key: K; error: unknown };
+}[keyof T];
+
+async function* settleInOrder<T extends Record<string, Promise<unknown>>>(tasks: T): AsyncGenerator<Settled<T>> {
+  const pending = new Map<keyof T, Promise<Settled<T>>>();
+  // The casts only restate, per key, what the mapped type already says;
+  // TypeScript can't relate a generic key to its own entry of the union.
+  for (const key of Object.keys(tasks) as (keyof T & string)[]) {
+    pending.set(
       key,
-      promise.then((value) => ({ key, value })).catch((error) => ({ key, error })),
-    ]),
-  );
+      tasks[key].then(
+        (value) => ({ key, value }) as Settled<T>,
+        (error: unknown) => ({ key, error }) as Settled<T>,
+      ),
+    );
+  }
 
   while (pending.size > 0) {
     const settled = await Promise.race(pending.values());
     pending.delete(settled.key);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    yield settled as any;
+    yield settled;
   }
 }
 
