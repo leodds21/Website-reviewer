@@ -14,3 +14,7 @@ The state of the app as it was opened to the public:
 - "Fix these first", findings ranked by severity and points lost, and "What's working"
 - Shareable report links (cached reports only), print / save as PDF, Portuguese and English
 - SSRF protection with connection-time DNS checks, per-IP rate limit, per-request CSP nonce
+
+### Security
+
+- Next.js 16.4.0, which fixes a critical advisory present in 16.3.0
