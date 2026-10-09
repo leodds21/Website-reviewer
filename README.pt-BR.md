@@ -13,7 +13,7 @@ Cole qualquer URL pública; sem cadastro.
 
 [Arquitetura](docs/ARCHITECTURE.pt-BR.md) · [Desenvolvimento](docs/DEVELOPMENT.pt-BR.md) · [Segurança](SECURITY.pt-BR.md) · [Contribuindo](CONTRIBUTING.pt-BR.md)
 
-![Um relatório pronto: nota geral com a explicação por categoria à esquerda, "Corrija primeiro" e os achados agrupados por gravidade à direita](docs/assets/report.png)
+![Um relatório pronto: nota geral com a explicação por categoria à esquerda, "Corrija primeiro" e os achados agrupados por gravidade à direita](docs/assets/report.pt-BR.png)
 
 Eu avaliava sites de possíveis clientes à mão, em várias ferramentas, e traduzia o resultado para donos de negócio sem conhecimento técnico. Este app roda as mesmas checagens toda vez, explica cada ponto que tira e termina num passo de contato.
 
