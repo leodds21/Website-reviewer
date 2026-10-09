@@ -1,35 +1,26 @@
 import { HttpStatusError, UnreachableError, isBotBlockStatus } from "./httpStatus";
 import { PageSpeedError } from "./pageSpeedError";
 
-/**
- * Why a check couldn't produce a result, in terms the report can turn
- * into a plain-language explanation. Never the raw error: that can
- * carry internal detail (API keys in a URL, resolved internal
- * hostnames) that stays in the server log.
- */
+// Never the raw error: it can carry internal detail (API keys, internal hosts).
 export type FailureReason =
-  // The site refused an automated client (WAF, bot wall, rate limit),
-  // either to us or to Google's Lighthouse run.
+  // A WAF or bot wall refused us or Google's Lighthouse.
   | "blocked"
-  // Our own per-check time limit ran out.
   | "timeout"
-  // DNS, refused connection, broken TLS: the site couldn't be reached.
+  // DNS, refused connection, broken TLS.
   | "unreachable"
-  // The site answered, but with an error page (404, 500) instead of content.
+  // The site answered with an error page (404, 500).
   | "site-error"
-  // Google's daily PageSpeed quota for our key ran out.
+  // Our daily PageSpeed quota ran out.
   | "quota"
-  // PageSpeed ran but couldn't produce a measurement (e.g. no content painted).
+  // PageSpeed ran but got no measurement (e.g. nothing painted).
   | "measurement-failed"
   | "unknown";
 
-/** The independent tasks the route runs; the keys failures are recorded under. */
 export type CheckKey = "https" | "page" | "sitemapRobots" | "pagespeed" | "brokenLinks";
 
 export type CheckFailures = Partial<Record<CheckKey, FailureReason>>;
 
-// Lighthouse reports the status the page itself returned inside its
-// error message, e.g. "ERRORED_DOCUMENT_REQUEST ... (Status code: 403)".
+// e.g. "ERRORED_DOCUMENT_REQUEST ... (Status code: 403)"
 const LIGHTHOUSE_STATUS = /Status code:\s*(\d{3})/i;
 const LIGHTHOUSE_LOAD_FAILURE = /FAILED_DOCUMENT_REQUEST|DNS_FAILURE|ERRORED_DOCUMENT_REQUEST/;
 
@@ -50,18 +41,13 @@ export function classifyCheckFailure(error: unknown): FailureReason {
   const name = (error as { name?: unknown } | null)?.name;
   if (name === "TimeoutError" || name === "AbortError") return "timeout";
 
-  // fetch() rejects with a TypeError for anything network-level (DNS,
-  // refused connection, TLS); BlockedHostError is our SSRF guard
-  // refusing where the site pointed us. Either way, nothing to analyze.
+  // fetch() throws TypeError for network errors.
   if (error instanceof TypeError || error instanceof UnreachableError || name === "BlockedHostError") return "unreachable";
 
   return "unknown";
 }
 
-// When a category draws on several failed checks, the reason shown is
-// the one most useful to the visitor: a refusal explains the most (and
-// leads to the manual-analysis offer), a transient one ("try again")
-// beats a vague one.
+// Most useful to the visitor first: a refusal explains the most.
 const REASON_PRIORITY: FailureReason[] = [
   "blocked",
   "quota",

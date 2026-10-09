@@ -1,8 +1,4 @@
-/**
- * The step events the analyze route streams, one per finished check,
- * in the order the scan plan lists them. Shared by the route that sends
- * them and the screen that shows them, so neither can drift.
- */
+// In the order the scan plan lists them.
 export const SCAN_STEPS = [
   "https",
   "securityHeaders",

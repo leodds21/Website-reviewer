@@ -1,20 +1,13 @@
 import { redis } from "./kv";
 
 export const FULL_TTL_MS = 6 * 60 * 60 * 1000;
-// A report where some checks failed to run shouldn't be trusted for as
-// long as a complete one — a transient failure (a slow site timing
-// out) shouldn't lock every visitor into a degraded report for 6
-// hours. Short enough that a real, persistent problem (e.g. a genuinely
-// broken certificate) still gets re-verified soon, long enough to
-// still absorb a burst of repeat requests.
+// Short, so a transient failure doesn't stick for hours.
 export const PARTIAL_TTL_MS = 5 * 60 * 1000;
 
 const MAX_ENTRIES = 1000;
 
 type CacheEntry<T> = { data: T; expiresAt: number };
 
-// Only used by the in-memory fallback path — Redis expires keys on
-// its own (see setCached), so there's nothing to sweep there.
 const store = new Map<string, CacheEntry<unknown>>();
 
 function evictIfNeeded(): void {
@@ -25,10 +18,7 @@ function evictIfNeeded(): void {
     if (entry.expiresAt <= now) store.delete(key);
   }
 
-  // Still over the cap after clearing expired entries — the traffic is
-  // real, not stale junk. Map preserves insertion order, so the first
-  // keys are the oldest; drop enough of them to get back under the cap
-  // rather than growing unbounded.
+  // Map keeps insertion order, so the first keys are the oldest.
   while (store.size > MAX_ENTRIES) {
     const oldestKey = store.keys().next().value;
     if (oldestKey === undefined) break;
@@ -36,21 +26,13 @@ function evictIfNeeded(): void {
   }
 }
 
-/**
- * Backed by Upstash Redis when configured (lib/kv.ts), an in-memory
- * Map otherwise. Exists only to avoid burning PageSpeed quota on
- * repeated analyses of the same site. The in-memory path resets on
- * every deploy/restart and isn't shared across concurrent serverless
- * instances — fine for local dev, not a real cache under real traffic.
- */
+// Saves PageSpeed quota on repeat analyses. Without Redis it's per instance.
 export async function getCached<T>(key: string): Promise<T | null> {
   if (redis) {
     try {
       return (await redis.get<T>(key)) ?? null;
     } catch (error) {
-      // Cache is an optimization, not a requirement: a dead Redis
-      // (deleted database, bad token, quota) must degrade to the
-      // in-memory path below, not take the whole analysis down with it.
+      // The cache is an optimization; a Redis failure shouldn't fail the analysis.
       console.error("cache: Redis read failed, falling back to memory", error);
     }
   }
@@ -68,8 +50,6 @@ export async function getCached<T>(key: string): Promise<T | null> {
 
 export async function setCached<T>(key: string, data: T, ttlMs: number = FULL_TTL_MS): Promise<void> {
   if (redis) {
-    // px: Redis's own expiry, in milliseconds — no manual eviction
-    // needed, the key just stops existing on its own.
     try {
       await redis.set(key, data, { px: ttlMs });
       return;
@@ -78,10 +58,7 @@ export async function setCached<T>(key: string, data: T, ttlMs: number = FULL_TT
     }
   }
 
-  // Delete before set so a refreshed key moves to the end of the Map's
-  // insertion order. Without it, re-analyzing a popular domain keeps
-  // its original position, and eviction — which walks from the oldest
-  // key — would drop the entry getting the most traffic first.
+  // Moves a refreshed key to the end, so eviction doesn't drop a popular one first.
   store.delete(key);
   store.set(key, { data, expiresAt: Date.now() + ttlMs });
   evictIfNeeded();
