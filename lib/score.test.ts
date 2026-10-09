@@ -2,8 +2,7 @@ import { describe, expect, it } from "vitest";
 import { aggregateScore } from "./score";
 import { SCORE_SCENARIOS } from "./scoreScenarios";
 
-// Today's scores for four representative sites, pinned so that making
-// the score explainable can't quietly change a single number.
+// Pinned scores for four representative sites.
 describe("score table", () => {
   const TABLE = {
     good: { overall: 99, performance: 96, seo: 100, accessibility: 99, security: 100 },
@@ -75,8 +74,6 @@ describe("aggregateScore", () => {
   });
 
   it("doesn't change the security score when securityHeaders wasn't provided", () => {
-    // Matches the pre-existing "média(100, 92)" test above — absence
-    // of the new input shouldn't silently shift old behavior.
     const result = aggregateScore({
       pagespeed: { scores: { performance: 90, accessibility: 95, "best-practices": 92, seo: 88 } },
       https: { passed: true, finalUrl: "https://x.com", redirectedFromHttp: false },
@@ -127,8 +124,6 @@ describe("aggregateScore", () => {
   });
 
   it("scores brokenLinks as clean when the page had no links to check", () => {
-    // Same reasoning as altImagesScore: nothing was found broken
-    // because there was nothing on the page to break.
     const result = aggregateScore({
       pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 60 } },
       brokenLinks: { checkedCount: 0, brokenCount: 0, brokenUrls: [] },
@@ -148,8 +143,6 @@ describe("aggregateScore", () => {
   });
 
   it("makes security indisponivel when https didn't run, even if pagespeed did", () => {
-    // best-practices alone isn't a security signal — it's a bonus on
-    // top of a confirmed https pass, never a standalone proxy for it.
     const result = aggregateScore({
       pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 92, seo: 90 } },
     });
@@ -208,8 +201,7 @@ describe("aggregateScore", () => {
     );
 
     expect(result.seo.score).toBe(Math.round((60 + 100 + 0) / 3));
-    // image-alt from Lighthouse is pass/fail and already inside its
-    // accessibility score, so it doesn't count again here.
+    // Lighthouse's image-alt is already inside its accessibility score.
     expect(result.accessibility.score).toBe(Math.round((80 + 100) / 2));
   });
 
@@ -293,8 +285,6 @@ describe("score explanation (components)", () => {
       altImages: { sampledCount: 0, missingAltCount: 0, missingAltSrcs: [] },
       brokenLinks: { checkedCount: 0, brokenCount: 0, brokenUrls: [] },
     });
-    // Still scored as clean, as before; the count is what lets the
-    // breakdown say "nothing to check" instead of "100%".
     expect(seo.score === null ? [] : seo.components).toEqual([{ key: "links", value: 100, lost: 0, count: 0 }]);
     expect(accessibility.score === null ? [] : accessibility.components).toEqual([{ key: "alt-images", value: 100, lost: 0, count: 0 }]);
   });
