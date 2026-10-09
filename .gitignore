@@ -34,7 +34,3 @@ next-env.d.ts
 /test-results/
 /playwright-report/
 /coverage/
-
-# local working files, never part of the project
-diagn-stico-de-site/
-CLAUDE.md
