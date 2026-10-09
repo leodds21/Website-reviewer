@@ -5,6 +5,11 @@ on:
     branches: [master]
   pull_request:
 
+# The workflow only reads the code; nothing it runs needs to write to the
+# repository, even when it runs on a pull request from a fork.
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
