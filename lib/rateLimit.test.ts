@@ -135,6 +135,24 @@ describe("checkRateLimit (Upstash Redis path)", () => {
     vi.resetModules();
   });
 
+  it("still refuses an over-limit request when taking it back out of Redis fails", async () => {
+    vi.resetModules();
+    const redis = mockRedis();
+    redis.zrem.mockRejectedValue(new Error("connection reset"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.doMock("./kv", () => ({ redis }));
+    const { checkRateLimit: checkRateLimitRedis } = await import("./rateLimit");
+
+    const ip = "redis-rate-limit-cleanup.ip";
+    for (let i = 0; i < 10; i++) await checkRateLimitRedis(ip, start + i);
+
+    // A failed cleanup must not fall back to the (empty) in-memory limiter.
+    expect((await checkRateLimitRedis(ip, start + 100)).limited).toBe(true);
+
+    vi.doUnmock("./kv");
+    vi.resetModules();
+  });
+
   it("prunes entries outside the window instead of counting them", async () => {
     vi.resetModules();
     vi.doMock("./kv", () => ({ redis: mockRedis() }));
