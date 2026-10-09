@@ -310,4 +310,17 @@ test.describe("errors", () => {
 
     await expect(formError(page)).toHaveText(/Tenta de novo em 25 minutos/);
   });
+
+  test("brings a failure into view after the run scrolled to the plan (phone)", async ({ page }) => {
+    // Answered after a beat, so the phone has already scrolled down to the
+    // live progress when the failure arrives.
+    await page.route("**/api/analyze?**", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      await route.fulfill({ status: 200, contentType: "text/event-stream", body: 'event: failed\ndata: {"code":"site-unreachable"}\n\n' });
+    });
+    await analyze(page, "exemplo.com.br");
+
+    await expect(formError(page)).toHaveText(/Não conseguimos chegar até esse site/);
+    await expect(formError(page)).toBeInViewport();
+  });
 });

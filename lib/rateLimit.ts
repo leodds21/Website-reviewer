@@ -75,7 +75,11 @@ async function checkRateLimitRedis(ip: string, now: number): Promise<RateLimitRe
 
   if (count <= MAX_REQUESTS_PER_WINDOW) return { limited: false };
 
-  await redis!.zrem(key, member);
+  // Best effort: the decision is already made. If taking the request back
+  // out fails, it only counts against this IP a little longer, whereas
+  // letting the error through would fall back to the in-memory limit and
+  // could let an over-limit request in.
+  await redis!.zrem(key, member).catch((error) => console.error("rateLimit: Redis cleanup failed", error));
   const oldestTimestamp = oldest.length >= 2 ? Number(oldest[1]) : now;
   return { limited: true, retryAfterSeconds: Math.ceil((WINDOW_MS - (now - oldestTimestamp)) / 1000) };
 }
