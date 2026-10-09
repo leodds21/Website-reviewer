@@ -212,15 +212,15 @@ const pt: Dictionary = {
       },
       {
         label: "Com quem compartilhamos",
-        text: "A URL vai para a API do Google PageSpeed Insights, que gera parte do relatório. Os dados do formulário de contato vão para o Formspree, que os encaminha pro nosso e-mail.",
+        text: "A URL vai para a API do Google PageSpeed Insights, que gera parte do relatório. O relatório pronto e o controle de abuso ficam no Upstash, um banco de dados em nuvem. Os dados do formulário de contato vão para o Formspree, que os encaminha pro nosso e-mail. O site roda na Vercel.",
       },
       {
         label: "Por quanto tempo guardamos",
-        text: "O relatório fica em cache por até 6 horas e depois é descartado. Não guardamos os dados do formulário em nenhum banco de dados próprio.",
+        text: "O relatório fica em cache por até 6 horas e depois é descartado. Quando uma checagem falha, o endereço analisado pode aparecer nos registros técnicos do servidor, usados só pra corrigir problemas. Não guardamos os dados do formulário em nenhum banco de dados próprio.",
       },
       {
         label: "Rastreamento",
-        text: "Não usamos ferramentas de analytics. O único cookie guarda o idioma que você escolheu. Seu IP só é usado, de forma temporária, pra limitar abusos, e não fica associado a você.",
+        text: "Não usamos ferramentas de analytics. O único cookie guarda o idioma que você escolheu. Seu IP só é usado pra limitar abusos: fica guardado por até 1 hora e não fica associado a você.",
       },
     ],
   },
@@ -537,15 +537,15 @@ const en: Dictionary = {
       },
       {
         label: "Who we share it with",
-        text: "The URL goes to Google's PageSpeed Insights API, which generates part of the report. Contact form data goes to Formspree, which forwards it to our inbox.",
+        text: "The URL goes to Google's PageSpeed Insights API, which generates part of the report. The finished report and the abuse limit are kept in Upstash, a cloud database. Contact form data goes to Formspree, which forwards it to our inbox. The site runs on Vercel.",
       },
       {
         label: "How long we keep it",
-        text: "The report is cached for up to 6 hours, then discarded. We don't keep contact form data in any database of our own.",
+        text: "The report is cached for up to 6 hours, then discarded. When a check fails, the analyzed address may appear in the server's technical logs, used only to fix problems. We don't keep contact form data in any database of our own.",
       },
       {
         label: "Tracking",
-        text: "We don't use analytics tools. The only cookie remembers the language you picked. Your IP is only used temporarily to limit abuse, and it isn't tied to your identity.",
+        text: "We don't use analytics tools. The only cookie remembers the language you picked. Your IP is only used to limit abuse: it's kept for up to 1 hour and isn't tied to your identity.",
       },
     ],
   },
