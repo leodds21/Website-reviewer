@@ -2,29 +2,18 @@ import { safeFetch } from "../safeFetch";
 import { LINK_CHECK_TIMEOUT_MS } from "../timeouts";
 import { UnreachableError, isBotBlockStatus } from "../httpStatus";
 
-// A conservative cap, not an exhaustive crawl: this fires one request
-// per sampled link, concurrently, against the site being analyzed —
-// checking every link on a large page would multiply the traffic this
-// report generates against a third party many times over, for a report
-// that's only ever meant to look at the home page.
+// One request per link against someone else's site, so keep the sample small.
 const MAX_LINKS_SAMPLED = 10;
 
 const HREF_PATTERN = /<a\b[^>]*\bhref\s*=\s*["']([^"']+)["']/gi;
 
 export type BrokenLinksCheckResult = {
-  // How many of the sampled links we actually got a real answer for —
-  // distinct from how many <a href> tags exist on the page. A link
-  // whose check timed out or failed to connect contributes to neither
-  // this nor brokenCount (see isReachable below).
+  // Links that got a real answer; timeouts and bot blocks count in neither field.
   checkedCount: number;
   brokenCount: number;
   brokenUrls: string[];
 };
 
-// Pulls unique, checkable link targets out of the page's own markup —
-// same regex-over-HTML approach as parseMetaTags/parseAltImages, no
-// DOM parser. Resolves each href against the page's own URL so
-// relative links ("/sobre") become checkable absolute ones.
 function extractLinkUrls(html: string, baseUrl: string): string[] {
   const seen = new Set<string>();
   const urls: string[] = [];
@@ -32,8 +21,7 @@ function extractLinkUrls(html: string, baseUrl: string): string[] {
   for (const match of html.matchAll(HREF_PATTERN)) {
     if (urls.length >= MAX_LINKS_SAMPLED) break;
 
-    // Attribute values are HTML: "/busca?a=1&amp;b=2" means "&", and
-    // requesting the literal "&amp;" can 404 a link that works fine.
+    // "&amp;" in an attribute means "&"; requesting it literally can 404.
     const raw = match[1].trim().replace(/&amp;/gi, "&");
     if (!raw || raw.startsWith("#")) continue;
     if (/^(mailto|tel|javascript):/i.test(raw)) continue;
@@ -42,11 +30,11 @@ function extractLinkUrls(html: string, baseUrl: string): string[] {
     try {
       resolved = new URL(raw, baseUrl);
     } catch {
-      continue; // malformed href in the site's own markup — not ours to flag here
+      continue;
     }
     if (resolved.protocol !== "http:" && resolved.protocol !== "https:") continue;
 
-    resolved.hash = ""; // #section vs the plain link is the same request
+    resolved.hash = "";
     const key = resolved.toString();
     if (seen.has(key)) continue;
     seen.add(key);
@@ -56,13 +44,7 @@ function extractLinkUrls(html: string, baseUrl: string): string[] {
   return urls;
 }
 
-// true/false only when the request actually got a usable answer — a
-// network failure (DNS, timeout, connection refused) or a bot-block
-// response means we don't know whether the link works, so it comes
-// back null rather than a guess in either direction (same rule as
-// sitemapRobots.ts's probes, for the same reason: a "false" born from
-// a request that never got a real answer would read as a
-// confirmed-broken link, e.g. a perfectly good LinkedIn profile).
+// null when we got no usable answer, so a blocked LinkedIn link isn't called broken.
 async function isReachable(url: string, signal?: AbortSignal): Promise<boolean | null> {
   const timeout = AbortSignal.timeout(LINK_CHECK_TIMEOUT_MS);
   try {
@@ -78,16 +60,7 @@ async function isReachable(url: string, signal?: AbortSignal): Promise<boolean |
   }
 }
 
-/**
- * Samples up to MAX_LINKS_SAMPLED links from the home page's own
- * markup and checks each concurrently for a broken (4xx/5xx, or
- * unreachable) response. Throws when every sampled link came back
- * unreachable — same shape as checkSitemapRobots's guard: with zero
- * real answers, reporting "0 broken" would be indistinguishable from
- * an honest all-clear, when in fact nothing was actually verified
- * (most likely our own network path to the site is down, not that
- * every single link happens to work).
- */
+// Throws when no link could be verified: "0 broken" would read as an all-clear.
 export async function checkBrokenLinks(html: string, baseUrl: string, signal?: AbortSignal): Promise<BrokenLinksCheckResult> {
   const urls = extractLinkUrls(html, baseUrl);
   const results = await Promise.all(urls.map((url) => isReachable(url, signal)));
