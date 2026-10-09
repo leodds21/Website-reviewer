@@ -10,11 +10,8 @@ const ALLOWED_PROTOCOLS = new Set(["http:", "https:"]);
 
 const BLOCKED_HOSTNAMES = new Set(["localhost"]);
 
-// Sent on every request to a target site. Node's default user agent
-// ("node"/"undici") and missing Accept headers are what many firewalls
-// reject outright, before looking at anything else. This says honestly
-// who we are, in the conventional crawler format, rather than posing
-// as a browser.
+// Many firewalls reject Node's default user agent outright. This one is an
+// honest crawler UA, not a fake browser.
 const DEFAULT_HEADERS: Record<string, string> = {
   "User-Agent": `Mozilla/5.0 (compatible; lsdiasScan/1.0; +${SITE_URL})`,
   Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -29,10 +26,8 @@ function withDefaultHeaders(init: RequestInit): RequestInit {
   return { ...init, headers };
 }
 
-// Loopback, link-local (includes the cloud metadata endpoint at
-// 169.254.169.254), CGNAT and private ranges, IPv4 and IPv6. Built on
-// node:net's BlockList rather than hand-rolled range math — it's the
-// platform's own, tested implementation of exactly this check.
+// Private, loopback, link-local (incl. cloud metadata at 169.254.169.254)
+// and reserved ranges.
 const blockList = new BlockList();
 blockList.addSubnet("0.0.0.0", 8);
 blockList.addSubnet("10.0.0.0", 8);
@@ -41,8 +36,6 @@ blockList.addSubnet("127.0.0.0", 8);
 blockList.addSubnet("169.254.0.0", 16);
 blockList.addSubnet("172.16.0.0", 12);
 blockList.addSubnet("192.168.0.0", 16);
-// Reserved/special-purpose ranges: nothing public lives there, and some
-// (benchmarking, protocol assignments) can be routed internally.
 blockList.addSubnet("192.0.0.0", 24); // IETF protocol assignments
 blockList.addSubnet("192.0.2.0", 24); // TEST-NET-1
 blockList.addSubnet("198.18.0.0", 15); // benchmarking
@@ -54,9 +47,7 @@ blockList.addSubnet("::", 96, "ipv6"); // unspecified, loopback and IPv4-compati
 blockList.addSubnet("fe80::", 10, "ipv6"); // link-local
 blockList.addSubnet("fc00::", 7, "ipv6"); // unique local
 blockList.addSubnet("ff00::", 8, "ipv6"); // multicast
-// Prefixes that embed an IPv4 address (NAT64, 6to4): a gateway can turn
-// 64:ff9b::7f00:1 into 127.0.0.1, so the embedded address can't be
-// trusted to be public. Neither is how a normal public site is reached.
+// NAT64 and 6to4 embed an IPv4 address a gateway may route to (64:ff9b::7f00:1 is 127.0.0.1).
 blockList.addSubnet("64:ff9b::", 96, "ipv6");
 blockList.addSubnet("2002::", 16, "ipv6");
 
@@ -64,10 +55,7 @@ function stripBrackets(hostname: string): string {
   return hostname.startsWith("[") && hostname.endsWith("]") ? hostname.slice(1, -1) : hostname;
 }
 
-// A DNS record (or a URL typed directly) can point at an IPv4-mapped
-// IPv6 address (::ffff:127.0.0.1, or its hex form ::ffff:7f00:1) to
-// slip a private IPv4 address past a check that only inspects the
-// IPv6 shape. Extracts the embedded IPv4 so it's checked too.
+// IPv4-mapped IPv6 (::ffff:127.0.0.1 or ::ffff:7f00:1) hides a private IPv4.
 function embeddedIPv4(host: string): string | null {
   const dotted = host.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/i);
   if (dotted) return dotted[1];
@@ -82,13 +70,7 @@ function embeddedIPv4(host: string): string | null {
   return null;
 }
 
-/**
- * Rejects hosts/IPs that would make a server-side fetch an SSRF vector.
- * Pure string/IP check — the DNS side of this (a domain name that
- * *resolves* to one of these) is handled separately by
- * assertHostAllowed, since that needs to be async and this needs to
- * stay synchronous for the fast literal-IP case.
- */
+/** Synchronous check of a literal host or IP. DNS is checked separately. */
 export function isBlockedHost(hostname: string): boolean {
   const host = stripBrackets(hostname).toLowerCase();
   if (BLOCKED_HOSTNAMES.has(host)) return true;
@@ -111,25 +93,11 @@ export class BlockedHostError extends Error {
   }
 }
 
-/**
- * isBlockedHost only catches a literal blocked IP/hostname in the URL —
- * a domain name that *resolves* to one (e.g. an attacker-controlled
- * DNS record pointing at 169.254.169.254 or a machine on the private
- * network) sails right through it. Resolves the hostname and checks
- * every returned address. This is the fast, clear first line; the
- * address the connection actually uses is checked again by
- * guardedLookup, which is what stops DNS rebinding (a record that
- * answers a public IP here and a private one a moment later).
- *
- * Also rejects any port other than 80/443/default — otherwise a public
- * hostname is a free pass to probe internal services on other ports
- * (a database, an admin panel) that happen to share the same host.
- */
+// First line of defense: a public name can resolve to a private IP, and
+// other ports would expose internal services. guardedLookup rechecks at
+// connect time, which is what stops DNS rebinding.
 async function assertHostAllowed(url: URL): Promise<void> {
-  // Checked on every hop, not just the entry URL: a redirect to
-  // `file:///etc/passwd` or `data:text/html,...` carries an empty
-  // hostname and port, so the host and port checks below both wave it
-  // through. Restricting the scheme is what actually stops it.
+  // A redirect to file: or data: has no host or port to check.
   if (!ALLOWED_PROTOCOLS.has(url.protocol)) {
     throw new BlockedHostError(`protocol ${url.protocol}`);
   }
@@ -144,7 +112,7 @@ async function assertHostAllowed(url: URL): Promise<void> {
   try {
     addresses = await lookup(url.hostname, { all: true });
   } catch {
-    return; // Let the real fetch surface the DNS failure — not our call to make.
+    return; // The real fetch reports the DNS failure.
   }
 
   const blocked = addresses.find((addr) => isBlockedHost(addr.address));
@@ -153,12 +121,7 @@ async function assertHostAllowed(url: URL): Promise<void> {
 
 type LookupCallback = (error: NodeJS.ErrnoException | null, address: string | LookupAddress[], family?: number) => void;
 
-/**
- * The DNS lookup every connection to a target site goes through: the
- * addresses it resolves are the ones the socket connects to, so
- * refusing a blocked one here can't be raced by a DNS record that
- * changes after assertHostAllowed looked (DNS rebinding).
- */
+/** The socket connects to the addresses checked here, so DNS can't change in between. */
 export function guardedLookup(hostname: string, options: LookupOptions, callback: LookupCallback): void {
   lookupCallback(hostname, { ...options, all: true }, (error, addresses) => {
     if (error) return callback(error, []);
@@ -171,23 +134,13 @@ export function guardedLookup(hostname: string, options: LookupOptions, callback
 
 const guardedAgent = new Agent({ connect: { lookup: guardedLookup } });
 
-// undici's own fetch, not the global one: the global fetch is Node's
-// bundled copy of undici, a different version that rejects this
-// package's Agent ("invalid onRequestStart method"). Same package on
-// both sides works on every supported Node.
+// Node's global fetch bundles a different undici that rejects this Agent
+// ("invalid onRequestStart method").
 function fetchGuarded(url: URL, init: RequestInit): Promise<Response> {
   return undiciFetch(url, { ...(init as object), dispatcher: guardedAgent }) as unknown as Promise<Response>;
 }
 
-/**
- * fetch() that revalidates the host on every redirect hop, not just the
- * starting URL. Plain `fetch(url, {redirect: "follow"})` would happily
- * land on a blocked host if the server we started from redirects there
- * — a public URL can 302 to http://169.254.169.254/... or a localhost
- * port, and an SSRF check that only looks at the input URL never sees
- * it. Follows redirects manually instead, checking each Location
- * against the same blocklist before requesting it.
- */
+/** fetch() that rechecks the host on every redirect hop. */
 export async function safeFetch(url: string, init: RequestInit = {}): Promise<Response> {
   let currentUrl = new URL(url);
   await assertHostAllowed(currentUrl);
@@ -200,9 +153,7 @@ export async function safeFetch(url: string, init: RequestInit = {}): Promise<Re
       const location = response.headers.get("location");
       if (!location) return response;
 
-      // Not consuming the redirect's body would leak the connection
-      // back to the pool as still-in-use under undici until GC — this
-      // is a redirect, nothing wants the body.
+      // Frees the connection; undici holds it until the body is consumed.
       await response.body?.cancel();
 
       currentUrl = new URL(location, currentUrl);
@@ -216,22 +167,12 @@ export async function safeFetch(url: string, init: RequestInit = {}): Promise<Re
   throw new Error("Too many redirects.");
 }
 
-// Enough for the <head> and a healthy chunk of <body> on any real page
-// (a heavy page is ~1MB of HTML), while keeping a single hostile
-// response from being able to exhaust the server's memory.
+// A heavy real page is about 1MB of HTML.
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 
 /**
- * response.text() on a response from a URL a stranger chose is an
- * unbounded read: nothing stops that server from streaming gigabytes
- * (or an endless body) and taking the process down with it. This reads
- * at most maxBytes and then stops.
- *
- * Truncates rather than throwing, deliberately: every consumer here
- * parses the beginning of the document (meta tags, an XML root
- * element, an image sample), so a truncated read of a genuinely huge
- * page still produces a correct-enough answer, where throwing would
- * turn it into a failed check for no user benefit.
+ * Reads at most maxBytes, so a hostile server can't exhaust memory.
+ * Truncates instead of throwing: every caller only needs the start of the document.
  */
 export async function readTextCapped(response: Response, maxBytes: number = MAX_RESPONSE_BYTES): Promise<string> {
   if (!response.body) return "";
@@ -248,8 +189,6 @@ export async function readTextCapped(response: Response, maxBytes: number = MAX_
       total += value.byteLength;
     }
   } finally {
-    // Releases the connection back to the pool whether we stopped at
-    // the cap or read the whole body.
     await reader.cancel().catch(() => {});
   }
 
