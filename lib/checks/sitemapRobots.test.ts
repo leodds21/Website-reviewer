@@ -1,15 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { checkSitemapRobots } from "./sitemapRobots";
 
-// checkSitemapRobots goes through safeFetch, which resolves DNS to
-// check for a blocked IP before every request — mocked here so the
-// test doesn't depend on real DNS, same as fetch itself.
+// safeFetch resolves DNS before each request; mocked here.
 vi.mock("node:dns/promises", () => ({ lookup: vi.fn().mockResolvedValue([{ address: "93.184.216.34" }]) }));
 
-// A real ReadableStream body, not a stub: sitemapExistsAt reads through
-// readTextCapped (which streams rather than calling response.text(), so
-// a hostile server can't feed us an unbounded body), and that only
-// works against a genuine stream.
+// A real stream, since readTextCapped reads the body incrementally.
 function fakeResponse(status: number, body = ""): Response {
   return {
     status,
@@ -56,10 +51,7 @@ describe("checkSitemapRobots", () => {
   });
 
   it("reports the sitemap missing on a soft-404 (200 OK with an HTML error page)", async () => {
-    // Many hosts return 200 with a normal HTML "page not found" body
-    // instead of a real 404 status for a missing sitemap.xml — a bare
-    // status check would report "found" for a sitemap that doesn't
-    // actually exist.
+    // Many hosts answer 200 with an HTML "not found" page.
     vi.mocked(fetch)
       .mockResolvedValueOnce(fakeResponse(200, "<html><body>404 - Page not found</body></html>"))
       .mockResolvedValueOnce(fakeResponse(200));
@@ -80,10 +72,7 @@ describe("checkSitemapRobots", () => {
   });
 
   it("reports an unreachable probe as null, not as a confirmed absence", async () => {
-    // "The request failed" and "the server told us it isn't there" are
-    // different facts. Collapsing the first into the second is how a
-    // site nobody could reach ended up with a confident "no sitemap"
-    // finding against it.
+    // A failed request isn't "the file is missing".
     vi.mocked(fetch).mockRejectedValueOnce(new Error("network down")).mockResolvedValueOnce(fakeResponse(200));
 
     const result = await checkSitemapRobots("example.com");
@@ -93,9 +82,6 @@ describe("checkSitemapRobots", () => {
   });
 
   it("throws when neither probe could reach the host at all", async () => {
-    // A domain that doesn't resolve has to fail the whole check, so the
-    // report shows SEO as "não avaliado" instead of inventing findings
-    // about a site that was never reached.
     vi.mocked(fetch).mockRejectedValue(new Error("getaddrinfo ENOTFOUND"));
 
     await expect(checkSitemapRobots("este-dominio-nao-existe.example")).rejects.toMatchObject({ name: "UnreachableError" });

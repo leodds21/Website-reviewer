@@ -83,10 +83,7 @@ describe("deriveIssues", () => {
   });
 
   it("only derives issues from whatever checks actually ran", () => {
-    // Simulates a site whose broken certificate took down every other
-    // check too — only https succeeded, so only a security finding
-    // should come out, not fabricated "no title"/"no alt text" issues
-    // for checks that never got a chance to run.
+    // Only https ran, so only a security finding comes out.
     const issues = deriveIssues({
       https: { passed: false, finalUrl: "https://x.com", redirectedFromHttp: false, certificateError: true },
     });
@@ -106,9 +103,6 @@ describe("deriveIssues — security headers", () => {
   });
 
   it("doesn't fire when https failed, even if securityHeaders is present", () => {
-    // Headers off a plain-http (or cert-broken) connection aren't a
-    // meaningful hardening signal — no-https/invalid-certificate is
-    // already the one finding that matters there.
     const issues = deriveIssues({
       https: { passed: false, finalUrl: "http://x.com", redirectedFromHttp: false },
       securityHeaders: { hasHsts: false, hasCsp: false, hasClickjackingProtection: false },
@@ -461,10 +455,8 @@ describe("rankIssues and topIssues", () => {
     const { input } = SCORE_SCENARIOS.average;
     const score = aggregateScore(input);
     const issues = deriveIssues(input);
-    // All attention-level. Points each one takes off its category: slow
-    // load 29 (performance is Google's 71 alone), HTTPS redirect 25 and
-    // description 25 (tied, so deriveIssues' order), alt text 8, broken
-    // links 6, contrast 4, and the generic title nothing.
+    // Points lost: load 29, redirect 25 and description 25 (tie, so
+    // derivation order), alt 8, links 6, contrast 4, generic title 0.
     expect(rankIssues(issues, score).filter((i) => i.severity === "atencao").map((i) => i.code)).toEqual([
       "slow-load-impact",
       "no-https-redirect",
@@ -500,8 +492,7 @@ describe("rankIssues and topIssues", () => {
   });
 });
 
-// The score explanation and "Corrija primeiro" must describe the same
-// findings: no copy, no second set of rules, no drift between them.
+// The score explanation and "Corrija primeiro" must use the same findings.
 describe("score explanation and top issues stay coherent", () => {
   for (const name of ["average", "bad"] as const) {
     it(`draws the ${name} site's top issues from the report's own findings and measurements`, () => {

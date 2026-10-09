@@ -8,16 +8,10 @@ import { HttpStatusError } from "@/lib/httpStatus";
 import type { AnalyzeReport } from "@/lib/report";
 import { GET } from "./route";
 
-// The route orchestrates these — mocked so this file tests the
-// orchestration (rate limit, URL validation, cache, SSE framing, error
-// handling), not the checks themselves, which already have their own
-// tests. metaTags/altImages aren't mocked at all: they're pure parsers
-// now, exercised for real against the HTML fetchHtml resolves with.
+// The checks have their own tests; this file covers the orchestration.
 vi.mock("@/lib/checks/https", () => ({ checkHttps: vi.fn() }));
 vi.mock("@/lib/checks/sitemapRobots", () => ({ checkSitemapRobots: vi.fn() }));
-// PageSpeedError comes through for real (via importOriginal) — only
-// runPageSpeed itself is a mock — so tests can throw an actual
-// PageSpeedError and exercise the route's `instanceof` check on it.
+// The real PageSpeedError, so the route's instanceof check runs.
 vi.mock("@/lib/pagespeed", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/pagespeed")>()),
   runPageSpeed: vi.fn(),
@@ -75,9 +69,7 @@ describe("GET /api/analyze", () => {
   });
 
   it("returns a machine-readable code, not a prose message, for a rejected URL", async () => {
-    // The route has no idea which language the visitor picked, so
-    // anything it phrases itself would be stuck in one language. The
-    // client owns the wording.
+    // The client owns the wording.
     const response = await GET(requestFor("not a url at all", "route-test-badurl.ip"));
 
     expect(response.status).toBe(400);
@@ -95,11 +87,7 @@ describe("GET /api/analyze", () => {
   });
 
   it("passes checkHttps the raw input, not the https-forced target", async () => {
-    // checkHttps deliberately defaults to http:// to test whether the
-    // site upgrades the connection — feeding it a URL already forced
-    // to https (as the other checks correctly receive) made that
-    // finding nearly unreachable, since it'd never observe a plain-
-    // http request in the first place.
+    // checkHttps starts at http:// to see whether the site upgrades.
     await GET(requestFor("route-test-scheme.example", "route-test-scheme.ip"));
 
     expect(checkHttps).toHaveBeenCalledWith("route-test-scheme.example", expect.anything());
@@ -185,11 +173,7 @@ describe("GET /api/analyze", () => {
   });
 
   it("still sends done with a partial report when only some checks fail", async () => {
-    // A single failure doesn't take the whole report down — score.ts/
-    // issues.ts already treat a missing check as "not evaluated," so
-    // whatever did succeed is worth reporting (the camara.rio case this
-    // is modeled on: a broken cert kills the page fetch, but https
-    // itself still comes back with a real finding).
+    // A broken cert kills the page fetch, but https still has a finding.
     vi.mocked(runPageSpeed).mockRejectedValueOnce(new Error("PageSpeed API returned 500: quota exceeded"));
 
     const response = await GET(requestFor("route-test-partial.example", "route-test-partial.ip"));
@@ -214,9 +198,7 @@ describe("GET /api/analyze", () => {
     expect(events).toHaveLength(1);
     expect(events[0].event).toBe("failed");
     expect((events[0].data as { code: string }).code).toBe("analysis-failed");
-    // Internal error detail (API keys, raw response bodies, resolved
-    // internal hostnames) never reaches the client, only server logs —
-    // a bare code can't leak any of it by construction.
+    // Internal error detail stays in the server log.
     const serialized = JSON.stringify(events[0].data);
     expect(serialized).not.toContain("internal detail");
     expect(serialized).not.toContain("PAGESPEED_API_KEY");
@@ -258,14 +240,11 @@ describe("GET /api/analyze", () => {
 
     expect(response.status).toBe(429);
     expect(body.code).toBe("rate-limited");
-    // The UI turns this into "tenta de novo em X minutos" — without it
-    // the message can only say "later", which is a worse answer.
     expect(body.retryAfterSeconds).toBeGreaterThan(0);
   });
 
   it("doesn't cache a partial report when the visitor left mid-analysis", async () => {
-    // Otherwise the half-finished results of an abandoned run get
-    // served to the *next* visitor for the full partial TTL.
+    // An abandoned run must not be cached for the next visitor.
     const setCachedSpy = vi.spyOn(cache, "setCached");
     const controller = new AbortController();
     vi.mocked(runPageSpeed).mockImplementationOnce(
@@ -288,9 +267,7 @@ describe("GET /api/analyze", () => {
   it("serves the second request for the same domain from cache, skipping the checks entirely", async () => {
     const domain = "route-test-cache.example";
     const first = await GET(requestFor(domain, "route-test-cache.ip"));
-    // setCached() runs inside the stream's producer, after the response
-    // object is already returned — draining the body is what guarantees
-    // it has actually run before the second request checks the cache.
+    // Draining the body makes sure setCached has run.
     await readSseEvents(first);
     vi.mocked(checkHttps).mockClear();
 
@@ -375,8 +352,6 @@ describe("GET /api/analyze", () => {
     const response = await GET(requestFor(`${host}/b`, "route-test-path.ip"));
     await readSseEvents(response);
 
-    // A different path on the same host must re-run the checks, not
-    // silently serve /a's cached report for /b.
     expect(checkHttps).toHaveBeenCalled();
   });
 
