@@ -41,32 +41,20 @@ describe("checkRateLimit (in-memory fallback — no Upstash env vars set in this
   it("evicts the oldest tracked IPs once MAX_TRACKED_IPS is exceeded", async () => {
     const targetIp = "rate-limit-test-evict-target.ip";
 
-    // Max the target out and confirm the baseline: with its history
-    // intact, an 11th request within the window is still limited.
     for (let i = 0; i < 10; i++) await checkRateLimit(targetIp, start + i);
     expect((await checkRateLimit(targetIp, start + 10)).limited).toBe(true);
 
-    // Flood past MAX_TRACKED_IPS (5000) with other IPs — the target,
-    // being the oldest entry, should be the first evicted. A 200-IP
-    // margin absorbs whatever handful of IPs earlier tests already
-    // registered, so this doesn't depend on the exact prior count.
+    // Past MAX_TRACKED_IPS (5000), with margin for IPs from earlier tests.
     for (let i = 0; i < 5200; i++) {
       await checkRateLimit(`rate-limit-test-evict-filler-${i}.ip`, start + 20 + i);
     }
 
-    // Still well within the same 1h window — if the target's history
-    // survived, this would still be limited. It isn't, because
-    // eviction wiped it, same as an IP never seen before.
     expect((await checkRateLimit(targetIp, start + 5300)).limited).toBe(false);
   });
 });
 
 describe("checkRateLimit (Upstash Redis path)", () => {
-  // Same reason as cache.test.ts: lib/kv.ts picks in-memory vs Redis
-  // once at module load from env vars, so the Redis branch is
-  // exercised by mocking that module, not by setting env vars.
-  // A sorted-set store behind the same multi()/exec() chain the code
-  // uses: queued commands run in order on exec, like a Redis MULTI.
+  // A sorted-set store behind multi()/exec(), run in order like MULTI.
   function mockRedis() {
     const store = new Map<string, Map<string, number>>();
     const commands = {
@@ -126,8 +114,6 @@ describe("checkRateLimit (Upstash Redis path)", () => {
     // A refused request is taken back out, so it doesn't count later.
     expect(redis.size(`ratelimit:${ip}`)).toBe(10);
     if (eleventh.limited) {
-      // The oldest request was at `start`; the window closes on it at
-      // start + WINDOW_MS, and we're asking at start + 10_000.
       expect(eleventh.retryAfterSeconds).toBe(Math.ceil((ONE_HOUR_MS - 10_000) / 1000));
     }
 
@@ -161,7 +147,6 @@ describe("checkRateLimit (Upstash Redis path)", () => {
     const ip = "redis-rate-limit-window-test.ip";
     for (let i = 0; i < 10; i++) await checkRateLimitRedis(ip, start + i);
 
-    // Well past the window — every earlier entry should have aged out.
     expect((await checkRateLimitRedis(ip, start + ONE_HOUR_MS + 1000)).limited).toBe(false);
 
     vi.doUnmock("./kv");

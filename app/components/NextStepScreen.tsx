@@ -33,19 +33,14 @@ export function NextStepScreen({
     domain: report.domain,
   });
 
-  // This screen stays mounted (hidden) while the report is open, so the
-  // manual-review request can arrive after the form already exists. The
-  // first time it does, it fills an empty message, never over one the
-  // visitor already wrote. Adjusted during render, React's pattern for
-  // state that follows a prop, rather than in an effect.
+  // The screen stays mounted, so the manual-review request can arrive later.
+  // It only fills an empty message. Set during render, not in an effect.
   const [manualPrefilled, setManualPrefilled] = useState(false);
   if (manualReview && !manualPrefilled) {
     setManualPrefilled(true);
     if (!contact.message) setContact({ ...contact, message: t.manualMessagePrefill(report.domain) });
   }
 
-  // One short summary sentence tying the critical findings together,
-  // right before the form; null when nothing critical was found.
   const criticalIssues = report.issues.filter((issue) => issue.severity === "critico");
   const impactSynthesis = synthesizeCriticalImpact(locale, criticalIssues);
 
@@ -94,8 +89,7 @@ export function NextStepScreen({
 
         <section className="flex flex-col gap-5 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] p-6 sm:p-7">
           {succeeded ? (
-            // Names the address the reply goes to: the fields are gone by
-            // now, so this is the only chance to notice a typo in it.
+            // The last chance to spot a typo in the email.
             <div role="status" className="flex flex-col gap-1.5">
               <p className="flex items-center gap-2 text-lg font-semibold text-[var(--color-text)]">
                 <Check size={18} strokeWidth={2.5} aria-hidden="true" className="text-[var(--color-severity-ok)]" />
@@ -151,8 +145,6 @@ export function NextStepScreen({
               </div>
 
               {errorCode && (
-                // What the visitor typed stays in the fields, so retrying
-                // is one click and not a re-type.
                 <ErrorNote>{t.contactError[errorCode]}</ErrorNote>
               )}
 
@@ -173,10 +165,6 @@ export function NextStepScreen({
 
           <p className="border-t border-[var(--color-line)] pt-4 text-xs text-[var(--color-subtle)]">
             {t.reportFooter(report.domain)}{" "}
-            {/* target="_blank" + rel="noopener noreferrer": an accidental
-                click can't navigate this tab away, and there's no
-                tabnabbing hole (the class of issue this app checks other
-                sites for). */}
             <a
               href="https://lsdias.dev"
               target="_blank"

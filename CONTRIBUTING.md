@@ -2,39 +2,28 @@ English | [Português (Brasil)](CONTRIBUTING.pt-BR.md)
 
 # Contributing
 
-Thanks for taking the time. Bug reports, fixes and small improvements are all welcome.
+Bug reports, fixes and small improvements are welcome.
 
-## Reporting a bug or suggesting something
+## Issues
 
-Open an [issue](https://github.com/leodds21/Website-reviewer/issues/new/choose) using the bug report or feature request template. For a bug, the URL you analyzed (if it's public), what you expected and what happened help the most.
+Open an [issue](https://github.com/leodds21/Website-reviewer/issues/new/choose) with the bug or feature template. For a bug, the URL you analyzed (if public), what you expected and what happened help most. Security problems go through [SECURITY.md](SECURITY.md), never a public issue.
 
-Security problems go through [SECURITY.md](SECURITY.md), never a public issue.
+## Pull requests
 
-## Making a change
+1. Fork and branch from `master` (`fix/sitemap-redirect`, `feat/open-graph-check`).
+2. Set up as in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+3. Add tests for the behavior you change.
+4. Run what CI runs: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, `npm run test:e2e`.
+5. Open the PR against `master` and fill in the template.
 
-1. Fork the repository and create a branch from `master`, named after the change (`fix/sitemap-redirect`, `feat/open-graph-check`).
-2. Set up the project as described in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
-3. Make the change, with tests for any behavior it adds or fixes.
-4. Run the same checks CI runs:
+For anything bigger than a small fix, open an issue first.
 
-   ```bash
-   npm run lint
-   npm run typecheck
-   npm test
-   npm run build
-   npm run test:e2e
-   ```
+## Guidelines
 
-5. Open a pull request against `master` and fill in the template: what changed, why, and how you tested it.
+- One change per pull request.
+- Commit subjects up to 50 characters, imperative, with a prefix (`fix:`, `feat:`, `docs:`…). A body only when the reason isn't obvious.
+- Never report a problem the scanner couldn't verify; a check that can't tell should say so.
+- User-facing text goes in `app/i18n/translations.ts`, in Portuguese and English.
+- No secrets in code, tests or examples.
 
-For anything bigger than a small fix, open an issue first so we can agree on the approach before you spend time on it.
-
-## What a good change looks like
-
-- **Small and focused**: one change per pull request.
-- **Commits**: a light [Conventional Commits](https://www.conventionalcommits.org/) style (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`), with a body explaining what changed and why.
-- **Honest results**: the scanner never reports a problem it couldn't verify. A check that can't tell should say so, not guess.
-- **Both languages**: any text shown to users goes in `app/i18n/translations.ts`, in Portuguese and English.
-- **No secrets** in code, tests or examples.
-
-By contributing, you agree that your contributions are licensed under the [MIT License](LICENSE) and that you'll follow the [code of conduct](CODE_OF_CONDUCT.md).
+Contributions are licensed under the [MIT License](LICENSE) and follow the [code of conduct](CODE_OF_CONDUCT.md).

@@ -25,10 +25,7 @@ describe("createSseParser", () => {
   });
 
   it("reassembles an event split across chunk boundaries", () => {
-    // The failure mode this parser exists for: chunk boundaries fall
-    // wherever the network puts them, so a naive split-on-"\n\n" of
-    // each chunk drops every event unlucky enough to straddle two
-    // reads.
+    // Chunk boundaries don't follow event boundaries.
     const parser = createSseParser();
 
     expect(parser.push('event: do')).toEqual([]);

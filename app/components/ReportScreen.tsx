@@ -11,8 +11,7 @@ import type { AnalyzeReport } from "@/lib/report";
 import type { TechPlatform } from "@/lib/checks/techDetect";
 import { SITE_URL } from "@/lib/siteUrl";
 
-// Proper nouns — same spelling in every locale, so this stays outside
-// the translation dictionary; only the sentence around it (t.platformDetected) is translated.
+// Proper nouns, the same in every locale.
 const PLATFORM_NAMES: Record<TechPlatform, string> = {
   wordpress: "WordPress",
   wix: "Wix",
@@ -32,8 +31,7 @@ export function ReportScreen({
   onNewAnalysis: () => void;
 }) {
   const { locale, t } = useLanguage();
-  // A blocked site with nothing found has nothing to "fix": the useful
-  // next step there is a manual look, not an empty recommendations page.
+  // Blocked with nothing found: the next step is a manual review.
   const primaryIsManual = Boolean(report.blocked) && report.issues.length === 0;
   const primaryAction = primaryIsManual ? onManualAnalysis : onNextStep;
   const primaryLabel = primaryIsManual
@@ -44,9 +42,7 @@ export function ReportScreen({
 
   const rootRef = useRef<HTMLDivElement>(null);
 
-  // Paper can't expand a section: everything collapsed ("Como resolver",
-  // the optional improvements, what's working) opens for printing, and
-  // closes again afterwards. Covers Ctrl+P too, not just the button.
+  // Opens every collapsed section for printing, Ctrl+P included.
   useEffect(() => {
     let opened: HTMLDetailsElement[] = [];
     function openAll() {
@@ -90,8 +86,7 @@ export function ReportScreen({
         </div>
       </AppHeader>
 
-      {/* The screen's real title, for assistive tech: the domain above
-          isn't a heading, and the findings start at h2. */}
+      {/* For assistive tech: the domain above isn't a heading. */}
       <h1 className="sr-only">{t.reportHeading(report.domain)}</h1>
 
       <PageContainer className="grid flex-1 items-start gap-8 py-8 lg:grid-cols-[320px_minmax(0,1fr)] lg:gap-12 lg:py-10">
@@ -99,8 +94,7 @@ export function ReportScreen({
 
         <div className="flex min-w-0 flex-col gap-10">
           {report.blocked && (
-            // Neutral on purpose (no severity color): being blocked isn't
-            // a finding about the site, just why this report is thinner.
+            // Neutral color: being blocked isn't a finding about the site.
             <div className="flex flex-col gap-2 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-5 py-4 sm:px-6">
               <p className="text-sm leading-relaxed text-[var(--color-muted)]">{t.blockedNote}</p>
               {!primaryIsManual && (

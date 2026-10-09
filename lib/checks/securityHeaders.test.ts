@@ -33,8 +33,6 @@ describe("parseSecurityHeaders", () => {
   });
 
   it("is case-insensitive, same as real HTTP headers", () => {
-    // Headers is spec'd to be case-insensitive, but worth locking in
-    // explicitly since the checks here read specific lowercase names.
     const result = parseSecurityHeaders(new Headers({ "STRICT-TRANSPORT-SECURITY": "max-age=1" }));
 
     expect(result.hasHsts).toBe(true);

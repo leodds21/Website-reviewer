@@ -34,9 +34,7 @@ describe("guardedLookup (the address the connection actually uses)", () => {
   });
 });
 
-// dns.promises.lookup is overloaded (single address vs array vs family
-// variants), which trips up vi.mocked()'s inferred call signature — this
-// pins mock results to the shape safeFetch actually requests (all: true).
+// lookup is overloaded; this pins the all: true shape safeFetch uses.
 function dnsResult(...addresses: string[]): Awaited<ReturnType<typeof lookup>> {
   return addresses.map((address) => ({ address, family: 4 })) as unknown as Awaited<ReturnType<typeof lookup>>;
 }
@@ -67,7 +65,7 @@ describe("isBlockedHost", () => {
     "[fd12:3456:789a::1]",
     "::ffff:127.0.0.1", // IPv4-mapped IPv6, dotted form
     "::ffff:7f00:1", // same, hex form
-    "::", // IPv6 unspecified — connecting to it lands on localhost
+    "::", // IPv6 unspecified: connecting to it lands on localhost
     "[::]",
     "192.0.2.10", // TEST-NET-1
     "198.18.0.1", // benchmarking
@@ -99,9 +97,7 @@ describe("isBlockedHost", () => {
 describe("safeFetch", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
-    // Default: any hostname resolves to a plain public address, so
-    // tests that aren't specifically about DNS don't have to think
-    // about it.
+    // By default every hostname resolves to a public address.
     vi.mocked(lookup).mockResolvedValue(dnsResult("93.184.216.34"));
   });
 
@@ -119,10 +115,7 @@ describe("safeFetch", () => {
   );
 
   it("rejects a redirect that switches to a non-http(s) protocol", async () => {
-    // file:/data: URLs carry an empty hostname *and* an empty port, so
-    // the host and port checks both wave them through — only the
-    // protocol check catches this, and it has to run on every hop, not
-    // just the entry URL.
+    // file: and data: have no host or port; only the protocol check stops them.
     vi.mocked(fetch).mockResolvedValueOnce(fakeResponse(302, { location: "file:///etc/passwd" }));
 
     await expect(safeFetch("https://example.com/")).rejects.toBeInstanceOf(BlockedHostError);
@@ -130,10 +123,6 @@ describe("safeFetch", () => {
   });
 
   it("rejects a non-standard port even on an otherwise-allowed host", async () => {
-    // A public hostname is a free pass to probe internal services on
-    // other ports (a database, an admin panel) if only the host is
-    // checked — 80/443/default are the only legitimate targets for a
-    // "fetch this webpage" tool.
     await expect(safeFetch("https://example.com:6379/")).rejects.toBeInstanceOf(BlockedHostError);
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -153,11 +142,7 @@ describe("safeFetch", () => {
   });
 
   it("rejects a hostname that resolves to a blocked IP — not just a literal blocked IP", async () => {
-    // isBlockedHost alone only catches the URL literally containing a
-    // blocked address; this is the case it can't see on its own — a
-    // normal-looking domain whose DNS record points at an internal
-    // address (e.g. an attacker-controlled zone, or cloud metadata via
-    // a rebinding-style domain).
+    // A normal-looking domain whose DNS points at an internal address.
     vi.mocked(lookup).mockResolvedValueOnce(dnsResult("169.254.169.254"));
 
     await expect(safeFetch("https://looks-public.example/")).rejects.toBeInstanceOf(BlockedHostError);
@@ -205,10 +190,6 @@ describe("safeFetch", () => {
   });
 
   it("rejects when a redirect points at a blocked host — the core SSRF fix", async () => {
-    // This is exactly what a live test couldn't cover: a public-looking
-    // start URL whose server redirects to an internal address. Real
-    // infrastructure isn't reachable in this sandbox; a mocked Location
-    // header is.
     vi.mocked(fetch).mockResolvedValueOnce(
       fakeResponse(302, { location: "http://169.254.169.254/latest/meta-data/" }),
     );
@@ -254,9 +235,7 @@ describe("readTextCapped", () => {
   });
 
   it("stops on an endless body rather than hanging or exhausting memory", async () => {
-    // The realistic hostile case: a server that never closes the
-    // response. response.text() would keep buffering until the process
-    // dies; this has to return.
+    // A server that never closes the response.
     const encoder = new TextEncoder();
     const endless = {
       body: new ReadableStream<Uint8Array>({

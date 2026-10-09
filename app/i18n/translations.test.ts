@@ -50,8 +50,6 @@ describe("synthesizeCriticalImpact", () => {
   });
 
   it("skips issues whose code has no clause defined yet", () => {
-    // no-sitemap has no impactClause entry (yet) — shouldn't crash, and
-    // shouldn't produce an empty/broken sentence around a missing piece.
     const result = synthesizeCriticalImpact("pt", [issue("no-sitemap"), issue("no-https")]);
 
     expect(result).toContain("insegurança da conexão");
@@ -59,9 +57,6 @@ describe("synthesizeCriticalImpact", () => {
   });
 
   it("caps at one clause per category, so co-occurring performance findings don't duplicate each other", () => {
-    // low-performance and slow-load-impact are both "performance" and
-    // can both be critical from the same pagespeed run — pairing their
-    // clauses would read as the same problem said twice.
     const result = synthesizeCriticalImpact("pt", [issue("low-performance"), issue("slow-load-impact"), issue("no-https")]);
 
     expect(result).toContain("lentidão geral do carregamento");
@@ -79,8 +74,6 @@ describe("synthesizeCriticalImpact", () => {
 
 describe("translateAnalysisError", () => {
   it("renders the rate-limit wait in minutes, rounded up", () => {
-    // Rounded up on purpose: telling someone to come back sooner than
-    // they actually can is worse than overstating the wait slightly.
     expect(translateAnalysisError("pt", { code: "rate-limited", retryAfterSeconds: 3467 })).toContain("58 minutos");
     expect(translateAnalysisError("en", { code: "rate-limited", retryAfterSeconds: 3467 })).toContain("58 minutes");
   });

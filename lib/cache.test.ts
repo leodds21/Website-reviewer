@@ -45,11 +45,7 @@ describe("cache (in-memory fallback — no Upstash env vars set in this test run
   });
 
   it("evicts the oldest entries once the cap is exceeded", async () => {
-    // MAX_ENTRIES is 1000; fill well past it (a couple hundred entries
-    // of margin over the cap, since a handful of keys already exist
-    // from earlier tests in this file and are themselves older) so the
-    // very first keys set here are guaranteed to be among whatever
-    // gets evicted, without depending on the exact pre-existing count.
+    // Past MAX_ENTRIES (1000) with margin for keys from earlier tests.
     for (let i = 0; i < 1200; i++) {
       await setCached(`cache-test-evict-${i}.example`, { i });
     }
@@ -59,9 +55,6 @@ describe("cache (in-memory fallback — no Upstash env vars set in this test run
   });
 
   it("treats a refreshed key as recently used, not as the oldest", async () => {
-    // Map keeps a key's original position when you overwrite it, so
-    // without the delete-before-set the most-requested domain is the
-    // first one thrown away.
     await setCached("keep-me", 1);
     for (let index = 0; index < 1200; index++) await setCached(`filler-${index}`, index);
     await setCached("keep-me", 2); // refreshed, so it should survive the next sweep
@@ -72,9 +65,7 @@ describe("cache (in-memory fallback — no Upstash env vars set in this test run
 });
 
 describe("cache (Upstash Redis path)", () => {
-  // lib/kv.ts decides in-memory vs Redis once, at module load, based
-  // on env vars — so exercising the Redis branch means mocking the
-  // module itself rather than setting env vars after the fact.
+  // lib/kv.ts picks Redis at module load, so the module is mocked.
   it("reads and writes through the Redis client, with px as the millisecond TTL", async () => {
     vi.resetModules();
     const get = vi.fn().mockResolvedValue({ score: 7 });

@@ -1,24 +1,11 @@
 export type SseEvent = { event: string; data: string };
 
-/**
- * Incremental Server-Sent Events parser.
- *
- * The obvious version — decode a chunk, split it on "\n\n" — silently
- * loses data, because chunk boundaries have nothing to do with event
- * boundaries: a single event routinely arrives split across two reads,
- * and two events can arrive in one. This keeps a buffer across calls
- * and only emits frames it has actually seen terminated.
- *
- * Deliberately partial: this parses the subset the analyze route emits
- * (named events with a single-line JSON `data:`), not the full spec —
- * no id/retry handling, no reconnection, no multi-line data folding,
- * since nothing here produces those.
- */
+// Buffers across reads: one event can span two chunks. Handles only what
+// the analyze route sends (named events, one-line JSON data).
 export function createSseParser() {
   let buffer = "";
 
   return {
-    /** Feeds a decoded chunk in, returns whatever events completed. */
     push(chunk: string): SseEvent[] {
       buffer += chunk;
       const events: SseEvent[] = [];
@@ -48,6 +35,6 @@ function parseFrame(frame: string): SseEvent | null {
     else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
   }
 
-  // A frame with no data line is a comment/keepalive, not an event.
+  // No data line: a comment or keepalive.
   return dataLines.length > 0 ? { event, data: dataLines.join("\n") } : null;
 }

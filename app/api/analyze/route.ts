@@ -29,32 +29,13 @@ import type { AnalyzeError, AnalyzeErrorCode } from "@/lib/analyzeError";
 
 export const dynamic = "force-dynamic";
 
-// Explicit, not just the default: this route uses node:net/node:dns
-// (lib/safeFetch.ts's SSRF blocklist), which don't exist on the Edge
-// runtime — if Next's default runtime choice ever changed, silently
-// switching runtimes here would break that protection outright rather
-// than failing loudly.
+// The SSRF guard needs node:net and node:dns, which the Edge runtime lacks.
 export const runtime = "nodejs";
 
-// PAGESPEED_TIMEOUT_MS (lib/timeouts.ts) alone is 50s, and it's the
-// longest-running of the checks that run concurrently — so the
-// route's own worst-case wall-clock time is close to that, not the
-// sum of every check's timeout. Without an explicit ceiling here, a
-// slow-but-legitimate analysis can get killed by whatever the
-// platform's own default duration limit happens to be, which is
-// usually well under that — a real, likely-already-happening failure
-// mode in production, not just a hypothetical. 60s leaves a small
-// buffer over the known worst case for scoring/caching/stream
-// teardown, without requesting more time than the route can ever
-// actually use.
+// PageSpeed alone can take 50s; the default platform limit is lower.
 export const maxDuration = 60;
 
-/**
- * Error responses keep their real HTTP status (429 with Retry-After,
- * 400 for bad input) — the status is the honest signal for anything
- * that isn't our own UI. The body carries a code rather than a
- * sentence so the client can render it in the visitor's language.
- */
+// Real HTTP status for tools, a code (not a sentence) for the UI to translate.
 function errorResponse(error: AnalyzeError, status: number, headers?: Record<string, string>) {
   return NextResponse.json(error, { status, headers });
 }
@@ -63,10 +44,7 @@ const SSE_HEADERS = {
   "Content-Type": "text/event-stream",
   "Cache-Control": "no-cache, no-transform",
   Connection: "keep-alive",
-  // Tells nginx-style reverse proxies not to buffer the response.
-  // Without it, a proxy can hold every step event until the stream
-  // closes, turning the live progress screen into a long freeze
-  // followed by everything at once.
+  // Stops nginx-style proxies from buffering the stream until it closes.
   "X-Accel-Buffering": "no",
 };
 
@@ -74,9 +52,7 @@ function sseFrame(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
-// The loading screen's step events each task completes. The page fetch
-// feeds two (meta tags and image alt text) and the https check feeds
-// the security-header step too, since both derive from one request.
+// Progress steps each task completes; one fetch can feed more than one step.
 const TASK_STEPS: Record<CheckKey, StepKey[]> = {
   https: ["https", "securityHeaders"],
   page: ["metaTags", "altImages"],
@@ -87,11 +63,7 @@ const TASK_STEPS: Record<CheckKey, StepKey[]> = {
 
 type ParsedTargetUrl = { ok: true; url: URL } | { ok: false; reason: "invalid" | "blocked" };
 
-// Malformed input and a URL that's syntactically fine but points at a
-// blocked host (SSRF guard) are different problems for the visitor —
-// "you typed it wrong" versus "that kind of address isn't allowed" —
-// so callers get enough to pick the right AnalyzeErrorCode instead of
-// collapsing both into one generic "invalid".
+// "Invalid" and "blocked" get different messages in the UI.
 function parseTargetUrl(input: string): ParsedTargetUrl {
   try {
     const url = new URL(normalizeUrl(input));
@@ -103,19 +75,13 @@ function parseTargetUrl(input: string): ParsedTargetUrl {
   }
 }
 
-/**
- * Consumes a map of promises in the order they actually settle, one at
- * a time — what the "analisando" screen reports is real completion
- * order, not a scripted sequence, so a slow check really does keep the
- * client waiting on that label.
- */
+/** Yields each task's outcome in the order it actually settles. */
 type Settled<T extends Record<string, Promise<unknown>>> = {
   [K in keyof T]: { key: K; value: Awaited<T[K]> } | { key: K; error: unknown };
 }[keyof T];
 
 async function* settleInOrder<T extends Record<string, Promise<unknown>>>(tasks: T): AsyncGenerator<Settled<T>> {
   const pending = new Map<keyof T, Promise<Settled<T>>>();
-  // The casts only restate, per key, what the mapped type already says;
   // TypeScript can't relate a generic key to its own entry of the union.
   for (const key of Object.keys(tasks) as (keyof T & string)[]) {
     pending.set(
@@ -135,8 +101,7 @@ async function* settleInOrder<T extends Record<string, Promise<unknown>>>(tasks:
 }
 
 export async function GET(request: Request) {
-  // When the platform stops this function (maxDuration), with a few
-  // seconds kept for scoring, caching and closing the stream.
+  // Leaves a few seconds before maxDuration for scoring and caching.
   const deadline = Date.now() + (maxDuration - 5) * 1000;
   const { searchParams } = new URL(request.url);
   const rawUrl = (searchParams.get("url") ?? "").trim();
@@ -153,32 +118,17 @@ export async function GET(request: Request) {
 
   const domain = targetUrl.hostname;
   const target = targetUrl.toString();
-  // Path-aware: hostname alone would serve example.com/produtos's
-  // report for a request about example.com/sobre, silently wrong for
-  // any site analyzed at more than one path. Query/hash intentionally
-  // excluded — those more often vary per-visitor (tracking params)
-  // than change what's actually being analyzed.
+  // Per path; query and hash left out (they're usually tracking params).
   const cacheKey = `${targetUrl.origin}${targetUrl.pathname}`;
 
-  // A cached report costs no PageSpeed quota, so it's answered before
-  // the rate limit, not counted against it: reopening a report link,
-  // reloading it or going back to it in the browser repeats the same
-  // request, and each one used to spend one of the visitor's 10/hour.
+  // Cached reports cost nothing, so they don't count against the rate limit.
   const cached = await getCached<AnalyzeReport>(cacheKey);
   if (cached) return new Response(sseFrame("done", cached), { headers: SSE_HEADERS });
 
-  // Opening a report link asks for the cached report only: a link alone
-  // (crafted, or just old) must not start a new analysis that spends
-  // PageSpeed quota and the visitor's own rate limit. Past the cache,
-  // the page offers to run it, and only a click does.
+  // Report links only read the cache; a link alone never starts an analysis.
   if (searchParams.get("cached") === "only") return errorResponse({ code: "not-cached" }, 404);
 
-  // The leftmost entry in x-forwarded-for is whatever the client
-  // itself claims — trivially spoofable with a header. The rightmost
-  // entry is the one appended by our own trusted edge (Vercel), so
-  // that's the one to trust. This assumes exactly one trusted proxy in
-  // front of the app; an additional untrusted proxy in the chain would
-  // still need its own handling.
+  // The rightmost entry is the one Vercel appends; the rest can be spoofed.
   const ip = request.headers.get("x-forwarded-for")?.split(",").pop()?.trim() ?? "unknown";
   const rateLimit = await checkRateLimit(ip);
   if (rateLimit.limited) {
@@ -189,10 +139,7 @@ export async function GET(request: Request) {
 
   const encoder = new TextEncoder();
 
-  // Ties every check's fetch to the client connection: if the visitor
-  // closes the tab mid-analysis, this aborts the still-running checks
-  // (including the up-to-50s PageSpeed call) instead of letting them
-  // burn quota and time for nobody.
+  // Closing the tab aborts the checks still running.
   const abortController = new AbortController();
   request.signal.addEventListener("abort", () => abortController.abort());
 
@@ -205,7 +152,7 @@ export async function GET(request: Request) {
         try {
           controller.enqueue(encoder.encode(sseFrame(event, data)));
         } catch {
-          closed = true; // controller already closed client-side; nothing left to do
+          closed = true;
         }
       }
 
@@ -214,38 +161,22 @@ export async function GET(request: Request) {
         try {
           controller.close();
         } catch {
-          // already closed — fine
+          // already closed
         }
       }
 
       try {
         const results: Partial<CheckResults> = {};
         let platform: TechPlatform | null = null;
-        // Why each failed check failed, in visitor-explainable terms: the
-        // report turns these into "não medido, porque..." instead of a
-        // bare "não avaliado", and they decide the top-level error code
-        // when nothing at all could be measured.
         const failures: CheckFailures = {};
-        // brokenLinks derives from the same `pageFetch` promise as the
-        // "page" task (see `tasks` below): when fetchHtml itself fails,
-        // that rejection forwards unchanged into brokenLinks too, so the
-        // exact same Error object would otherwise get logged twice for
-        // one root cause. Tracked by reference, not by task key, so it
-        // stays correct if another derived task is added later.
+        // brokenLinks reuses the page fetch, so one failure can surface twice.
         const loggedErrors = new Set<unknown>();
 
-        // https gets the raw user input (not the https-forced `target`)
-        // since its whole job is testing whether a plain-http request
-        // gets upgraded — feeding it an already-https URL made "site
-        // doesn't serve HTTPS at all" nearly unreachable as a finding.
+        // The raw input, so the check can see whether http:// redirects.
         const httpsCheck = checkHttps(rawUrl, abortController.signal);
 
-        // Every other check goes to https:// first. A site that only
-        // serves plain HTTP refuses that, which used to leave its whole
-        // report at the security score alone (overall 0). So a check that
-        // fails retries over http:// once the https check confirms there
-        // is no usable HTTPS: the site's other problems still get found,
-        // and the missing HTTPS is still its own critical finding.
+        // Checks try https:// first and retry over http:// only for sites
+        // without usable HTTPS.
         const httpTarget = new URL(target);
         httpTarget.protocol = "http:";
         async function withHttpFallback<T>(run: (url: string) => Promise<T>): Promise<T> {
@@ -264,45 +195,30 @@ export async function GET(request: Request) {
           https: httpsCheck,
           page: pageFetch,
           sitemapRobots: withHttpFallback((url) => checkSitemapRobots(url, abortController.signal)),
-          // A retry can't wait PageSpeed's full time a second time: it gets
-          // whatever is left before the platform cuts the function off.
+          // A retry only gets the time left before maxDuration.
           pagespeed: withHttpFallback((url) =>
             runPageSpeed(
               url,
               url === target ? abortController.signal : AbortSignal.any([abortController.signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))]),
             ),
           ),
-          // Waits on the same fetch page/metaTags/altImages already use
-          // (see the "page" outcome below) instead of fetching the page a
-          // second time — only the up-to-10 link checks themselves are
-          // new requests, against links the site's own home page links to.
-          // Resolved against the address the page actually came from.
           brokenLinks: pageFetch.then(({ html, url }) => checkBrokenLinks(html, url, abortController.signal)),
         };
 
         for await (const outcome of settleInOrder(tasks)) {
           if ("error" in outcome) {
             failures[outcome.key] = classifyCheckFailure(outcome.error);
-            // Logged server-side only — the client gets a generic
-            // message (see below), never this raw detail.
             if (!loggedErrors.has(outcome.error)) {
               loggedErrors.add(outcome.error);
               console.error(`Check "${outcome.key}" failed for ${target}:`, outcome.error);
             }
           } else if (outcome.key === "page") {
-            // metaTags and altImages both just parse this same fetch —
-            // they used to each fetch the page independently, tripling
-            // traffic against the (third-party) site being analyzed.
             results.metaTags = parseMetaTags(outcome.value.html);
             results.altImages = parseAltImages(outcome.value.html);
             platform = detectTech(outcome.value.html).platform;
           } else if (outcome.key === "https") {
-            // securityHeaders reads off the same response checkHttps
-            // already fetched — no request of its own, so it isn't a
-            // separate entry in `tasks`, just derived data the moment
-            // https settles. Only meaningful once the connection is
-            // actually secure (see deriveIssues).
             results.https = outcome.value;
+            // Security headers only mean something over a secure connection.
             if (outcome.value.passed && outcome.value.headers) {
               results.securityHeaders = parseSecurityHeaders(outcome.value.headers);
             }
@@ -310,28 +226,17 @@ export async function GET(request: Request) {
             results[outcome.key] = outcome.value as never;
           }
 
-          // A step means "this check is done", whether it produced a
-          // result or failed: before, a failed check never sent one, so
-          // its group on the loading screen kept spinning until the whole
-          // report arrived, and the progress bar never got its share.
+          // A failed check still completes its steps on the progress screen.
           for (const step of TASK_STEPS[outcome.key]) send("step", { step });
         }
 
+        // The visitor left: don't cache a half-finished report.
         if (request.signal.aborted) {
-          // The visitor left mid-analysis. Nothing to send, and caching
-          // the half-finished results would serve this degraded report
-          // to the *next* visitor for the full partial TTL.
           return;
         }
 
         if (Object.keys(results).length === 0) {
-          // A bare code, not a sentence: the real reason (a missing API
-          // key, the exact PageSpeed error body, an internal hostname a
-          // redirect resolved to) is exactly the detail an SSRF/config
-          // guard exists to keep off the client. The classified reason
-          // is safe to pass on, and each of these has a real, actionable
-          // answer ("tenta amanhã", "confere o endereço") where a
-          // generic failure doesn't.
+          // Only the classified reason reaches the client, never the raw error.
           const totalFailureCode: Partial<Record<FailureReason, AnalyzeErrorCode>> = {
             blocked: "site-blocked",
             quota: "quota-exceeded",
@@ -350,26 +255,15 @@ export async function GET(request: Request) {
             passed: derivePasses(results),
             loadSeconds: results.pagespeed?.lcpSeconds,
             platform,
-            // Drives the "este site recusa ferramentas automáticas" note
-            // and the manual-analysis offer in the report.
             blocked: Object.values(failures).includes("blocked"),
             checkedAt: new Date().toISOString(),
           };
-          // A report where some checks failed to run shouldn't be
-          // trusted as long as a complete one — a transient failure
-          // (a slow site timing out) shouldn't lock every visitor into a
-          // degraded report for the full 6h TTL. "Complete" ignores the
-          // page/metaTags/altImages split (one fetch, two derived
-          // results) by checking failures directly instead of key count.
+          // Partial reports get a short TTL so a transient failure doesn't stick.
           const isComplete = Object.keys(failures).length === 0;
           await setCached(cacheKey, report, isComplete ? FULL_TTL_MS : PARTIAL_TTL_MS);
           send("done", report);
         }
       } catch (error) {
-        // Anything unexpected past this point (a bug in scoring, a
-        // serialization failure) would otherwise error the stream
-        // mid-flight: the visitor gets a dropped connection and the
-        // still-running checks keep burning PageSpeed quota for nobody.
         console.error(`Analysis of ${target} failed unexpectedly:`, error);
         abortController.abort();
         send("failed", { code: "analysis-failed" satisfies AnalyzeErrorCode });

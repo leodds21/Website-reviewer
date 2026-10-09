@@ -1,13 +1,7 @@
 import type { CheckResults } from "./checkResults";
 import type { CheckFailures } from "./checkFailure";
 
-/**
- * Four representative inputs shared by the score and ranking tests: a
- * healthy site, an average one, one with serious problems, and one
- * that blocked most of the checks. Kept in one place so the tests that
- * pin today's scores and the ones checking the explanation and the
- * ranking all look at the very same data.
- */
+// Shared by the score and ranking tests.
 export const SCORE_SCENARIOS: Record<"good" | "average" | "bad" | "blocked", { input: Partial<CheckResults>; failures: CheckFailures }> = {
   good: {
     input: {

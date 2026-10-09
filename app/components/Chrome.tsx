@@ -9,7 +9,6 @@ export function Brand() {
   );
 }
 
-/** The thin bar every screen shares: the brand left, the screen's own controls right. */
 export function AppHeader({ children }: { children?: React.ReactNode }) {
   return (
     <header className="border-b border-[var(--color-line)]">
@@ -27,21 +26,15 @@ export const buttonClass = {
     "inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--color-line-strong)] px-5 text-sm font-semibold text-[var(--color-body)] transition-colors hover:border-[var(--color-subtle)]",
 };
 
-/**
- * The <summary> of every collapsible block: link-colored label, no
- * native marker, and a chevron that flips when open. Put it directly
- * inside a <details>; `className` sets size and spacing.
- */
+// Put it directly inside a <details>.
 export function ToggleSummary({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
     <summary
       className={`cursor-pointer list-none items-center gap-1 text-[var(--color-link)] hover:underline [&::-webkit-details-marker]:hidden ${className}`}
     >
       {children}
-      {/* An SVG, not a "⌄" glyph: the glyph sits low in the line, so
-          flipping it made it jump up. The flip keys off this summary's
-          own <details>, not any open ancestor, so the "Como resolver"
-          toggles inside an open optional list don't start out flipped. */}
+      {/* An SVG: a "⌄" glyph sits low and jumps when flipped. The flip
+          follows this summary's own <details>, not an open ancestor. */}
       <svg
         aria-hidden="true"
         width="12"
@@ -60,7 +53,6 @@ export function ToggleSummary({ children, className = "" }: { children: React.Re
   );
 }
 
-/** A failure the visitor needs to act on (a form that couldn't be submitted). */
 export function ErrorNote({ children }: { children: React.ReactNode }) {
   return (
     <p
@@ -72,7 +64,6 @@ export function ErrorNote({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Same width and side padding as the header, so every screen lines up under it. */
 export function PageContainer({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <div className={`mx-auto w-full max-w-[1360px] px-5 sm:px-10 ${className}`}>{children}</div>;
 }

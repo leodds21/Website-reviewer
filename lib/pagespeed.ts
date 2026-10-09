@@ -6,27 +6,19 @@ const PAGESPEED_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPag
 
 export { PageSpeedError };
 
-// Only the handful of fields this file actually reads out of Google's
-// much larger Lighthouse response — not a full schema.
+// Only the fields read below, not the full Lighthouse schema.
 type PageSpeedApiResponse = {
   lighthouseResult?: {
     categories?: Partial<Record<PageSpeedCategory, { score?: number }>>;
     audits?: {
       "largest-contentful-paint"?: { numericValue?: number };
       "cumulative-layout-shift"?: { numericValue?: number };
-      // Time to First Byte, in ms — how long the server itself took to
-      // start responding, before the browser had any HTML to work with.
       "server-response-time"?: { numericValue?: number };
-      // Lighthouse audit scores are 0-1 pass/fail here (not a
-      // percentage like the category scores), or null when the audit
-      // doesn't apply to this page at all (e.g. no text found, or no
-      // <form> elements for "label").
+      // Audit scores are 0-1, or null when the audit doesn't apply to the page.
       "color-contrast"?: { score?: number | null };
       "heading-order"?: { score?: number | null };
       label?: { score?: number | null };
-      // The same basics our own HTML checks look for. Read so a site
-      // whose firewall refuses *our* fetch but lets Google's
-      // Lighthouse through still gets them checked.
+      // Fallback for sites that block our fetch but let Google's through.
       "document-title"?: { score?: number | null };
       "meta-description"?: { score?: number | null };
       viewport?: { score?: number | null };
@@ -35,13 +27,8 @@ type PageSpeedApiResponse = {
   };
 };
 
-// Runs once per process (module load), not once per request — the
-// per-request failure below already happens on every single analysis
-// if the key is missing, which would spam the log instead of flagging
-// the misconfiguration. This is the one line meant to be seen once, at
-// boot, by whoever is watching deploy logs. Skipped under Vitest so
-// test runs (which don't set this env var) don't print it on every
-// import.
+// Once at boot, so a missing key shows in the deploy log without
+// repeating on every request.
 if (!process.env.PAGESPEED_API_KEY && !process.env.VITEST) {
   console.warn(
     `[website-scanner] PAGESPEED_API_KEY is not set: every analysis will report Performance (and Google's share of SEO, accessibility and security) as "not measured" until it is.`,
@@ -50,50 +37,22 @@ if (!process.env.PAGESPEED_API_KEY && !process.env.VITEST) {
 
 type PageSpeedCategory = "performance" | "accessibility" | "best-practices" | "seo";
 
+// Missing values stay undefined: a fallback 0 would read as a verdict.
 export type PageSpeedResult = {
-  // Partial, not a 0 fallback, when a category is missing from the
-  // response (Lighthouse can abort auditing just one category and
-  // still return the others) — a fake 0 reads as "failed completely,"
-  // which is a fabricated verdict, not merely absent data.
   scores: Partial<Record<PageSpeedCategory, number>>;
-  // Undefined, not a 0 fallback, when the audit is missing from the
-  // response — a fake 0s would read as "loads instantly," which is
-  // actively misleading rather than merely absent data.
   lcpSeconds?: number;
-  // Cumulative Layout Shift — how much visible content jumps around
-  // during load. Unitless; Google's own published thresholds (not
-  // ours) are cited where this is turned into a finding, in
-  // lib/issues.ts.
   clsValue?: number;
-  // Undefined when the color-contrast audit wasn't applicable to this
-  // page at all (score: null) — distinct from "no problem found"
-  // (score: 1, false).
   hasColorContrastIssues?: boolean;
-  // Time to First Byte, in whole milliseconds. Google's own published
-  // thresholds (not ours) are cited where this becomes a finding, in
-  // lib/issues.ts.
   ttfbMs?: number;
-  // Undefined when the heading-order audit wasn't applicable (e.g. no
-  // headings on the page at all).
   hasHeadingOrderIssues?: boolean;
-  // Undefined when the page has no <form> elements for the "label"
-  // audit to check in the first place.
   hasFormLabelIssues?: boolean;
-  // Lighthouse's own pass/fail for the basics parseMetaTags and
-  // parseAltImages check — the fallback when our fetch of the page was
-  // refused. Undefined when the audit is missing or not applicable
-  // (image-alt on a page with no images).
   hasTitle?: boolean;
   hasDescription?: boolean;
   hasViewport?: boolean;
   imagesHaveAlt?: boolean;
 };
 
-/**
- * Runs Lighthouse via the PageSpeed Insights API for the given URL and
- * returns the category scores (0-100). Requests all four categories in
- * one call, since the API charges the same quota either way.
- */
+// All four categories in one call: the quota cost is the same.
 export async function runPageSpeed(url: string, signal?: AbortSignal): Promise<PageSpeedResult> {
   const apiKey = process.env.PAGESPEED_API_KEY;
   if (!apiKey) {
@@ -129,13 +88,10 @@ export async function runPageSpeed(url: string, signal?: AbortSignal): Promise<P
   };
 
   const audits = data.lighthouseResult?.audits;
-  // An audit's pass/fail, or undefined when it's missing or didn't
-  // apply to this page (score: null), never a guess either way.
   const passes = (score: number | null | undefined) => (typeof score === "number" ? score === 1 : undefined);
   const fails = (score: number | null | undefined) => (typeof score === "number" ? score < 1 : undefined);
 
-  // Rounded to one decimal — the raw millisecond figure varies run to
-  // run, and a false extra digit of precision doesn't help anyone.
+  // One decimal: the raw figure varies from run to run anyway.
   const lcpMs = audits?.["largest-contentful-paint"]?.numericValue;
   const lcpSeconds = typeof lcpMs === "number" ? Math.round((lcpMs / 1000) * 10) / 10 : undefined;
 

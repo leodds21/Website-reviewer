@@ -1,9 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { checkHttps } from "./https";
 
-// checkHttps goes through safeFetch, which resolves DNS to check for a
-// blocked IP before every request — mocked here so the test doesn't
-// depend on real DNS, same as fetch itself.
+// safeFetch resolves DNS before each request; mocked here.
 vi.mock("node:dns/promises", () => ({ lookup: vi.fn().mockResolvedValue([{ address: "93.184.216.34" }]) }));
 
 function fakeResponse(url: string, status = 200): Response {

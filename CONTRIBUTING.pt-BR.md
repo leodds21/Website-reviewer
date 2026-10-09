@@ -2,39 +2,28 @@
 
 # Contribuindo
 
-Obrigado pelo tempo. Reportes de bug, correções e pequenas melhorias são todos bem-vindos.
+Reportes de bug, correções e pequenas melhorias são bem-vindos.
 
-## Reportando um bug ou sugerindo algo
+## Issues
 
-Abra uma [issue](https://github.com/leodds21/Website-reviewer/issues/new/choose) usando o template de bug ou de sugestão. Num bug, ajudam mais a URL analisada (se for pública), o que você esperava e o que aconteceu.
+Abra uma [issue](https://github.com/leodds21/Website-reviewer/issues/new/choose) com o template de bug ou de sugestão. Num bug, ajudam mais a URL analisada (se for pública), o que você esperava e o que aconteceu. Problemas de segurança vão pelo [SECURITY.pt-BR.md](SECURITY.pt-BR.md), nunca por issue pública.
 
-Problemas de segurança vão pelo [SECURITY.pt-BR.md](SECURITY.pt-BR.md), nunca por issue pública.
+## Pull requests
 
-## Fazendo uma mudança
+1. Faça um fork e crie uma branch a partir da `master` (`fix/sitemap-redirect`, `feat/open-graph-check`).
+2. Prepare o projeto como em [docs/DEVELOPMENT.pt-BR.md](docs/DEVELOPMENT.pt-BR.md).
+3. Adicione testes para o comportamento que mudar.
+4. Rode o que o CI roda: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, `npm run test:e2e`.
+5. Abra o PR para a `master` e preencha o template.
 
-1. Faça um fork do repositório e crie uma branch a partir da `master`, com o nome da mudança (`fix/sitemap-redirect`, `feat/open-graph-check`).
-2. Prepare o projeto como descrito em [docs/DEVELOPMENT.pt-BR.md](docs/DEVELOPMENT.pt-BR.md).
-3. Faça a mudança, com testes para qualquer comportamento que ela adiciona ou corrige.
-4. Rode as mesmas verificações que o CI roda:
+Para algo maior que uma correção pequena, abra uma issue antes.
 
-   ```bash
-   npm run lint
-   npm run typecheck
-   npm test
-   npm run build
-   npm run test:e2e
-   ```
+## Diretrizes
 
-5. Abra um pull request para a `master` e preencha o template: o que mudou, por quê e como você testou.
+- Uma mudança por pull request.
+- Títulos de commit com até 50 caracteres, no imperativo, com prefixo (`fix:`, `feat:`, `docs:`…). Corpo só quando o motivo não é óbvio.
+- O scanner nunca aponta um problema que não conseguiu verificar; uma checagem que não sabe deve dizer isso.
+- Texto exibido ao usuário vai em `app/i18n/translations.ts`, em português e inglês.
+- Nada de segredos em código, testes ou exemplos.
 
-Para algo maior que uma correção pequena, abra uma issue antes, para combinarmos o caminho antes de você investir tempo nisso.
-
-## O que é uma boa mudança
-
-- **Pequena e focada**: uma mudança por pull request.
-- **Commits**: um estilo leve de [Conventional Commits](https://www.conventionalcommits.org/pt-br/) (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`), com um corpo explicando o que mudou e por quê.
-- **Resultados honestos**: o scanner nunca aponta um problema que não conseguiu verificar. Uma checagem que não sabe deve dizer isso, não chutar.
-- **Os dois idiomas**: qualquer texto exibido ao usuário vai em `app/i18n/translations.ts`, em português e inglês.
-- **Nada de segredos** em código, testes ou exemplos.
-
-Ao contribuir, você concorda que suas contribuições ficam sob a [licença MIT](LICENSE) e que vai seguir o [código de conduta](CODE_OF_CONDUCT.md).
+As contribuições ficam sob a [licença MIT](LICENSE) e seguem o [código de conduta](CODE_OF_CONDUCT.md).
