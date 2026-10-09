@@ -5,8 +5,6 @@ on:
     branches: [master]
   pull_request:
 
-# The workflow only reads the code; nothing it runs needs to write to the
-# repository, even when it runs on a pull request from a fork.
 permissions:
   contents: read
 
@@ -24,7 +22,5 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
-      # The UI flow in a real browser, against the build above (see
-      # playwright.config.ts: the analysis endpoint is mocked per test).
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e

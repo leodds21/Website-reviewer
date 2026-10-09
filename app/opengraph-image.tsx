@@ -4,10 +4,7 @@ export const alt = "lsdias.dev scanner: descubra o que está atrapalhando o seu 
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-// Generated at request/build time rather than a static asset — no
-// binary file to keep in sync with the brand's own colors, and it's
-// literally the same palette as the app itself (see app/globals.css)
-// instead of a hand-made image that could quietly drift from it.
+// Generated, so it can't drift from the app's palette.
 export default function OpengraphImage() {
   return new ImageResponse(
     (
