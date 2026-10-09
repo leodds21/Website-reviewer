@@ -6,7 +6,6 @@ import { translateIssue } from "@/app/i18n/translations";
 import { topIssues, type Issue } from "@/lib/issues";
 import type { AggregatedScore } from "@/lib/score";
 
-/** Brings a finding in the full list into view and moves focus to it. */
 function showFinding(code: Issue["code"]) {
   const finding = document.getElementById(`finding-${code}`);
   if (!finding) return;
@@ -15,13 +14,7 @@ function showFinding(code: Issue["code"]) {
   finding.focus({ preventScroll: true });
 }
 
-/**
- * "Corrija primeiro": the top of the one ranking the whole report uses
- * (lib/issues.ts), as a short summary pointing at the full findings
- * below, never a copy of them. Fewer than three real problems shows
- * fewer; only suggestions says so in a line; no findings at all shows
- * nothing, since the findings section already says the site is clean.
- */
+// A summary pointing at the findings below, not a copy of them.
 export function TopIssues({ issues, score }: { issues: Issue[]; score: AggregatedScore }) {
   const { locale, t } = useLanguage();
   if (issues.length === 0) return null;
@@ -59,7 +52,7 @@ export function TopIssues({ issues, score }: { issues: Issue[]; score: Aggregate
                       className="inline-flex min-h-11 items-center text-[13px] font-semibold text-[var(--color-link)] hover:underline"
                     >
                       {t.viewDetails}
-                      {/* Three "Ver detalhes" in a row: the title tells them apart for a screen reader. */}
+                      {/* Tells the three "Ver detalhes" apart for screen readers. */}
                       <span className="sr-only">: {title}</span>
                       <span aria-hidden="true">&nbsp;↓</span>
                     </button>

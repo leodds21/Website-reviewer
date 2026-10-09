@@ -7,8 +7,6 @@ import { translateIssue, translateRecommendation } from "@/app/i18n/translations
 import { rankIssues, type Issue, type IssueSeverity } from "@/lib/issues";
 import type { AggregatedScore } from "@/lib/score";
 
-// Enough to locate the problem; the checks themselves sample at most
-// 20 images and 10 links.
 const MAX_AFFECTED_SHOWN = 10;
 
 const GROUP_ORDER: IssueSeverity[] = ["critico", "atencao", "sugestao"];
@@ -21,7 +19,7 @@ function useIssueText(issue: Issue) {
   };
 }
 
-/** The specific images or links behind a finding, as plain text, never links: they come from the analyzed site. */
+// Plain text, never links: they come from the analyzed site.
 function AffectedItems({ issue, compact = false }: { issue: Issue; compact?: boolean }) {
   const { t } = useLanguage();
   const affected = issue.affected ?? [];
@@ -62,7 +60,6 @@ function HowToFix({ issue, recommendation }: { issue: Issue; recommendation: str
   );
 }
 
-/** Critical: open by default, the fix written out, because these are what to do first. */
 function CriticalFinding({ issue }: { issue: Issue }) {
   const { t } = useLanguage();
   const { title, description, recommendation } = useIssueText(issue);
@@ -87,7 +84,6 @@ function CriticalFinding({ issue }: { issue: Issue }) {
   );
 }
 
-/** Attention and suggestions: one row each, the fix one tap away. */
 function FindingRow({ issue }: { issue: Issue }) {
   const { t } = useLanguage();
   const { title, description, recommendation } = useIssueText(issue);
@@ -125,12 +121,7 @@ function GroupHeading({ id, severity, count }: { id: string; severity: IssueSeve
   );
 }
 
-/**
- * Every finding, grouped by severity, most urgent first: critical,
- * attention, and optional improvements, collapsed since they never cost
- * points. Within a group, the report's one ranking (rankIssues), so
- * the order matches "Corrija primeiro" above.
- */
+// Same order as rankIssues within each group, matching "Corrija primeiro".
 export function Findings({ issues, score }: { issues: Issue[]; score: AggregatedScore }) {
   const { t } = useLanguage();
 

@@ -10,12 +10,7 @@ import { translateAnalysisError } from "@/app/i18n/translations";
 import type { AnalyzeError } from "@/lib/analyzeError";
 import type { StepKey } from "@/lib/scanSteps";
 
-/**
- * Scrolls an element into view only when it isn't fully on screen. On a
- * phone the form and the plan are stacked, so whatever changes (the live
- * progress, or the message a run ends with) can be out of view; side by
- * side on desktop it never is, so nothing moves there.
- */
+// On phones the form and plan are stacked, so either can be off screen.
 function revealIfHidden(element: HTMLElement | null, block: ScrollLogicalPosition) {
   if (!element) return;
   const { top, bottom } = element.getBoundingClientRect();
@@ -24,12 +19,6 @@ function revealIfHidden(element: HTMLElement | null, block: ScrollLogicalPositio
   element.scrollIntoView({ block, behavior: reduceMotion ? "auto" : "smooth" });
 }
 
-/**
- * Start and progress on one screen: the form on the left, the plan of
- * real checks on the right. Submitting doesn't swap screens; the same
- * plan turns into live progress, so the visitor watches exactly what
- * they were told would be checked.
- */
 export function HomeScreen({
   url,
   onUrlChange,
@@ -49,9 +38,6 @@ export function HomeScreen({
   const planRef = useRef<HTMLElement>(null);
   const noteRef = useRef<HTMLDivElement>(null);
 
-  // Starting a run brings the live progress into view; a run that ends in
-  // an error (or a link past the cache) brings its message back into view,
-  // since on a phone the page is by then scrolled down to the plan.
   useEffect(() => {
     if (analyzing) revealIfHidden(planRef.current, "start");
   }, [analyzing]);
@@ -99,21 +85,17 @@ export function HomeScreen({
           {error && (
             <div ref={noteRef}>
               {error.code === "not-cached" ? (
-                // A report link past the cache: nothing went wrong, so a
-                // neutral note, with the address already in the field.
+                // An expired report link isn't an error, so a neutral note.
                 <p role="status" className="rounded-lg border border-[var(--color-line)] px-4 py-3 text-sm leading-relaxed text-[var(--color-muted)]">
                   {translateAnalysisError(locale, error)}
                 </p>
               ) : (
-                // The typed URL stays in the field, so recovering is "fix the
-                // typo and press the button again", not starting over.
                 <ErrorNote>{translateAnalysisError(locale, error)}</ErrorNote>
               )}
             </div>
           )}
 
-          {/* A div, not a <p>: the privacy link carries its <dialog>,
-              which can't live inside a paragraph. */}
+          {/* A div: the privacy link's <dialog> can't live inside a <p>. */}
           <div className="text-[13px] leading-relaxed text-[var(--color-subtle)]">
             {t.privacyNote} <PrivacyPolicyDialog />
           </div>

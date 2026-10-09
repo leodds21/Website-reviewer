@@ -28,11 +28,8 @@ function LocaleOption({
           : "border-transparent text-[var(--color-subtle)] hover:text-[var(--color-text)]"
       }`}
     >
-      {/* The full name is appended rather than replacing "PT" via
-          aria-label. An accessible name that doesn't contain the
-          visible text breaks voice control — saying "click PT" matches
-          nothing when the name is only "Português" (WCAG 2.5.3, and
-          flagged by Lighthouse's label-content-name-mismatch). */}
+      {/* Appended, not an aria-label: the name must contain "PT" for
+          voice control (WCAG 2.5.3). */}
       {label}
       <span className="sr-only"> ({fullName})</span>
     </button>

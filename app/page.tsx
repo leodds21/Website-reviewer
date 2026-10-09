@@ -12,18 +12,11 @@ import { useLanguage } from "./i18n/LanguageContext";
 
 export default function Home() {
   const [url, setUrl] = useState("");
-  // Which way the visitor reached the last screen: "see how to fix it"
-  // after a normal report, or "request a manual review" after a site
-  // that blocked the automated checks.
   const [manualReview, setManualReview] = useState(false);
   const { stage, setStage, completedSteps, report, error, startAnalysis } = useAnalysis();
-  // Idle and analyzing are one screen (the plan turns into progress in
-  // place), so starting an analysis isn't a screen change: moving focus
-  // there scrolled the page back to the top, undoing HomeScreen's scroll
-  // to the plan on phones.
+  // Idle and analyzing are one screen; moving focus would undo the scroll on phones.
   const stageRef = useStageFocus<HTMLDivElement>(stage === "analyzing" ? "idle" : stage);
   const { t } = useLanguage();
-  // What the report on screen was run for, as typed: the ?url= value.
   const [analyzedUrl, setAnalyzedUrl] = useState("");
 
   const run = useCallback(
@@ -36,11 +29,8 @@ export default function Home() {
   );
   useReportLink({ stage, setStage, analyzedUrl, hasReport: report !== null, run });
 
-  // The report and the contact step that follows it.
   const openReport = stage === "report" || stage === "next-step" ? report : null;
 
-  // With a report open the tab says which site and how it did, so
-  // several analyses in different tabs can be told apart at a glance.
   useEffect(() => {
     if (!openReport) {
       document.title = t.documentTitle;
@@ -58,9 +48,6 @@ export default function Home() {
 
 
   return (
-    // tabIndex -1 makes this focusable programmatically but not in the
-    // Tab order, so the focus move on stage change doesn't add a stop
-    // keyboard users have to pass through afterwards.
     <div ref={stageRef} tabIndex={-1} className="flex flex-1 flex-col focus:outline-none">
       {(stage === "idle" || stage === "analyzing") && (
         <HomeScreen
@@ -69,18 +56,11 @@ export default function Home() {
           onSubmit={handleSubmit}
           error={error}
           analyzing={stage === "analyzing"}
-          // Only a run in progress has steps to show: after "Nova análise"
-          // or a failed run, the plan starts over instead of showing the
-          // previous analysis as done.
           completedSteps={stage === "analyzing" ? completedSteps : []}
         />
       )}
 
-      {/* Both stay mounted while a report is open, one of them hidden:
-          going back to the report and returning keeps what was typed in
-          the contact form (or its "sent" confirmation), and the report
-          keeps the sections the visitor opened. A new analysis unmounts
-          both, so nothing carries over to another site. */}
+      {/* Both stay mounted so switching back keeps the form and open sections. */}
       {openReport && (
         <>
           <div hidden={stage !== "report"} className="flex flex-1 flex-col">

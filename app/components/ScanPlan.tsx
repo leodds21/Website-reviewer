@@ -4,10 +4,7 @@ import { useLanguage } from "@/app/i18n/LanguageContext";
 import { useSmoothProgress } from "@/app/hooks/useSmoothProgress";
 import { SCAN_STEPS, type StepKey } from "@/lib/scanSteps";
 
-// Roughly how long each check takes relative to the others, so the bar
-// advances with the real work instead of in equal sevenths: PageSpeed
-// (a full Lighthouse run on Google's side) is most of the wait, the
-// rest finish within a second or two of each other.
+// Relative duration of each check: PageSpeed is most of the wait.
 const STEP_WEIGHT: Record<StepKey, number> = {
   https: 7,
   securityHeaders: 3,
@@ -26,8 +23,7 @@ const IDLE_WAVE_STEP_S = 0.28;
 
 function StatusMark({ status, index }: { status: StepStatus; index: number }) {
   if (status === "done") {
-    // The ring is lsdias.dev's scanner "ping": it plays once, when the
-    // check lands (this branch mounts at that moment), and never again.
+    // Plays once, when the check lands (this branch mounts then).
     return (
       <span aria-hidden="true" className="relative inline-flex">
         <span className="scan-ping" />
@@ -48,8 +44,6 @@ function StatusMark({ status, index }: { status: StepStatus; index: number }) {
   if (status === "running") {
     return <span aria-hidden="true" className="pulse-dot h-2 w-2 rounded-full bg-[var(--color-link)]" />;
   }
-  // Waiting only exists while nothing runs, so the standby wave stops by
-  // itself when an analysis starts and comes back after it.
   return (
     <span
       aria-hidden="true"
@@ -59,14 +53,10 @@ function StatusMark({ status, index }: { status: StepStatus; index: number }) {
   );
 }
 
-/**
- * The percentage and the bar under the plan, from one value so they
- * always agree. Shown before a run too ("0%"), so the panel doesn't
- * change height when the analysis starts.
- */
+// Shown before a run too, so the panel keeps its height when one starts.
 function ScanProgress({ percent, live = false }: { percent: number; live?: boolean }) {
   const { t } = useLanguage();
-  // Whole numbers only, and never 100 before the server says it's done.
+  // Never 100 before the server says it's done.
   const shown = Math.floor(percent);
 
   return (
@@ -89,20 +79,12 @@ function ScanProgress({ percent, live = false }: { percent: number; live?: boole
   );
 }
 
-// Only mounted during a run: the smoothing creeps forward on its own
-// between steps, which is right while checks are running and wrong
-// while nothing is (an idle screen would drift up toward 80%). Mounting
-// it per run also starts every analysis from 0%.
+// Mounted per run: the smoothing creeps on its own, and each run starts at 0%.
 function LiveScanProgress({ realPercent }: { realPercent: number }) {
   return <ScanProgress percent={useSmoothProgress(realPercent)} live />;
 }
 
-/**
- * The seven real checks, listed before the scan starts (so the visitor
- * knows what will be looked at) and turned into live progress once it
- * runs: each row flips to "concluída" when its step event arrives.
- * Real completion only; nothing is marked done ahead of the server.
- */
+// The checks listed up front, then marked done as each step event arrives.
 export function ScanPlan({
   running,
   completedSteps,
@@ -127,8 +109,7 @@ export function ScanPlan({
         <h2 id="scan-plan-heading" className="font-mono text-xs font-medium tracking-[0.16em] text-[var(--color-label)] uppercase">
           {t.scanPlan.heading}
         </h2>
-        {/* The one live region: announces "3 / 7 concluídas" as it
-            changes, instead of every row's status word. */}
+        {/* The only live region, so rows don't each announce their status. */}
         <span role="status" className="font-mono text-xs text-[var(--color-subtle)]">
           {t.scanPlan.progress(doneCount, SCAN_STEPS.length)}
         </span>
@@ -158,10 +139,6 @@ export function ScanPlan({
           })}
         </ol>
 
-        {/* lsdias.dev's scanner, over the list it's checking: a faint
-            grid and a band of light sweeping down it, only while a run
-            is in progress. Decorative; the live region above says the
-            same thing in words. */}
         {running && (
           <div aria-hidden="true" className="scan-overlay">
             <div className="scan-sweep" />
