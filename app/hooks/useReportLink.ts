@@ -17,18 +17,9 @@ function addressFor(site: string | null): string {
 }
 
 /**
- * Mirrors the open report in the address bar (?url=site.com), so the
- * link can be sent to someone, a reload reopens the report, and the
- * browser's back button moves between home, report and contact step
- * instead of leaving the app. Opening a link shows its report while
- * the server still has it cached (6 hours); after that, the home screen
- * with the address filled in and an offer to run it again, so a link
- * alone never starts an analysis.
- *
- * Each screen is a history entry tagged with its stage. An entry that
- * already matches the screen (after a back/forward) is left alone,
- * which is what keeps popstate and the stage changes it causes from
- * pushing duplicates.
+ * Keeps the report in the address bar (?url=) and each screen in history.
+ * An entry that already matches the screen is left alone, so back/forward
+ * doesn't push duplicates.
  */
 export function useReportLink({
   stage,
@@ -43,14 +34,9 @@ export function useReportLink({
   hasReport: boolean;
   run: (site: string, options?: { cachedOnly?: boolean }) => void;
 }) {
-  // True from opening a link (or reloading one) until its report is up:
-  // that entry already has the right address and is claimed in place,
-  // never stacked on. History state survives a reload, so the entry's
-  // own tag can't tell this case apart.
+  // While a link opens, its entry is replaced, not stacked on.
   const openingLink = useRef(false);
-  // Once per mount (run is stable). Deliberately not guarded by a ref:
-  // a remount (React's dev double-mount does one) aborts the analysis
-  // this started, and only running it again recovers from that.
+  // No ref guard: a remount aborts the first run, so it must run again.
   useEffect(() => {
     const site = linkedSite();
     if (!site) return;
@@ -85,7 +71,6 @@ export function useReportLink({
       if (!site || wanted === "idle") setStage("idle");
       else if (hasReport && site === analyzedUrl) setStage(wanted);
       else {
-        // Same as opening a link: the cached report, or an offer to run it.
         openingLink.current = true;
         run(site, { cachedOnly: true });
       }
@@ -95,7 +80,6 @@ export function useReportLink({
   }, [hasReport, analyzedUrl, run, setStage]);
 }
 
-/** The in-app "back to report": a real history step when the contact step was pushed as one. */
 export function backToReport(setStage: (stage: Stage) => void) {
   if (window.history.state?.stage === "next-step") window.history.back();
   else setStage("report");

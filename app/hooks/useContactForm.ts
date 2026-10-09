@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 type ContactStatus = "idle" | "submitting" | "just-succeeded" | "succeeded" | "error";
 
-/** Same failure vocabulary as the analysis flow, so both read alike. */
 export type ContactErrorCode = "offline" | "timeout" | "not-configured" | "rejected" | "unknown";
 
 const SUBMIT_TIMEOUT_MS = 15_000;
@@ -33,10 +32,6 @@ export function useContactForm(options: { domain: string | undefined }) {
         return;
       }
 
-      // Worth checking up front for the same reason the analysis does:
-      // "you're offline" is something the visitor can act on, where a
-      // generic failure just leaves them guessing whether their message
-      // went anywhere.
       if (typeof navigator !== "undefined" && navigator.onLine === false) {
         setStatus("error");
         setErrorCode("offline");
@@ -69,9 +64,7 @@ export function useContactForm(options: { domain: string | undefined }) {
         });
 
         if (response.ok) {
-          // Holds the button in its "check" state for a beat before
-          // swapping to the confirmation message — an instant swap reads
-          // as the click didn't register, not as success.
+          // An instant swap reads as if the click didn't register.
           setStatus("just-succeeded");
           successTimerRef.current = setTimeout(() => setStatus("succeeded"), SUCCESS_HOLD_MS);
           return;
@@ -85,8 +78,6 @@ export function useContactForm(options: { domain: string | undefined }) {
           setErrorCode("timeout");
           return;
         }
-        // An abort we caused (unmount) shouldn't paint an error over a
-        // screen that's going away.
         if (controller.signal.aborted) return;
 
         setStatus("error");
