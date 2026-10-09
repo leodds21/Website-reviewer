@@ -6,19 +6,12 @@ import { createSseParser } from "@/lib/sse";
 
 export type Stage = "idle" | "analyzing" | "report" | "next-step";
 
-// A ceiling on the whole analysis, well past the server's own per-check
-// timeouts (8s each, 50s for PageSpeed). It exists for the case those
-// never fire — a connection that stays open but stops delivering — so
-// the loading screen can't spin forever with no way out.
+// For a connection that stays open but stops delivering.
 const OVERALL_TIMEOUT_MS = 90_000;
 
-// How long the finished plan (every check done, the bar at 100%) stays
-// up before the report replaces it. Without it the bar jumped from
-// wherever the smoothing had got to (often ~70%) straight to the
-// report, so the visitor never saw the scan actually finish.
+// Lets the bar visibly reach 100% before the report replaces it.
 const FINISH_HOLD_MS = 700;
 
-/** Waits, unless the analysis is aborted first (a new one started, or unmount). */
 function pause(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
     const id = setTimeout(resolve, ms);
@@ -37,13 +30,9 @@ export function useAnalysis() {
   const [error, setError] = useState<AnalyzeError | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Aborts an analysis still in flight when the component goes away, so
-  // the request stops server-side instead of running to completion for
-  // nobody (and so no state setter fires after unmount).
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  // cachedOnly: only a report already cached (opening a report link);
-  // otherwise the API answers "not-cached" and nothing is analyzed.
+  // cachedOnly: for report links, which must never start an analysis.
   const startAnalysis = useCallback(async (url: string, { cachedOnly = false }: { cachedOnly?: boolean } = {}) => {
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -54,9 +43,6 @@ export function useAnalysis() {
     setError(null);
     setReport(null);
 
-    // Checked before the request rather than after it fails: "você está
-    // sem conexão" is a much more useful thing to read than a generic
-    // failure, and it's the one failure the visitor can actually act on.
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
       setError({ code: "offline" });
       setStage("idle");
@@ -71,10 +57,7 @@ export function useAnalysis() {
         headers: { Accept: "text/event-stream" },
       });
 
-      // fetch (unlike EventSource, which can only ever report "it
-      // failed") gives us the status and the body — so a rate limit or
-      // a rejected URL can say what actually happened, with the wait
-      // time, instead of collapsing into one generic message.
+      // fetch, not EventSource, so error status and body are readable.
       if (!response.ok) {
         setError(await readErrorBody(response));
         setStage("idle");
@@ -102,8 +85,6 @@ export function useAnalysis() {
           } else if (event.event === "done") {
             finished = true;
             const finishedReport = JSON.parse(event.data) as AnalyzeReport;
-            // The answer is in: the overall ceiling no longer applies,
-            // and must not fire during the pause below.
             clearTimeout(timeout);
             setCompletedSteps([...SCAN_STEPS]);
             await pause(FINISH_HOLD_MS, controller.signal);
@@ -118,16 +99,13 @@ export function useAnalysis() {
         }
       }
 
-      // The stream ended without ever saying how it went — a dropped
-      // connection mid-analysis. Silently returning to the idle screen
-      // with no explanation is the one thing that mustn't happen.
+      // The connection dropped mid-analysis.
       if (!finished) {
         setError({ code: "unknown" });
         setStage("idle");
       }
     } catch (caught) {
-      // An abort from starting a new analysis (or unmounting) is us,
-      // not a failure — leave the state to whatever replaced it.
+      // A new analysis or unmount aborted this one: not a failure.
       if (controller.signal.aborted && (caught as DOMException)?.name !== "TimeoutError") return;
 
       setError({ code: classifyFailure(caught) });
@@ -145,15 +123,13 @@ async function readErrorBody(response: Response): Promise<AnalyzeError> {
     const body = (await response.json()) as Partial<AnalyzeError>;
     if (body?.code) return body as AnalyzeError;
   } catch {
-    // Non-JSON body (a proxy's own error page, say) — fall through.
+    // Not JSON, e.g. a proxy's error page.
   }
   return response.status === 429 ? { code: "rate-limited" } : { code: "unknown" };
 }
 
 function classifyFailure(caught: unknown): AnalyzeError["code"] {
   if ((caught as DOMException)?.name === "TimeoutError") return "timeout";
-  // fetch rejects with a TypeError for anything network-level: DNS
-  // failure, connection refused, the machine going offline mid-request.
   if (caught instanceof TypeError) {
     return typeof navigator !== "undefined" && navigator.onLine === false ? "offline" : "unknown";
   }
