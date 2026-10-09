@@ -1,8 +1,6 @@
 @import "tailwindcss";
 
-/* Console theme: a sober near-black ground, flat surfaces separated by
-   hairlines, and one brand blue (lsdias.dev's) carrying the visual
-   weight. Text tones are all checked against --color-bg for >=4.5:1. */
+/* Text tones all meet 4.5:1 against --color-bg. */
 :root {
   --color-bg: #0b0d12;
   --color-surface: #0f1626;
@@ -17,9 +15,7 @@
   --color-accent-hover: #3d7ef0;
   --color-link: #7fc4ff;
   --color-label: #68b5ff;
-  /* Reserved for severity: marks, labels and the score meter, never
-     the brand's own weight. Each pairs a mark color with a lighter
-     text tone, so labels stay readable on the dark ground. */
+  /* Severity only. Each mark color has a lighter text tone for contrast. */
   --color-severity-critico: #ff8a7a;
   --color-severity-critico-text: #ffb3a8;
   --color-severity-atencao: #f2b84b;
@@ -29,15 +25,13 @@
   --color-severity-sugestao: #9fb2cc;
 }
 
-/* Feeds the font-heading / font-body / font-mono utilities. */
 @theme inline {
   --font-heading: var(--font-space-grotesk), sans-serif;
   --font-body: var(--font-manrope), sans-serif;
   --font-mono: var(--font-jetbrains-mono), monospace;
 }
 
-/* In the base layer so component utility classes (a heading's own color
-   or weight) always win over these defaults. */
+/* Base layer, so utility classes win. */
 @layer base {
   body {
     background-color: var(--color-bg);
@@ -56,22 +50,17 @@
   }
 }
 
-/* The progress bar under the scan plan. Its width is animated per frame
-   by useSmoothProgress, so it deliberately has no CSS transition. */
+/* No transition: useSmoothProgress animates the width per frame. */
 .progress-fill {
   height: 100%;
   background: var(--color-accent);
 }
 
-/* While a run is going the bar's leading edge glows, so it reads as
-   live rather than as a static fill. */
 .progress-fill.is-live {
   box-shadow: 0 0 10px 1px rgb(127 196 255 / 0.55);
 }
 
-/* The scan over the plan's list, after lsdias.dev's scanner visual:
-   same blue, same grid step, same sweep curve and pacing. Only mounted
-   while a run is in progress. */
+/* Matches the scanner on lsdias.dev. */
 .scan-overlay {
   position: absolute;
   inset: 0;
@@ -84,12 +73,7 @@
   animation: scan-fade-in 0.6s ease-out both;
 }
 
-/* As tall as the list, with the band drawn on its bottom edge: moving
-   the whole element from -100% to 0 carries the band from the top of
-   the list to the bottom with a transform alone, so it stays smooth.
-   With reduced motion, the rule at the end of this file collapses the
-   sweep and the ping to their last frame, where both are invisible:
-   what's left is the still grid. */
+/* Moved by transform alone, so it stays smooth. */
 .scan-sweep {
   position: absolute;
   inset: 0;
@@ -121,7 +105,6 @@
   100% { opacity: 0; transform: translateY(0); }
 }
 
-/* The radar ping when a check lands: a ring that grows and fades, once. */
 .scan-ping {
   position: absolute;
   inset: -3px;
@@ -135,10 +118,7 @@
   100% { opacity: 0; transform: scale(2.2); }
 }
 
-/* Standby, before any run: the waiting dots light up one after another
-   down the list (each row's delay is set inline), then rest. Neutral
-   for most of the cycle so it never competes with the form. Reduced
-   motion collapses it to its last frame, the neutral dot. */
+/* Idle wave; each row's delay is set inline. */
 .idle-wave {
   animation: idle-wave 6s ease-in-out infinite;
 }
@@ -158,7 +138,6 @@
   }
 }
 
-/* "Verificando": a dot that breathes while its check is in flight. */
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }
@@ -167,16 +146,12 @@
   animation: pulse-dot 1.2s ease-in-out infinite;
 }
 
-/* A clearly visible ring: keyboard users need an indicator that
-   survives at a glance on a dark ground. */
 :focus-visible {
   outline: 2px solid var(--color-link);
   outline-offset: 2px;
 }
 
-/* Clears the UA default so a <dialog> is styled entirely by utility
-   classes. Border/padding use the plain element selector so any utility
-   wins; positioning needs [open], matching modal dialogs only. */
+/* Plain selector so utilities win; [open] limits positioning to modals. */
 dialog {
   border: none;
   padding: 0;
@@ -190,11 +165,8 @@ dialog::backdrop {
   background: rgba(0, 0, 0, 0.6);
 }
 
-/* "Imprimir ou salvar PDF": the same report on white paper. The tokens
-   flip to a light set (severity tones darkened to read on white), and
-   color printing is forced on, since the severity marks and the score
-   meter are backgrounds that browsers drop by default. Screen-only
-   controls carry Tailwind's print:hidden. */
+/* Light tokens for paper. Color printing is forced because browsers
+   drop the backgrounds the severity marks use. */
 @media print {
   :root {
     --color-bg: #ffffff;
@@ -226,8 +198,6 @@ dialog::backdrop {
     margin: 14mm;
   }
 
-  /* A finding split across two pages is hard to read on paper, and a
-     section heading left alone at the foot of a page reads as nothing. */
   li,
   aside {
     break-inside: avoid;
