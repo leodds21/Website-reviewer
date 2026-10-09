@@ -1,0 +1,34 @@
+name: Bug report
+description: Something in the scanner doesn't work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Security problems don't go here: see SECURITY.md and report them privately.
+        Pode escrever em português.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what you saw instead.
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: URL analyzed
+      description: Only if it's a public site you're comfortable sharing.
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open scan.lsdias.dev
+        2. Analyze …
+        3. …
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and device
+      placeholder: Chrome 140 on Windows, Safari on iPhone, local dev server…
