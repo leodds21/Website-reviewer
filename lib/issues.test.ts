@@ -443,8 +443,7 @@ describe("rankIssues and topIssues", () => {
   });
 
   it("puts a critical finding above an attention one even when the attention one costs more points", () => {
-    // Average site: the missing description costs 25 SEO points, more
-    // than anything critical could here — yet critical still comes first.
+    // The missing description costs 25 points, more than any critical one here.
     const { input } = SCORE_SCENARIOS.average;
     const score = aggregateScore(input);
     const ranked = rankIssues([issue("no-description", "atencao"), issue("no-viewport", "critico", "accessibility")], score);

@@ -27,9 +27,6 @@ describe("parseMetaTags", () => {
   });
 
   it("finds the description even when content= comes before name= (regression test)", () => {
-    // The regex used to require name= first and silently missed real-world
-    // markup with the attributes in the other order — this is exactly the
-    // bug caught in the code review and fixed in the same commit.
     const result = parseMetaTags(`<meta content="Reversed attribute order" name="description">`);
 
     expect(result.hasDescription).toBe(true);
