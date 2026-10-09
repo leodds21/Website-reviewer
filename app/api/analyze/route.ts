@@ -287,7 +287,7 @@ export async function GET(request: Request) {
             // message (see below), never this raw detail.
             if (!loggedErrors.has(outcome.error)) {
               loggedErrors.add(outcome.error);
-              console.error(`Checagem "${outcome.key}" falhou para ${target}:`, outcome.error);
+              console.error(`Check "${outcome.key}" failed for ${target}:`, outcome.error);
             }
           } else if (outcome.key === "page") {
             // metaTags and altImages both just parse this same fetch —
@@ -370,7 +370,7 @@ export async function GET(request: Request) {
         // serialization failure) would otherwise error the stream
         // mid-flight: the visitor gets a dropped connection and the
         // still-running checks keep burning PageSpeed quota for nobody.
-        console.error(`Análise de ${target} falhou de forma inesperada:`, error);
+        console.error(`Analysis of ${target} failed unexpectedly:`, error);
         abortController.abort();
         send("failed", { code: "analysis-failed" satisfies AnalyzeErrorCode });
       } finally {

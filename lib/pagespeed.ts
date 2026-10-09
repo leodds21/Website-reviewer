@@ -44,7 +44,7 @@ type PageSpeedApiResponse = {
 // import.
 if (!process.env.PAGESPEED_API_KEY && !process.env.VITEST) {
   console.warn(
-    '[lsdias] PAGESPEED_API_KEY não está configurada — toda análise vai reportar Performance (e parte de SEO/Acessibilidade/Segurança) como "não medido" até essa variável de ambiente ser definida.',
+    `[website-scanner] PAGESPEED_API_KEY is not set: every analysis will report Performance (and Google's share of SEO, accessibility and security) as "not measured" until it is.`,
   );
 }
 
@@ -97,7 +97,7 @@ export type PageSpeedResult = {
 export async function runPageSpeed(url: string, signal?: AbortSignal): Promise<PageSpeedResult> {
   const apiKey = process.env.PAGESPEED_API_KEY;
   if (!apiKey) {
-    throw new Error("PAGESPEED_API_KEY não configurada");
+    throw new Error("PAGESPEED_API_KEY is not set");
   }
 
   const requestedUrl = normalizeUrl(url);
@@ -117,7 +117,7 @@ export async function runPageSpeed(url: string, signal?: AbortSignal): Promise<P
 
   if (!response.ok) {
     const body = await response.text();
-    throw new PageSpeedError(`PageSpeed API retornou ${response.status}: ${body}`, response.status);
+    throw new PageSpeedError(`PageSpeed API returned ${response.status}: ${body}`, response.status);
   }
 
   const data = (await response.json()) as PageSpeedApiResponse;

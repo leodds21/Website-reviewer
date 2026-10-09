@@ -85,9 +85,9 @@ export async function checkSitemapRobots(url: string, signal?: AbortSignal): Pro
   if (sitemap.found === null && robots.found === null) {
     const blockedStatus = sitemap.blockedStatus ?? robots.blockedStatus;
     if (blockedStatus !== undefined) {
-      throw new HttpStatusError(blockedStatus, `Origem recusou a checagem: ${origin} respondeu ${blockedStatus}`);
+      throw new HttpStatusError(blockedStatus, `Origin refused the check: ${origin} answered ${blockedStatus}`);
     }
-    throw new UnreachableError(`Origem inacessível: ${origin}`);
+    throw new UnreachableError(`Origin unreachable: ${origin}`);
   }
 
   return { hasSitemap: sitemap.found, hasRobotsTxt: robots.found };
