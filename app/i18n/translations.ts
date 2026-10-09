@@ -173,7 +173,7 @@ const pt: Dictionary = {
       },
       {
         label: "Com quem compartilhamos",
-        text: "A URL vai para a API do Google PageSpeed Insights, que gera parte do relatório. O relatório pronto e o controle de abuso ficam no Upstash, um banco de dados em nuvem. Os dados do formulário de contato vão para o Formspree, que os encaminha pro nosso e-mail. O site roda na Vercel.",
+        text: "A URL vai para o Google PageSpeed Insights, que gera parte do relatório. O relatório e o controle de abuso ficam no Upstash, um banco em nuvem; o formulário de contato passa pelo Formspree até o nosso e-mail. O site roda na Vercel.",
       },
       {
         label: "Por quanto tempo guardamos",
@@ -181,7 +181,7 @@ const pt: Dictionary = {
       },
       {
         label: "Rastreamento",
-        text: "Não usamos ferramentas de analytics. O único cookie guarda o idioma que você escolheu. Seu IP só é usado pra limitar abusos: fica guardado por até 1 hora e não fica associado a você.",
+        text: "Sem analytics. O único cookie guarda o seu idioma. Seu IP só serve pra limitar abusos e fica guardado por até 1 hora, sem ligação com você.",
       },
     ],
   },
@@ -197,7 +197,7 @@ const pt: Dictionary = {
     ].filter((part): part is string => Boolean(part)),
   scoreExplanationToggle: "Como calculamos esta nota",
   scoreExplanation:
-    "A nota geral é a média simples das categorias, sem nenhuma valer mais que a outra. Cada categoria, por sua vez, é a média das medições dela: as notas do Google e as nossas checagens. Em \"Entenda esta nota\", cada categoria mostra quanto cada medição tirou. Sugestões aparecem na lista, mas não mudam o número. Uma categoria \"não medido\" fica fora da conta e mostra o motivo. \"Medido em parte\" quer dizer que algumas checagens daquela categoria não conseguiram rodar.",
+    "A nota geral é a média simples das categorias, e cada categoria é a média das suas medições: notas do Google e checagens nossas. Sugestões não mudam o número. Uma categoria \"não medido\" fica fora da conta, e \"medido em parte\" quer dizer que alguma checagem dela não rodou.",
   overallArithmetic: (scores, exact, overall) =>
     `(${scores.join(" + ")}) ÷ ${scores.length} = ${exact.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}${exact === overall ? "" : ` → ${overall}`}`,
   scoreBreakdownToggle: "Entenda esta nota",
@@ -497,7 +497,7 @@ const en: Dictionary = {
       },
       {
         label: "Who we share it with",
-        text: "The URL goes to Google's PageSpeed Insights API, which generates part of the report. The finished report and the abuse limit are kept in Upstash, a cloud database. Contact form data goes to Formspree, which forwards it to our inbox. The site runs on Vercel.",
+        text: "The URL goes to Google PageSpeed Insights, which generates part of the report. The report and the abuse limit are kept in Upstash, a cloud database; the contact form goes through Formspree to our inbox. The site runs on Vercel.",
       },
       {
         label: "How long we keep it",
@@ -505,7 +505,7 @@ const en: Dictionary = {
       },
       {
         label: "Tracking",
-        text: "We don't use analytics tools. The only cookie remembers the language you picked. Your IP is only used to limit abuse: it's kept for up to 1 hour and isn't tied to your identity.",
+        text: "No analytics. The only cookie remembers your language. Your IP is only used to limit abuse and is kept for up to 1 hour, not tied to your identity.",
       },
     ],
   },
@@ -521,7 +521,7 @@ const en: Dictionary = {
     ].filter((part): part is string => Boolean(part)),
   scoreExplanationToggle: "How we calculate this score",
   scoreExplanation:
-    "The overall score is a simple average of the categories, none weighted more than another. Each category is in turn the average of its measurements: Google's scores and our own checks. Under \"Understand this score\", each category shows how much each measurement took off. Suggestions show up in the list but don't change the number. A category marked \"not measured\" is left out and shows the reason. \"Partly measured\" means some of that category's checks couldn't run.",
+    "The overall score is a simple average of the categories, and each category is the average of its measurements: Google's scores and our own checks. Suggestions don't change the number. A \"not measured\" category is left out, and \"partly measured\" means one of its checks couldn't run.",
   overallArithmetic: (scores, exact, overall) =>
     `(${scores.join(" + ")}) ÷ ${scores.length} = ${exact.toLocaleString("en-US", { maximumFractionDigits: 2 })}${exact === overall ? "" : ` → ${overall}`}`,
   scoreBreakdownToggle: "Understand this score",
