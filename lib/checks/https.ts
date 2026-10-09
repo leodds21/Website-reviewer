@@ -91,7 +91,7 @@ async function checkHttpsDirectly(httpUrl: string, refusedStatus: number, signal
   if ("unreachable" in attempt) {
     // Refused over http and unreachable over https: we genuinely don't
     // know, so no verdict rather than a "no HTTPS" guess.
-    throw new HttpStatusError(refusedStatus, `HTTP recusado (${refusedStatus}) e HTTPS inacessível: ${new URL(attempt.url).host}`);
+    throw new HttpStatusError(refusedStatus, `HTTP refused (${refusedStatus}) and HTTPS unreachable: ${new URL(attempt.url).host}`);
   }
 
   return {

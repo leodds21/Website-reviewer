@@ -4,9 +4,14 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # One PR for dev tooling and one for minor/patch runtime updates;
+    # major runtime upgrades still come one at a time, to be reviewed.
     groups:
       dev-dependencies:
         dependency-type: "development"
+      runtime-minor-and-patch:
+        dependency-type: "production"
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: "github-actions"
     directory: "/"

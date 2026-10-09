@@ -93,7 +93,7 @@ export async function checkBrokenLinks(html: string, baseUrl: string, signal?: A
   const results = await Promise.all(urls.map((url) => isReachable(url, signal)));
 
   if (urls.length > 0 && results.every((reachable) => reachable === null)) {
-    throw new UnreachableError(`Nenhum dos ${urls.length} links amostrados pôde ser verificado.`);
+    throw new UnreachableError(`None of the ${urls.length} sampled links could be verified.`);
   }
 
   const brokenUrls = urls.filter((_, index) => results[index] === false);

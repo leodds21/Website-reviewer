@@ -125,7 +125,7 @@ describe("GET /api/analyze", () => {
   });
 
   it("still completes a failed check's loading steps, so the loading screen never waits on it", async () => {
-    vi.mocked(fetchHtml).mockRejectedValueOnce(new HttpStatusError(403, "A página respondeu 403."));
+    vi.mocked(fetchHtml).mockRejectedValueOnce(new HttpStatusError(403, "The page answered 403."));
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const response = await GET(requestFor("route-test-failed-steps.example", "route-test-failed-steps.ip"));
@@ -190,7 +190,7 @@ describe("GET /api/analyze", () => {
     // whatever did succeed is worth reporting (the camara.rio case this
     // is modeled on: a broken cert kills the page fetch, but https
     // itself still comes back with a real finding).
-    vi.mocked(runPageSpeed).mockRejectedValueOnce(new Error("PageSpeed API retornou 500: quota exceeded"));
+    vi.mocked(runPageSpeed).mockRejectedValueOnce(new Error("PageSpeed API returned 500: quota exceeded"));
 
     const response = await GET(requestFor("route-test-partial.example", "route-test-partial.ip"));
     const events = await readSseEvents(response);
@@ -206,7 +206,7 @@ describe("GET /api/analyze", () => {
     vi.mocked(checkHttps).mockRejectedValueOnce(new Error("fetch failed: internal detail nobody outside should see"));
     vi.mocked(fetchHtml).mockRejectedValueOnce(new Error("fetch failed"));
     vi.mocked(checkSitemapRobots).mockRejectedValueOnce(new Error("fetch failed"));
-    vi.mocked(runPageSpeed).mockRejectedValueOnce(new Error("PAGESPEED_API_KEY não configurada"));
+    vi.mocked(runPageSpeed).mockRejectedValueOnce(new Error("PAGESPEED_API_KEY is not set"));
 
     const response = await GET(requestFor("route-test-total-fail.example", "route-test-total-fail.ip"));
     const events = (await readSseEvents(response)).filter((event) => event.event !== "step");
@@ -226,7 +226,7 @@ describe("GET /api/analyze", () => {
     vi.mocked(checkHttps).mockRejectedValueOnce(new Error("fetch failed"));
     vi.mocked(fetchHtml).mockRejectedValueOnce(new Error("fetch failed"));
     vi.mocked(checkSitemapRobots).mockRejectedValueOnce(new Error("fetch failed"));
-    vi.mocked(runPageSpeed).mockRejectedValueOnce(new PageSpeedError("PageSpeed API retornou 429: quota exceeded", 429));
+    vi.mocked(runPageSpeed).mockRejectedValueOnce(new PageSpeedError("PageSpeed API returned 429: quota exceeded", 429));
 
     const response = await GET(requestFor("route-test-quota.example", "route-test-quota.ip"));
     const events = (await readSseEvents(response)).filter((event) => event.event !== "step");
@@ -239,7 +239,7 @@ describe("GET /api/analyze", () => {
     vi.mocked(checkHttps).mockRejectedValueOnce(new Error("fetch failed"));
     vi.mocked(fetchHtml).mockRejectedValueOnce(new Error("fetch failed"));
     vi.mocked(checkSitemapRobots).mockRejectedValueOnce(new Error("fetch failed"));
-    vi.mocked(runPageSpeed).mockRejectedValueOnce(new PageSpeedError("PageSpeed API retornou 400: bad url", 400));
+    vi.mocked(runPageSpeed).mockRejectedValueOnce(new PageSpeedError("PageSpeed API returned 400: bad url", 400));
 
     const response = await GET(requestFor("route-test-non-quota.example", "route-test-non-quota.ip"));
     const events = (await readSseEvents(response)).filter((event) => event.event !== "step");
@@ -332,7 +332,7 @@ describe("GET /api/analyze", () => {
 
   it("doesn't retry over http:// when the site does serve HTTPS", async () => {
     vi.mocked(fetchHtml).mockClear();
-    vi.mocked(fetchHtml).mockRejectedValueOnce(new HttpStatusError(403, "A página respondeu 403."));
+    vi.mocked(fetchHtml).mockRejectedValueOnce(new HttpStatusError(403, "The page answered 403."));
 
     await readSseEvents(await GET(requestFor("route-test-https-fails.example", "route-test-https-fails.ip")));
 
@@ -381,8 +381,8 @@ describe("GET /api/analyze", () => {
   });
 
   it("explains a site that refuses automated access, without inventing findings (cruzeirodosulvirtual-style)", async () => {
-    vi.mocked(fetchHtml).mockRejectedValueOnce(new HttpStatusError(403, "A página respondeu 403."));
-    vi.mocked(checkSitemapRobots).mockRejectedValueOnce(new HttpStatusError(403, "Origem recusou a checagem"));
+    vi.mocked(fetchHtml).mockRejectedValueOnce(new HttpStatusError(403, "The page answered 403."));
+    vi.mocked(checkSitemapRobots).mockRejectedValueOnce(new HttpStatusError(403, "Origin refused the check"));
     vi.mocked(runPageSpeed).mockRejectedValueOnce(
       new PageSpeedError("Lighthouse returned error: ERRORED_DOCUMENT_REQUEST. (Status code: 403)", 500),
     );
