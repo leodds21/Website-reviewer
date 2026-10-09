@@ -4,71 +4,48 @@ English | [Português (Brasil)](DEVELOPMENT.pt-BR.md)
 
 ## Setup
 
-Requirements: Node.js 22.19 or later (the `undici` dependency needs it) and npm.
+Requires Node.js 22.19+ (for `undici`) and npm.
 
 ```bash
-git clone https://github.com/leodds21/Website-reviewer.git
-cd Website-reviewer
 npm install
 cp .env.example .env.local
-npm run dev
+npm run dev        # http://localhost:3000
 ```
 
-The app runs at [http://localhost:3000](http://localhost:3000) with every variable left empty:
-
-- no `PAGESPEED_API_KEY`: the Google-measured parts show as "not measured" (a free key comes from the Google Cloud console, PageSpeed Insights API);
-- no `NEXT_PUBLIC_FORMSPREE_ENDPOINT`: the contact form says it isn't configured;
-- no Upstash variables: cache and rate limit live in memory and reset on restart.
-
-[`.env.example`](../.env.example) describes each variable.
+Every variable is optional. Without `PAGESPEED_API_KEY`, Google's parts show as "not measured"; without Upstash, cache and rate limit live in memory. [`.env.example`](../.env.example) lists them all.
 
 ## Scripts
 
 | Command | What it does |
 |---|---|
-| `npm run dev` | Development server with hot reload |
-| `npm run build` | Production build |
-| `npm start` | Serves the production build |
-| `npm run lint` | ESLint (Next's core-web-vitals and TypeScript rules, camelCase file names in `lib/`) |
-| `npm run typecheck` | `next typegen` (route types) then `tsc --noEmit` |
-| `npm test` | Vitest, once |
-| `npm run test:e2e` | Playwright; builds the app and serves it on port 3210 first |
+| `npm run dev` | Dev server |
+| `npm run build` / `npm start` | Production build and server |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | `next typegen`, then `tsc --noEmit` |
+| `npm test` | Vitest |
+| `npm run test:e2e` | Playwright, against a production build on port 3210 |
 
 ## Tests
 
-**Vitest** (`*.test.ts` / `*.test.tsx`, next to the code they test):
-
-- Checks run against a stubbed `fetch` and stubbed DNS; no test touches the network.
-- `vitest.setup.ts` routes `undici`'s `fetch` (what `lib/safeFetch.ts` uses) through the global one, so those stubs apply everywhere.
-- Hook tests opt into jsdom with a `// @vitest-environment jsdom` comment; everything else runs in Node.
-- `lib/scoreScenarios.ts` holds four representative inputs (good, average, bad, blocked) whose exact scores are pinned, so a scoring change can't go unnoticed.
-
-**Playwright** (`e2e/`):
-
-- Runs the real app (production build) and mocks only the analysis endpoint, through the fixtures in `e2e/fixtures.ts`.
-- Two projects: desktop Chrome and a 360px phone viewport.
-- First local run: `npx playwright install chromium`.
-- One test: `npx playwright test -g "part of the test name"`.
-
-**CI** (`.github/workflows/ci.yml`) runs lint, typecheck, unit tests, build and the e2e suite on every push to `master` and every pull request.
+- **Vitest** tests sit next to the code. Network and DNS are stubbed, and `vitest.setup.ts` routes undici's `fetch` through the global one so the stubs apply. Hook tests use `// @vitest-environment jsdom`. `lib/scoreScenarios.ts` pins the exact scores of four sample sites.
+- **Playwright** (`e2e/`) runs the real build with only the analysis endpoint mocked, on desktop Chrome and a 360px phone. First run: `npx playwright install chromium`.
+- **CI** runs lint, typecheck, tests, build and e2e on every pull request and push to `master`.
 
 ## Conventions
 
-- **Commits**: small and specific, in a light [Conventional Commits](https://www.conventionalcommits.org/) style (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`), with a body that says what changed and why.
-- **Checks**: one file per check in `lib/checks/`. A check that fetches goes through `safeFetch`; a parser takes the already-fetched HTML.
-- **Findings**: a code plus parameters, never display text; the wording lives in `app/i18n/translations.ts` in both languages.
-- **Comments**: only where a decision isn't obvious from the code.
-- **Formatting**: there's no formatter configured; follow the style of the surrounding code (two spaces, double quotes, lines up to about 140 characters).
+- **Commits:** small, with a subject of up to 50 characters in the imperative (`fix:`, `feat:`, `docs:`, `chore:`…). Add a body only when the reason isn't obvious.
+- **Checks:** one file each in `lib/checks/`. Fetching goes through `safeFetch`; parsers take the HTML already fetched.
+- **Findings:** a code plus parameters; the wording lives in `app/i18n/translations.ts`, in both languages.
+- **Comments:** only for a "why" the code doesn't show.
+- **Formatting:** no formatter; follow the surrounding code.
 
 ## Adding a check
 
-1. Add `lib/checks/<name>.ts` (and its test). Fetch through `safeFetch` with a timeout, or write a pure parser of the page HTML.
-2. Add its result type to `lib/checkResults.ts`, its key to `CheckKey` in `lib/checkFailure.ts`, and run it from `app/api/analyze/route.ts` (a task, plus its entry in `TASK_STEPS` and `lib/scanSteps.ts` for the progress screen).
-3. If it should cost points, add a measurement in `lib/score.ts`, a finding in `lib/issues.ts` and, in `COMPONENT_ISSUES`, the link between the two. If it can pass, add it to `lib/passes.ts`.
-4. Add the copy in both languages in `app/i18n/translations.ts`.
+1. Add `lib/checks/<name>.ts` and its test.
+2. Add its result to `lib/checkResults.ts`, its key to `CheckKey` in `lib/checkFailure.ts`, and run it from `app/api/analyze/route.ts` (plus `TASK_STEPS` and `lib/scanSteps.ts`).
+3. If it costs points: a measurement in `lib/score.ts`, a finding in `lib/issues.ts`, and the link in `COMPONENT_ISSUES`. If it can pass: `lib/passes.ts`.
+4. Add the copy in both languages.
 
 ## Debugging
 
-- Server errors are logged with `console.error` in the terminal running `npm run dev` (in production, in the hosting provider's logs). The browser only ever gets error codes.
-- To see the raw stream: `curl -N "http://localhost:3000/api/analyze?url=example.com"`.
-- The cache keeps a report for 6 hours. Locally without Upstash, restarting the dev server clears it.
+Server errors go to the `npm run dev` terminal. To see the raw stream: `curl -N "http://localhost:3000/api/analyze?url=example.com"`. Restarting the dev server clears the in-memory cache.
