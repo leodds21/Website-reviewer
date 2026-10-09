@@ -15,12 +15,12 @@ describe("classifyCheckFailure", () => {
   });
 
   it("reads PageSpeed's 429 as our daily quota running out", () => {
-    expect(classifyCheckFailure(new PageSpeedError("PageSpeed API retornou 429: quota", 429))).toBe("quota");
+    expect(classifyCheckFailure(new PageSpeedError("PageSpeed API returned 429: quota", 429))).toBe("quota");
   });
 
   it("reads the page status Lighthouse reports inside its error body", () => {
     const refused = new PageSpeedError(
-      'PageSpeed API retornou 500: {"error":{"message":"Lighthouse returned error: ERRORED_DOCUMENT_REQUEST. Lighthouse was unable to reliably load the page you requested. (Status code: 403)"}}',
+      'PageSpeed API returned 500: {"error":{"message":"Lighthouse returned error: ERRORED_DOCUMENT_REQUEST. Lighthouse was unable to reliably load the page you requested. (Status code: 403)"}}',
       500,
     );
     const notFound = new PageSpeedError("Lighthouse returned error: ERRORED_DOCUMENT_REQUEST. (Status code: 404)", 500);
@@ -44,14 +44,14 @@ describe("classifyCheckFailure", () => {
 
   it("calls network-level failures unreachable", () => {
     expect(classifyCheckFailure(new TypeError("fetch failed"))).toBe("unreachable");
-    expect(classifyCheckFailure(new UnreachableError("Origem inacessível: https://x.com"))).toBe("unreachable");
+    expect(classifyCheckFailure(new UnreachableError("Origin unreachable: https://x.com"))).toBe("unreachable");
     // By type, not by wording: an unrelated message mentioning it stays unknown.
-    expect(classifyCheckFailure(new Error("cache inacessível"))).toBe("unknown");
+    expect(classifyCheckFailure(new Error("cache unreachable"))).toBe("unknown");
     expect(classifyCheckFailure(new BlockedHostError("10.0.0.1"))).toBe("unreachable");
   });
 
   it("falls back to unknown", () => {
-    expect(classifyCheckFailure(new Error("PAGESPEED_API_KEY não configurada"))).toBe("unknown");
+    expect(classifyCheckFailure(new Error("PAGESPEED_API_KEY is not set"))).toBe("unknown");
     expect(classifyCheckFailure("not even an error")).toBe("unknown");
   });
 });

@@ -106,7 +106,7 @@ export function isBlockedHost(hostname: string): boolean {
 
 export class BlockedHostError extends Error {
   constructor(hostname: string) {
-    super(`Host bloqueado por política de segurança: ${hostname}`);
+    super(`Host blocked by security policy: ${hostname}`);
     this.name = "BlockedHostError";
   }
 }
@@ -131,7 +131,7 @@ async function assertHostAllowed(url: URL): Promise<void> {
   // hostname and port, so the host and port checks below both wave it
   // through. Restricting the scheme is what actually stops it.
   if (!ALLOWED_PROTOCOLS.has(url.protocol)) {
-    throw new BlockedHostError(`protocolo ${url.protocol}`);
+    throw new BlockedHostError(`protocol ${url.protocol}`);
   }
 
   if (!ALLOWED_PORTS.has(url.port)) {
@@ -148,7 +148,7 @@ async function assertHostAllowed(url: URL): Promise<void> {
   }
 
   const blocked = addresses.find((addr) => isBlockedHost(addr.address));
-  if (blocked) throw new BlockedHostError(`${url.hostname} (resolve para ${blocked.address})`);
+  if (blocked) throw new BlockedHostError(`${url.hostname} (resolves to ${blocked.address})`);
 }
 
 type LookupCallback = (error: NodeJS.ErrnoException | null, address: string | LookupAddress[], family?: number) => void;
@@ -163,7 +163,7 @@ export function guardedLookup(hostname: string, options: LookupOptions, callback
   lookupCallback(hostname, { ...options, all: true }, (error, addresses) => {
     if (error) return callback(error, []);
     const blocked = addresses.find((entry) => isBlockedHost(entry.address));
-    if (blocked) return callback(new BlockedHostError(`${hostname} (conecta em ${blocked.address})`), []);
+    if (blocked) return callback(new BlockedHostError(`${hostname} (connects to ${blocked.address})`), []);
     if (options.all) return callback(null, addresses);
     return callback(null, addresses[0].address, addresses[0].family);
   });
@@ -213,7 +213,7 @@ export async function safeFetch(url: string, init: RequestInit = {}): Promise<Re
     return response;
   }
 
-  throw new Error("Excesso de redirecionamentos.");
+  throw new Error("Too many redirects.");
 }
 
 // Enough for the <head> and a healthy chunk of <body> on any real page
