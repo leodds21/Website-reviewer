@@ -7,12 +7,7 @@ import type { StepKey } from "@/lib/scanSteps";
 import type { PassCode } from "@/lib/passes";
 import type { ScoreComponentKey } from "@/lib/score";
 
-/**
- * Turns a raw retry delay into something a person would actually say —
- * "43 minutos", not "2589 segundos". Rounds up so the stated time is
- * never optimistic: telling someone to come back sooner than they can
- * is worse than telling them to wait slightly longer.
- */
+// Rounds up: better to say wait a bit longer than to send someone back too soon.
 function formatWait(seconds: number, locale: Locale): string {
   if (seconds < 60) {
     const value = Math.max(1, Math.ceil(seconds));
@@ -27,15 +22,13 @@ function formatWait(seconds: number, locale: Locale): string {
 
 export type Locale = "pt" | "en";
 
-// The name predates the lsdias.dev rename; changing it would reset
-// every returning visitor's language choice for no visible gain.
+// Old name kept: renaming it would reset returning visitors' language.
 export const LOCALE_COOKIE = "isdias-lang";
 
 type IssueParams = Record<string, string | number> | undefined;
 
 type Dictionary = {
   documentTitle: string;
-  // Metadata description (layout.tsx); the home screen has its own intro.
   subheadline: string;
   homeHeadline: string;
   homeIntro: string;
@@ -43,8 +36,6 @@ type Dictionary = {
   urlPlaceholder: string;
   runButton: string;
   runningButton: string;
-  // The plan of real checks on the home screen, which doubles as live
-  // progress once the analysis runs (components/ScanPlan.tsx).
   scanPlan: {
     heading: string;
     progress: (done: number, total: number) => string;
@@ -63,8 +54,7 @@ type Dictionary = {
   scoreLabelOk: string;
   scoreLabelAttention: string;
   scoreLabelCritical: string;
-  // ["2 críticos", "3 de atenção", "4 sugestões"]: zero counts are left
-  // out. Parts, not one string, so a line never breaks inside a count.
+  // Parts, not one string, so a line never breaks inside a count.
   issueSummary: (counts: Record<IssueSeverity, number>) => string[];
   scoreExplanationToggle: string;
   scoreExplanation: string;
@@ -74,36 +64,25 @@ type Dictionary = {
   scoreBreakdownStart: string;
   scoreBreakdownTotal: string;
   scoreSingleMeasurement: string;
-  // count: elements a share was taken over (links, alt-images); 0 = nothing to check.
   scoreComponent: Record<ScoreComponentKey, (value: number, count?: number) => string>;
   scoreFromGoogle: (value: number) => string;
   securityWithoutHttps: string;
   categories: Record<"performance" | "seo" | "accessibility" | "security", string>;
-  // Category states and finding severities share one label set.
   severity: Record<Severity | IssueSeverity, string>;
-  // Shown under a category that couldn't be measured, so the visitor
-  // always learns why (and whether trying again could help) instead of
-  // a bare "não medido".
   unavailableReason: Record<FailureReason, string>;
   partialMeasure: string;
   loadTime: (seconds: number) => string;
   coverageNote: (measured: number) => string;
-  // Neutral note + manual-analysis offer for a site that refused our
-  // automated checks: a dead end turned into a next step.
   blockedNote: string;
   manualAnalysisButton: string;
   manualKicker: string;
   manualHeadline: string;
   manualBody: string;
   manualMessagePrefill: (domain: string) => string;
-  // Per-finding disclosure: the recommendation, plus the specific
-  // elements when the check knows them (lib/issues.ts `affected`).
   howToFix: string;
-  // Findings grouped by what to do about them (components/Findings.tsx).
   findingGroups: Record<IssueSeverity, string>;
   topIssuesHeading: string;
   topIssuesNone: string;
-  // Only critical and attention findings reach "Corrija primeiro".
   impactLabel: Record<Exclude<IssueSeverity, "sugestao">, string>;
   viewDetails: string;
   optionalNote: string;
@@ -121,8 +100,6 @@ type Dictionary = {
   printFooter: (host: string) => string;
   backToReport: string;
   nextStepButton: string;
-  // The same next step when the report found nothing to fix: an offer to
-  // talk, instead of a "how to fix it" screen with nothing in it.
   nextStepButtonClean: string;
   cleanHeadline: string;
   cleanBody: string;
@@ -145,33 +122,17 @@ type Dictionary = {
   contactError: Record<ContactErrorCode, string>;
   reportHeading: (domain: string) => string;
   reportFooter: (domain: string) => string;
-  // Neutral fact, not a finding — platformName is a proper noun
-  // (WordPress, Wix...) so it's the same string in every locale; only
-  // the sentence around it is translated.
   platformDetected: (platformName: string) => string;
   madeByLabel: string;
   opensNewTab: string;
-  // One entry per AnalyzeErrorCode: every way an analysis can fail has
-  // its own wording, so the visitor is never told "something went
-  // wrong" when we know exactly what went wrong. `retryAfterSeconds`
-  // is only ever present on rate-limited.
+  // `retryAfterSeconds` is only set for rate-limited.
   analysisError: Record<AnalyzeErrorCode, (retryAfterSeconds?: number) => string>;
   issue: Record<IssueCode, (params: IssueParams) => { title: string; description: string }>;
-  // Short noun-phrase version of the same idea, grammatically built to
-  // slot into synthesizeImpact() below (e.g. "the insecure connection").
+  // A noun phrase for synthesizeImpact(), e.g. "the insecure connection".
   impactClause: Partial<Record<IssueCode, string>>;
-  // Turns 1-2 clauses from impactClause into the one summary sentence
-  // shown before the contact form — kept as a per-locale function
-  // (not shared string-building code) since the joining word ("e" vs
-  // "and") and verb agreement differ by language.
+  // Per locale: joining words and verb agreement differ by language.
   synthesizeImpact: (clauses: string[]) => string;
-  // Objective, technically-grounded action for each finding, shown in
-  // the "O que pode ser feito" step — deliberately never promises a
-  // result (more sales, a fixed ranking) or claims the problem is
-  // costing anything measurable, only describes what fixing it
-  // involves. Filled for every IssueCode, not incrementally like
-  // impactClause, since a finding with no recommendation would
-  // leave a visible gap in that screen.
+  // Describes the fix only; never promises a result.
   recommendation: Record<IssueCode, string>;
 };
 
@@ -461,8 +422,7 @@ const pt: Dictionary = {
   impactClause: {
     "no-https": "a insegurança da conexão",
     "invalid-certificate": "o problema no certificado de segurança",
-    // Only codes deriveIssues can mark critical have a clause:
-    // synthesizeCriticalImpact reads nothing else.
+    // Only codes that can be critical need a clause.
     "no-title": "a falta de um título que identifique o site nas buscas",
     "no-viewport": "a experiência ruim pra quem acessa pelo celular",
     "missing-alt": "as imagens sem descrição pra quem usa leitor de tela",
@@ -827,13 +787,7 @@ export function translateIssue(
   code: IssueCode,
   params: IssueParams,
 ): { title: string; description: string } {
-  // The Record<IssueCode, ...> type guarantees every *known* code is
-  // covered at compile time, but a report can outlive the code that
-  // produced it — one served from cache, or from a client bundle a
-  // version behind the server — so a code the running dictionary
-  // doesn't recognize is a real runtime possibility, not just a
-  // hypothetical. Without this, that crashes the whole issue list
-  // instead of just skipping the one finding it can't render.
+  // A cached report or a newer server can send a code this bundle doesn't know.
   const entry = DICTIONARIES[locale].issue[code];
   if (!entry) return { title: code, description: "" };
   return entry(params);
@@ -845,26 +799,13 @@ export function translateRecommendation(locale: Locale, code: IssueCode): string
 
 export function translateAnalysisError(locale: Locale, error: AnalyzeError): string {
   const dictionary = DICTIONARIES[locale].analysisError;
-  // An unrecognized code can reach here from a server newer than the
-  // loaded client bundle; falling back beats rendering "undefined".
+  // Same for error codes from a newer server.
   const entry = dictionary[error.code] ?? dictionary.unknown;
   return entry(error.retryAfterSeconds);
 }
 
-/**
- * Combines the critical findings from a report into one short summary
- * sentence for the "why fix this" spot right before the contact form —
- * not a per-item explanation, a synthesis. Picks the first 1-2 findings
- * that have a clause defined (in the order deriveIssues() pushed them,
- * which already runs security first), capped at one per category —
- * low-performance and slow-load-impact can both be critical at once
- * (same underlying pagespeed check), and pairing their clauses would
- * read as a redundant restatement rather than two distinct problems —
- * and hands them to the locale's own sentence-builder, since word
- * order and verb agreement aren't portable across languages. Returns
- * null when there's nothing to summarize (no critical findings, or
- * none with a clause yet).
- */
+// One sentence from the first 1-2 critical findings, at most one per
+// category so two performance findings don't repeat each other.
 export function synthesizeCriticalImpact(locale: Locale, criticalIssues: Issue[]): string | null {
   const dictionary = DICTIONARIES[locale];
   const seenCategories = new Set<Issue["category"]>();
