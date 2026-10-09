@@ -3,30 +3,15 @@ import { issueScoreImpact, type AggregatedScore } from "./score";
 
 export type IssueCategory = "performance" | "seo" | "accessibility" | "security";
 /**
- * critico: breaks the site for visitors or leaves it insecure (no HTTPS,
- *   unusable on phones, most links or images broken, very slow).
- * atencao: a real problem worth fixing, but the site still works.
- * sugestao: an improvement opportunity whose absence isn't a problem by
- *   itself (hardening headers, a sitemap). Suggestions never lower the
- *   score; see lib/score.ts.
+ * critico: breaks the site for visitors or leaves it insecure.
+ * atencao: a real problem, but the site still works.
+ * sugestao: optional improvement; never lowers the score.
  */
 export type IssueSeverity = "critico" | "atencao" | "sugestao";
 
 const SEVERITY_RANK: Record<IssueSeverity, number> = { critico: 0, atencao: 1, sugestao: 2 };
 
-/**
- * Most important first, one ordering for the whole report: severity
- * always comes first (a critical finding is never outranked by a
- * cheaper-to-ignore one, whatever it costs in points), then the points
- * of the overall score it accounts for (issueScoreImpact), then the
- * order deriveIssues found them in, so equal cases always come out the
- * same way. Each finding is one entry however many elements it covers:
- * deriveIssues already groups them.
- *
- * Only real findings about the site can be ranked: a check that failed
- * to run is a FailureReason on its category, never an Issue, and
- * what's working lives in `passed`.
- */
+/** Severity first, then points of the overall score, then the order found. */
 export function rankIssues(issues: Issue[], score: AggregatedScore): Issue[] {
   return issues
     .map((issue, order) => ({ issue, order, impact: issueScoreImpact(issue, score) }))
@@ -36,12 +21,7 @@ export function rankIssues(issues: Issue[], score: AggregatedScore): Issue[] {
 
 const TOP_ISSUES = 3;
 
-/**
- * "Corrija primeiro": the first of the ranked findings that actually
- * need fixing. Suggestions never cost points and are optional by
- * definition, so they never fill a slot; fewer than three real
- * problems means fewer than three entries.
- */
+// Suggestions never fill a slot, so there can be fewer than three.
 export function topIssues(issues: Issue[], score: AggregatedScore): Issue[] {
   return rankIssues(issues, score)
     .filter((issue) => issue.severity !== "sugestao")
@@ -75,53 +55,28 @@ export type Issue = {
   severity: IssueSeverity;
   code: IssueCode;
   params?: Record<string, string | number>;
-  // The specific elements behind the finding (image addresses, broken
-  // link URLs), when the check knows them. Shown as plain text, never as
-  // links: they come from a third-party page.
+  // Shown as plain text, never as links: they come from a third-party page.
   affected?: string[];
 };
 
-// Bounce-probability increase by load time, relative to a 1s load.
-// Source: Google's analysis of Chrome UX Report data across ~900k
-// mobile landing pages (the research behind the "Think with Google"
-// mobile speed benchmarks). Only three points are verified — 1s→3s,
-// 1s→5s, 1s→10s — so each bucket reports the verified figure for the
-// threshold it has crossed, as a floor ("pelo menos"/"at least"),
-// instead of interpolating a number nobody measured.
+// Bounce increase vs a 1s load, from Google's Chrome UX Report study of
+// mobile pages. Only these three points were measured, so no interpolation.
 const LOAD_IMPACT_BUCKETS = [
   { minSeconds: 10, bounceIncreasePercent: 123 },
   { minSeconds: 5, bounceIncreasePercent: 90 },
   { minSeconds: 3, bounceIncreasePercent: 32 },
 ] as const;
 
-// Google's own published Core Web Vitals thresholds for Cumulative
-// Layout Shift (web.dev/articles/cls): "good" is below 0.1, "poor" is
-// above 0.25. Values in between ("needs improvement") land as
-// "atencao" here; anything past 0.25 is "critico".
+// Core Web Vitals thresholds (web.dev/articles/cls, web.dev/articles/ttfb).
 const CLS_NEEDS_IMPROVEMENT_THRESHOLD = 0.1;
 const CLS_POOR_THRESHOLD = 0.25;
 
-// Google's own published Core Web Vitals thresholds for Time to First
-// Byte (web.dev/articles/ttfb): "good" is at or below 800ms, "poor" is
-// past 1800ms. This is the server's own response time, before the
-// browser has any HTML — distinct from LCP, which also counts
-// everything the browser does after the first byte arrives.
 const TTFB_NEEDS_IMPROVEMENT_THRESHOLD_MS = 800;
 const TTFB_POOR_THRESHOLD_MS = 1800;
 
 /**
- * Turns the raw check/PageSpeed results into findings for the "o que
- * encontramos" list — as a code + params, not display text, so the UI
- * can render the same finding in any language without re-running the
- * analysis. Kept separate from the checks themselves so each check
- * module stays a pure data source; severity thresholds (e.g. alt-image
- * ratio, performance score cutoffs) live here instead of scattered
- * across checks.
- *
- * Every input is optional: a check that failed to run (network error,
- * broken certificate blocking every fetch, etc) contributes no issues
- * rather than a false "everything is missing" one — silence, not a
- * fabricated negative, is the honest response to missing data.
+ * Findings as code + params, so the UI can render them in any language.
+ * A check that failed adds nothing rather than a false negative.
  */
 export function deriveIssues(input: Partial<CheckResults>): Issue[] {
   const issues: Issue[] = [];
@@ -132,18 +87,12 @@ export function deriveIssues(input: Partial<CheckResults>): Issue[] {
     } else if (!input.https.passed) {
       issues.push({ category: "security", severity: "critico", code: "no-https" });
     } else if (input.https.noHttpRedirect) {
-      // HTTPS works, it just isn't the default: a real gap (whoever
-      // types the bare address stays unencrypted) but not "insecure site".
       issues.push({ category: "security", severity: "atencao", code: "no-https-redirect" });
     }
   }
 
-  // Header hardening only means anything once the connection itself is
-  // trustworthy — flagging a missing CSP on a site that isn't even
-  // serving HTTPS would bury the one finding that actually matters.
+  // Hardening headers only matter once HTTPS works; otherwise they'd bury that finding.
   if (input.https?.passed && input.securityHeaders) {
-    // Defense-in-depth hardening on an already-secure connection: worth
-    // adding, but their absence isn't a vulnerability by itself.
     if (!input.securityHeaders.hasHsts) {
       issues.push({ category: "security", severity: "sugestao", code: "no-hsts" });
     }
@@ -159,8 +108,6 @@ export function deriveIssues(input: Partial<CheckResults>): Issue[] {
     if (!input.metaTags.hasTitle) {
       issues.push({ category: "seo", severity: "critico", code: "no-title" });
     } else if (input.metaTags.title === "Home" || input.metaTags.title === "Início") {
-      // The page still has a title and still ranks; it just doesn't sell
-      // itself in results. Not in the same league as having none.
       issues.push({
         category: "seo",
         severity: "atencao",
@@ -177,10 +124,8 @@ export function deriveIssues(input: Partial<CheckResults>): Issue[] {
       issues.push({ category: "accessibility", severity: "critico", code: "no-viewport" });
     }
   } else if (input.pagespeed) {
-    // Our fetch of the page was refused or failed, but Lighthouse got
-    // through: same findings from its audits. `=== false` throughout,
-    // since undefined means the audit didn't run, not that it failed.
-    // No generic-title check here: Lighthouse doesn't expose the title text.
+    // Our fetch failed but Lighthouse got through. undefined means the
+    // audit didn't run, hence `=== false`.
     if (input.pagespeed.hasTitle === false) {
       issues.push({ category: "seo", severity: "critico", code: "no-title" });
     }
@@ -202,17 +147,11 @@ export function deriveIssues(input: Partial<CheckResults>): Issue[] {
       affected: input.altImages.missingAltSrcs,
     });
   } else if (!input.altImages && input.pagespeed?.imagesHaveAlt === false) {
-    // Lighthouse says some images lack alt text but gives no count to
-    // grade by, so no params and "atencao" rather than guessing "critico".
+    // Lighthouse gives no count to grade by.
     issues.push({ category: "accessibility", severity: "atencao", code: "missing-alt" });
   }
 
-  // Explicitly `=== false`, not a falsy check: hasSitemap is
-  // boolean | null, and null means the probe never reached the host —
-  // claiming "we couldn't find a sitemap" on that basis would be a
-  // finding about a site we never actually looked at.
-  // A suggestion: small sites with internal links get crawled fine
-  // without one; it mostly speeds up discovery of new pages.
+  // null means the host was never reached, not that the sitemap is missing.
   if (input.sitemapRobots?.hasSitemap === false) {
     issues.push({ category: "seo", severity: "sugestao", code: "no-sitemap" });
   }
@@ -252,10 +191,7 @@ export function deriveIssues(input: Partial<CheckResults>): Issue[] {
     }
 
     if (input.pagespeed.hasColorContrastIssues) {
-      // Lighthouse's audit is pass/fail for the whole page, with no
-      // count or ratio of affected elements exposed here — unlike
-      // missing-alt, there's no proportional signal to grade severity
-      // by, so this stays "atencao" rather than guessing at "critico".
+      // Pass/fail for the whole page, so no ratio to grade by.
       issues.push({ category: "accessibility", severity: "atencao", code: "color-contrast" });
     }
 
@@ -269,8 +205,6 @@ export function deriveIssues(input: Partial<CheckResults>): Issue[] {
     }
 
     if (input.pagespeed.hasHeadingOrderIssues) {
-      // Skipped heading levels make navigation by headings harder, but
-      // the content stays reachable: a structural improvement.
       issues.push({ category: "accessibility", severity: "sugestao", code: "heading-order" });
     }
 
@@ -278,9 +212,7 @@ export function deriveIssues(input: Partial<CheckResults>): Issue[] {
       issues.push({ category: "accessibility", severity: "atencao", code: "missing-form-labels" });
     }
 
-    // The performance category already shows this number. As a finding
-    // it only adds something when no specific one (load time, layout
-    // shift, server response) explains it; otherwise it's a repeat.
+    // Only when no specific performance finding already explains the score.
     const performanceScore = input.pagespeed.scores.performance;
     const hasSpecificPerformanceFinding = issues.some((issue) => issue.category === "performance");
     if (!hasSpecificPerformanceFinding && typeof performanceScore === "number" && performanceScore < 80) {
