@@ -6,6 +6,10 @@
 
 Só a branch `master` atual é suportada. É ela que roda em [scan.lsdias.dev](https://scan.lsdias.dev); não há versões antigas para corrigir.
 
+## Situação das dependências
+
+O `npm audit` aponta hoje uma única cadeia de alertas, e ela é só de desenvolvimento: a configuração do ESLint (`eslint-config-next` → `fast-glob` → `micromatch` → `braces`, já na última versão publicada, 3.0.3). Ela roda só no `npm run lint`, sobre os padrões de arquivo deste repositório, e não faz parte do app publicado. Ainda não existe versão corrigida; a única correção que o npm oferece é rebaixar a configuração de lint do Next.js para uma versão major antiga, o que não compensa. O Dependabot procura uma correção toda semana.
+
 ## Como reportar uma vulnerabilidade
 
 Por favor, **não abra uma issue pública** para um problema de segurança.

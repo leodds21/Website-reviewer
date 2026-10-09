@@ -6,6 +6,10 @@ English | [Português (Brasil)](SECURITY.pt-BR.md)
 
 Only the current `master` branch is supported. It's what runs at [scan.lsdias.dev](https://scan.lsdias.dev); there are no older releases to patch.
 
+## Dependency status
+
+`npm audit` currently reports one advisory chain, and it's development-only: the ESLint configuration (`eslint-config-next` → `fast-glob` → `micromatch` → `braces`, already at its latest published version, 3.0.3). It runs only during `npm run lint`, on this repository's own file patterns, and isn't part of the deployed app. There is no patched release yet; the only fix npm offers is downgrading the Next.js lint config to an older major, which isn't worth it. Dependabot watches for a fix weekly.
+
 ## Reporting a vulnerability
 
 Please **don't open a public issue** for a security problem.
