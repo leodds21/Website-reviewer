@@ -147,7 +147,6 @@ describe("checkRateLimit (Upstash Redis path)", () => {
     const ip = "redis-rate-limit-window-test.ip";
     for (let i = 0; i < 10; i++) await checkRateLimitRedis(ip, start + i);
 
-    // Well past the window — every earlier entry should have aged out.
     expect((await checkRateLimitRedis(ip, start + ONE_HOUR_MS + 1000)).limited).toBe(false);
 
     vi.doUnmock("./kv");

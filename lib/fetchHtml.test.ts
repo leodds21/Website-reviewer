@@ -3,9 +3,7 @@ import { fetchHtml } from "./fetchHtml";
 
 vi.mock("node:dns/promises", () => ({ lookup: vi.fn().mockResolvedValue([{ address: "93.184.216.34" }]) }));
 
-// A real ReadableStream body, not a `text()` stub: fetchHtml reads
-// through readTextCapped, which streams so an oversized response can't
-// be pulled into memory whole.
+// A real stream, since readTextCapped reads the body incrementally.
 function fakeHtmlResponse(html: string): Response {
   return {
     status: 200,

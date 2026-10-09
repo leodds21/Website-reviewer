@@ -48,10 +48,7 @@ describe("runPageSpeed", () => {
   });
 
   it("leaves a missing category undefined instead of fabricating a 0", async () => {
-    // A fabricated 0 would read as "failed completely" — a real
-    // verdict we never actually measured. Lighthouse can abort just
-    // one category's audit and still return the others, so this is a
-    // real response shape, not a hypothetical.
+    // Lighthouse can skip one category and still return the others.
     vi.mocked(fetch).mockResolvedValueOnce(
       fakeJsonResponse(200, { lighthouseResult: { categories: { performance: { score: 0.5 } } } }),
     );

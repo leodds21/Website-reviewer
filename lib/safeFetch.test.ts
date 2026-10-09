@@ -65,7 +65,7 @@ describe("isBlockedHost", () => {
     "[fd12:3456:789a::1]",
     "::ffff:127.0.0.1", // IPv4-mapped IPv6, dotted form
     "::ffff:7f00:1", // same, hex form
-    "::", // IPv6 unspecified — connecting to it lands on localhost
+    "::", // IPv6 unspecified: connecting to it lands on localhost
     "[::]",
     "192.0.2.10", // TEST-NET-1
     "198.18.0.1", // benchmarking
