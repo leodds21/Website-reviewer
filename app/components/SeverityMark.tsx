@@ -3,9 +3,7 @@ import type { IssueSeverity } from "@/lib/issues";
 
 type MarkKind = Severity | IssueSeverity;
 
-// Severity never rides on color alone: each level also has its own
-// shape (circle, rounded square, diamond, hollow ring), so the marks
-// stay distinguishable without color vision.
+// A shape per level too, so severity never relies on color alone.
 const MARK: Record<MarkKind, string> = {
   ok: "rounded-full bg-[var(--color-severity-ok)]",
   atencao: "rounded-[2px] bg-[var(--color-severity-atencao)]",

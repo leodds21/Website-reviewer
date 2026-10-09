@@ -5,11 +5,7 @@ import { ToggleSummary } from "./Chrome";
 import { useLanguage } from "@/app/i18n/LanguageContext";
 import type { Pass } from "@/lib/passes";
 
-/**
- * What the checks found right. Collapsed under the findings, since the
- * problems are what to act on; open from the start when there are no
- * findings, because then it's the substance of the report.
- */
+// Collapsed, unless there are no findings and this is the whole report.
 export function Passes({ passes, open }: { passes: Pass[]; open: boolean }) {
   const { t } = useLanguage();
   if (passes.length === 0) return null;

@@ -10,9 +10,7 @@ import {
 import { SITE_URL } from "@/lib/siteUrl";
 import "./globals.css";
 
-// The lsdias.dev type system: Space Grotesk for headings, Manrope for
-// text, JetBrains Mono for labels, data and addresses. Self-hosted by
-// next/font, so the CSP's font-src 'self' still holds.
+// Self-hosted by next/font, so the CSP's font-src 'self' holds.
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
   weight: ["500", "600"],
@@ -31,9 +29,7 @@ const jetBrainsMono = JetBrains_Mono({
   subsets: ["latin"],
 });
 
-// proxy.ts resolves the visitor's locale (from ?lang=, an existing cookie,
-// or Accept-Language) and writes it to this same cookie before the request
-// gets here, so this always reflects that resolution rather than guessing.
+// proxy.ts has already resolved the locale into this cookie.
 async function getLocaleFromCookies(): Promise<Locale> {
   const cookieStore = await cookies();
   return cookieStore.get(LOCALE_COOKIE)?.value === "en" ? "en" : "pt";

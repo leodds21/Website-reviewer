@@ -20,11 +20,6 @@ const SEGMENT_FILL: Record<Severity, string> = {
   indisponivel: "bg-[var(--color-line-strong)]",
 };
 
-/**
- * The overall score as ten segments that fill in one after another on
- * arrival: an animated progress read of the number beside it, not a
- * bare figure. A segment partly earned shows dimmed.
- */
 function ScoreMeter({ score, severity }: { score: number; severity: Severity }) {
   const [filled, setFilled] = useState(false);
   useEffect(() => {
@@ -49,7 +44,7 @@ function ScoreMeter({ score, severity }: { score: number; severity: Severity }) 
   );
 }
 
-/** One line of a breakdown: a label that wraps, its number kept to the right. Never a table, so it reads at 320px. */
+// Not a table, so it still reads at 320px.
 function BreakdownLine({ label, value, total = false }: { label: string; value: string; total?: boolean }) {
   return (
     <div
@@ -61,12 +56,7 @@ function BreakdownLine({ label, value, total = false }: { label: string; value: 
   );
 }
 
-/**
- * Why a category got its score, from the measurements it was actually
- * averaged from (lib/score.ts): from 100, what each one took off, most
- * first. A score that comes from a single measurement says where it
- * comes from instead of dressing it up as 100-minus-something.
- */
+// A single-measurement score names its source instead of showing 100 minus something.
 function ScoreBreakdown({ score, components }: { score: number; components: ScoreComponent[] }) {
   const { t } = useLanguage();
 
@@ -81,7 +71,6 @@ function ScoreBreakdown({ score, components }: { score: number; components: Scor
     return <p className="pb-1 text-xs leading-relaxed text-[var(--color-muted)]">{sentence}</p>;
   }
 
-  // Array sort is stable: equal losses keep the measurements' own order.
   const byLoss = [...components].sort((a, b) => b.lost - a.lost);
   return (
     <div className="flex flex-col gap-1.5 pb-1 text-xs text-[var(--color-muted)]">
@@ -103,9 +92,7 @@ function ScoreBreakdown({ score, components }: { score: number; components: Scor
 
 function CategoryRow({ category, result, loadSeconds }: { category: CategoryKey; result: CategoryScore; loadSeconds?: number }) {
   const { t } = useLanguage();
-  // Every category answers something: its score, or why it couldn't be
-  // measured ("?? unknown" covers reports cached before reasons existed).
-  // Otherwise, for Performance, the number behind it in plain terms.
+  // "?? unknown" covers reports cached before reasons existed.
   const note =
     result.score === null
       ? (t.unavailableReason[result.reason] ?? t.unavailableReason.unknown)
@@ -128,7 +115,7 @@ function CategoryRow({ category, result, loadSeconds }: { category: CategoryKey;
         </span>
       </div>
       {note && <p className="mt-1 pl-[18px] text-xs leading-snug text-[var(--color-subtle)]">{note}</p>}
-      {/* Reports cached before categories kept their measurements have nothing to break down. */}
+      {/* Older cached reports have no measurements to break down. */}
       {result.score !== null && result.components && (
         <details className="pl-[18px]">
           <ToggleSummary className="inline-flex min-h-10 text-xs">{t.scoreBreakdownToggle}</ToggleSummary>
@@ -194,8 +181,6 @@ export function ScoreSummary({ report }: { report: AnalyzeReport }) {
       <details>
         <ToggleSummary className="flex min-h-11 text-[13px]">{t.scoreExplanationToggle}</ToggleSummary>
         <p className="mt-1 text-[13px] leading-relaxed text-[var(--color-muted)]">{t.scoreExplanation}</p>
-        {/* The overall score's own arithmetic: the plain average of the
-            category scores above, the same one lib/score.ts takes. */}
         {measured > 1 && (
           <p className="mt-2 font-mono text-xs text-[var(--color-body)]">
             {t.overallArithmetic(measuredScores, measuredScores.reduce((sum, score) => sum + score, 0) / measured, overall)}
