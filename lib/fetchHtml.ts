@@ -31,7 +31,7 @@ export async function fetchHtml(url: string, signal?: AbortSignal): Promise<stri
   // same honest answer as any other check that couldn't run.
   if (!response.ok) {
     await response.body?.cancel();
-    throw new HttpStatusError(response.status, `A página respondeu ${response.status}.`);
+    throw new HttpStatusError(response.status, `The page answered ${response.status}.`);
   }
 
   return readTextCapped(response);

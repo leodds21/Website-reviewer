@@ -220,7 +220,7 @@ describe("safeFetch", () => {
   it("gives up after too many redirects instead of looping forever", async () => {
     vi.mocked(fetch).mockResolvedValue(fakeResponse(302, { location: "https://example.com/loop" }));
 
-    await expect(safeFetch("https://example.com/")).rejects.toThrow(/redirecionamentos/);
+    await expect(safeFetch("https://example.com/")).rejects.toThrow(/too many redirects/i);
   });
 });
 
