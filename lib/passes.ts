@@ -15,20 +15,11 @@ export type PassCode =
 
 export type Pass = { category: IssueCategory; code: PassCode };
 
-// Google's "good" Core Web Vitals lines (web.dev/articles/lcp and
-// web.dev/articles/cls), the same sources as the thresholds in
-// lib/issues.ts: a pass has to clear "good", not just avoid "poor".
+// Core Web Vitals "good" lines (web.dev/articles/lcp, web.dev/articles/cls).
 const GOOD_LCP_SECONDS = 2.5;
 const GOOD_CLS = 0.1;
 
-/**
- * What the checks found right, for the report's "o que está certo"
- * list, so a healthy site doesn't get a report that's only an empty
- * findings section. The mirror of deriveIssues, under the same rule:
- * only what was actually measured. A check that didn't run, or had
- * nothing to look at (a page with no images, no links answered), says
- * nothing here rather than a pass nobody verified.
- */
+// Only what was actually measured: nothing to check means no pass.
 export function derivePasses(input: Partial<CheckResults>): Pass[] {
   const passes: Pass[] = [];
   const add = (category: IssueCategory, code: PassCode) => passes.push({ category, code });
@@ -40,8 +31,7 @@ export function derivePasses(input: Partial<CheckResults>): Pass[] {
     add("security", "security-headers");
   }
 
-  // Our own read of the page first; Lighthouse's audits when our fetch
-  // didn't get the HTML, same fallback as deriveIssues.
+  // Lighthouse stands in when our fetch didn't get the HTML.
   const genericTitle = metaTags?.title === "Home" || metaTags?.title === "Início";
   if (metaTags ? metaTags.hasTitle && !genericTitle : pagespeed?.hasTitle === true) add("seo", "title");
   if (metaTags ? metaTags.hasDescription : pagespeed?.hasDescription === true) add("seo", "description");

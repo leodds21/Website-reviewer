@@ -7,21 +7,12 @@ export type AnalyzeReport = {
   domain: string;
   score: AggregatedScore;
   issues: Issue[];
-  // What was measured and came out right ("o que está certo").
-  // Optional: reports cached before this field existed don't have it,
-  // and show no such list.
+  // Optional fields may be missing from reports cached by older versions.
   passed?: Pass[];
-  // When the main content appeared in Lighthouse's (mobile) run, in
-  // seconds: the plain-language "carrega em 2,4s" next to Performance.
-  // Optional: absent when PageSpeed didn't run, and in older reports.
+  // LCP from Lighthouse's mobile run, in seconds.
   loadSeconds?: number;
-  // Which site-builder platform (if any) the page's own markup gave
-  // away. Deliberately not an Issue: which platform a site runs on
-  // isn't a problem to fix, just a neutral fact about it.
   platform: TechPlatform | null;
-  // True when the site (or Google's Lighthouse run against it) refused
-  // automated access. Optional: reports cached before this field existed
-  // simply don't have it, and read as not blocked.
+  // The site or Lighthouse refused automated access.
   blocked?: boolean;
   checkedAt: string;
 };

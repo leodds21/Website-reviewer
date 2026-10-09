@@ -13,12 +13,7 @@ function localeFromAcceptLanguage(acceptLanguage: string | null): Locale {
   return first?.startsWith("en") ? "en" : "pt";
 }
 
-/**
- * Resolves the visitor's locale in priority order: an explicit `?lang=`
- * query param (e.g. a handoff from another site) wins outright, then a
- * previously-set cookie, then a best-effort read of Accept-Language,
- * defaulting to "pt" when nothing else applies.
- */
+// ?lang= first, then the cookie, then Accept-Language.
 export function resolveLocale(
   langParam: string | null,
   cookieValue: string | null,
