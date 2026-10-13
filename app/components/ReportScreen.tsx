@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppHeader, Brand, PageContainer, buttonClass } from "./Chrome";
 import { Findings } from "./Findings";
 import { Passes } from "./Passes";
@@ -21,11 +21,13 @@ const PLATFORM_NAMES: Record<TechPlatform, string> = {
 
 export function ReportScreen({
   report,
+  unfinished = false,
   onNextStep,
   onManualAnalysis,
   onNewAnalysis,
 }: {
   report: AnalyzeReport;
+  unfinished?: boolean;
   onNextStep: () => void;
   onManualAnalysis: () => void;
   onNewAnalysis: () => void;
@@ -41,6 +43,11 @@ export function ReportScreen({
       : t.nextStepButton;
 
   const rootRef = useRef<HTMLDivElement>(null);
+
+  // "Complete" is only news after a partial report.
+  const [sawPartial, setSawPartial] = useState(false);
+  if (report.inProgress && !sawPartial) setSawPartial(true);
+  const liveMessage = report.inProgress ? (unfinished ? t.googleUnfinished : t.liveReportPartial) : sawPartial ? t.liveReportDone : "";
 
   // Opens every collapsed section for printing, Ctrl+P included.
   useEffect(() => {
@@ -88,11 +95,20 @@ export function ReportScreen({
 
       {/* For assistive tech: the domain above isn't a heading. */}
       <h1 className="sr-only">{t.reportHeading(report.domain)}</h1>
+      {/* One polite message per milestone, not one per update. */}
+      <p role="status" className="sr-only">
+        {liveMessage}
+      </p>
 
       <PageContainer className="grid flex-1 items-start gap-8 py-8 lg:grid-cols-[320px_minmax(0,1fr)] lg:gap-12 lg:py-10">
         <ScoreSummary report={report} />
 
         <div className="flex min-w-0 flex-col gap-10">
+          {unfinished && report.inProgress && (
+            <p className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-5 py-4 text-sm leading-relaxed text-[var(--color-muted)] sm:px-6">
+              {t.googleUnfinished}
+            </p>
+          )}
           {report.blocked && (
             // Neutral color: being blocked isn't a finding about the site.
             <div className="flex flex-col gap-2 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-5 py-4 sm:px-6">
@@ -109,7 +125,7 @@ export function ReportScreen({
             </div>
           )}
 
-          <TopIssues issues={report.issues} score={report.score} />
+          <TopIssues issues={report.issues} score={report.score} provisional={report.inProgress} />
           <Findings issues={report.issues} score={report.score} />
           <Passes passes={report.passed ?? []} open={report.issues.length === 0} />
 
