@@ -3,7 +3,7 @@ import { AppHeader, Brand, PageContainer, buttonClass } from "../components/Chro
 import { DICTIONARIES } from "../i18n/dictionaries";
 import { OG_LOCALE, type Locale } from "../i18n/locale";
 import { localizedAlternates } from "./RootLayout";
-import { Scanner } from "./Scanner";
+import { SharedReport } from "./SharedReport";
 import { getStoredReport } from "@/lib/reportStore";
 
 type Params = Promise<{ id: string }>;
@@ -33,7 +33,7 @@ export async function reportMetadata(locale: Locale, params: Params): Promise<Me
 export async function ReportPage({ locale, params }: { locale: Locale; params: Params }) {
   const { id } = await params;
   const stored = await getStoredReport(id);
-  if (stored) return <Scanner initialReport={stored.report} />;
+  if (stored) return <SharedReport report={stored.report} />;
 
   const t = DICTIONARIES[locale];
   return (
