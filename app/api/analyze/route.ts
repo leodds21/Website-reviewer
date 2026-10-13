@@ -4,6 +4,7 @@ import { checkRateLimit } from "@/lib/rateLimit";
 import { isBlockedHost } from "@/lib/safeFetch";
 import { normalizeUrl } from "@/lib/url";
 import { runAnalysis } from "@/lib/runAnalysis";
+import { saveReport } from "@/lib/reportStore";
 import { analysisInFlight, claimAnalysis, followAnalysis, type Leader, type Snapshot } from "@/lib/inflight";
 import { sseFrame, type AnalysisEvent } from "@/lib/analysisEvents";
 import type { AnalyzeReport } from "@/lib/report";
@@ -32,6 +33,24 @@ const SSE_HEADERS = {
   // Stops nginx-style proxies from buffering the stream until it closes.
   "X-Accel-Buffering": "no",
 };
+
+// The report with its share id; without one if storing failed, since the
+// analysis itself still succeeded.
+async function shareable(report: AnalyzeReport, target: string): Promise<AnalyzeReport> {
+  try {
+    return (await saveReport(report, target)).report;
+  } catch (error) {
+    console.error("Couldn't store the shared report:", error);
+    return report;
+  }
+}
+
+// Cache entries from before share links existed get an id once.
+async function withReportId(cacheKey: string, report: AnalyzeReport, target: string): Promise<AnalyzeReport> {
+  const withId = await shareable(report, target);
+  if (withId.id) await setCached<CachedAnalysis>(cacheKey, { report: withId }, PARTIAL_TTL_MS);
+  return withId;
+}
 
 type ParsedTargetUrl = { ok: true; url: URL } | { ok: false; reason: "invalid" | "blocked" };
 
@@ -70,10 +89,10 @@ export async function GET(request: Request) {
 
   // Cached reports cost nothing, so they don't count against the rate limit.
   const cached = await getCached<CachedAnalysis>(cacheKey);
-  if (cached) return new Response(sseFrame({ event: "done", data: cached.report }), { headers: SSE_HEADERS });
-
-  // Report links only read the cache; a link alone never starts an analysis.
-  if (searchParams.get("cached") === "only") return errorResponse({ code: "not-cached" }, 404);
+  if (cached) {
+    const report = cached.report.id ? cached.report : await withReportId(cacheKey, cached.report, target);
+    return new Response(sseFrame({ event: "done", data: report }), { headers: SSE_HEADERS });
+  }
 
   // The rightmost entry is the one Vercel appends; the rest can be spoofed.
   const ip = request.headers.get("x-forwarded-for")?.split(",").pop()?.trim() ?? "unknown";
@@ -147,10 +166,11 @@ export async function GET(request: Request) {
             return send({ event: "failed", data: { code: outcome.code } });
           }
 
+          const report = await shareable(outcome.report, target);
           // Partial reports get a short TTL so a transient failure doesn't stick.
-          await setCached<CachedAnalysis>(cacheKey, { report: outcome.report }, outcome.complete ? FULL_TTL_MS : PARTIAL_TTL_MS);
-          await run.finish({ ...snapshot, final: outcome.report });
-          send({ event: "done", data: outcome.report });
+          await setCached<CachedAnalysis>(cacheKey, { report }, outcome.complete ? FULL_TTL_MS : PARTIAL_TTL_MS);
+          await run.finish({ ...snapshot, final: report });
+          send({ event: "done", data: report });
         } catch (error) {
           await run.finish({ ...snapshot, failed: "analysis-failed" });
           throw error;

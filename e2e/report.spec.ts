@@ -9,7 +9,9 @@ import {
   mockAnalysis,
   mockAnalysisError,
   mockLiveAnalysis,
+  seedSharedReport,
   sendAnalysisEvent,
+  withId,
 } from "./fixtures";
 
 test.describe("security policy", () => {
@@ -212,15 +214,16 @@ test.describe("report", () => {
     await expect(plan.getByText("em espera")).toHaveCount(7);
   });
 
-  test("puts the report in the address bar, so it can be shared, reloaded and navigated", async ({ page }) => {
-    await mockAnalysis(page, REPORT_WITH_FINDINGS);
+  test("puts the report at its own address, so it can be shared, reloaded and navigated", async ({ page }) => {
+    const report = withId(REPORT_WITH_FINDINGS);
+    await seedSharedReport(report);
+    await mockAnalysis(page, report);
     await analyze(page, "exemplo.com.br");
     const reportHeading = page.getByRole("heading", { level: 2, name: "Críticos" });
     await expect(reportHeading).toBeVisible();
-    await expect(page).toHaveURL(/[?&]url=exemplo\.com\.br(&|$)/);
-    await expect(page).toHaveURL(/\/pt-BR\?/);
+    await expect(page).toHaveURL(new RegExp(`/pt-BR/report/${report.id}$`));
 
-    // A reload (or the link opened elsewhere) runs it again and lands on the report.
+    // A reload renders the stored report on the server; nothing runs again.
     await page.reload();
     await expect(reportHeading).toBeVisible();
     await expect(page.getByLabel("Endereço do site")).toHaveCount(0);
@@ -231,22 +234,51 @@ test.describe("report", () => {
     await page.goBack();
     await expect(reportHeading).toBeVisible();
     await page.getByRole("button", { name: "Nova análise" }).click();
-    await expect(page).not.toHaveURL(/[?&]url=/);
+    await expect(page).toHaveURL(/\/pt-BR$/);
     await page.goBack();
     await expect(reportHeading).toBeVisible();
     // One entry per screen, even across the reload: one more step back is home.
     await page.goBack();
     await expect(page.getByLabel("Endereço do site")).toBeVisible();
-    await expect(page).not.toHaveURL(/[?&]url=/);
+    await expect(page).toHaveURL(/\/pt-BR$/);
   });
 
-  test("opens a shared report link directly", async ({ page }) => {
-    await mockAnalysis(page, REPORT_WITH_FINDINGS);
-    await page.goto("/pt-BR?url=exemplo.com.br");
+  test("opens a shared report link directly, in either language", async ({ page }) => {
+    const report = withId(REPORT_WITH_FINDINGS);
+    await seedSharedReport(report);
+    let analyses = 0;
+    await page.route("**/api/analyze?**", (route) => {
+      analyses++;
+      return route.abort();
+    });
 
+    await page.goto(`/pt-BR/report/${report.id}`);
     await expect(page.getByRole("heading", { level: 1, name: "Relatório de exemplo.com.br" })).toBeAttached();
-    await page.getByRole("button", { name: "Nova análise" }).click();
-    await expect(page.getByLabel("Endereço do site")).toHaveValue("exemplo.com.br");
+    await expect(page).toHaveTitle("56 · exemplo.com.br | lsdias.dev, diagnóstico de site");
+
+    await page.goto(`/en/report/${report.id}`);
+    await expect(page.getByRole("heading", { level: 1, name: "Report for exemplo.com.br" })).toBeAttached();
+    expect(analyses).toBe(0);
+  });
+
+  test("describes a shared report for link previews, without indexing it", async ({ page, request }) => {
+    const report = withId(REPORT_WITH_FINDINGS);
+    await seedSharedReport(report);
+    await page.goto(`/pt-BR/report/${report.id}`);
+
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+    await expect(page.locator('meta[property="og:description"]')).toHaveAttribute("content", "exemplo.com.br tirou 56/100 em segurança, SEO, acessibilidade e performance.");
+    const image = await page.locator('meta[property="og:image"]').getAttribute("content");
+    const response = await request.get(new URL(image!).pathname);
+    expect(response.headers()["content-type"]).toBe("image/png");
+  });
+
+  test("explains an expired report and offers a new analysis", async ({ page }) => {
+    await page.goto("/pt-BR/report/abcDEF1234");
+
+    await expect(page.getByRole("heading", { name: "Este relatório expirou." })).toBeVisible();
+    await page.getByRole("link", { name: "Fazer uma nova análise" }).click();
+    await expect(page.getByLabel("Endereço do site")).toBeVisible();
   });
 
   test("prints a clean copy, with every section open and no buttons", async ({ page }) => {
@@ -268,14 +300,10 @@ test.describe("report", () => {
     await expect(page.getByText("Carrega rápido no celular")).toBeHidden();
   });
 
-  test("offers to run a link whose report is no longer cached, instead of running it", async ({ page }) => {
+  test("fills the field from an older ?url= link instead of running it", async ({ page }) => {
     let analyses = 0;
-    // Routes registered later win, so the general mock goes first.
     await mockAnalysis(page, REPORT_WITH_FINDINGS);
     await page.route("**/api/analyze?**", (route) => {
-      if (new URL(route.request().url()).searchParams.get("cached") === "only") {
-        return route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ code: "not-cached" }) });
-      }
       analyses++;
       return route.fallback();
     });
@@ -283,6 +311,7 @@ test.describe("report", () => {
 
     await expect(page.getByText("O relatório desse link não está mais guardado.", { exact: false })).toBeVisible();
     await expect(page.getByLabel("Endereço do site")).toHaveValue("exemplo.com.br");
+    await expect(page).toHaveURL(/\/pt-BR$/);
     expect(analyses).toBe(0);
 
     await page.getByRole("button", { name: /Rodar diagnóstico/ }).click();
@@ -388,7 +417,7 @@ test.describe("languages", () => {
 
   test("keeps older ?lang= links working", async ({ page }) => {
     await page.goto("/?lang=pt&url=exemplo.com.br");
-    await expect(page).toHaveURL(/\/pt-BR\?url=exemplo\.com\.br$/);
+    await expect(page).toHaveURL(/\/pt-BR(\?url=exemplo\.com\.br)?$/);
   });
 
   test("switches language through the other locale's address, and remembers it", async ({ page }) => {
