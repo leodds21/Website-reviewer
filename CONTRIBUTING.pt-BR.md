@@ -23,7 +23,7 @@ Para algo maior que uma correção pequena, abra uma issue antes.
 - Uma mudança por pull request.
 - Títulos de commit com até 50 caracteres, no imperativo, com prefixo (`fix:`, `feat:`, `docs:`…). Corpo só quando o motivo não é óbvio.
 - O scanner nunca aponta um problema que não conseguiu verificar; uma checagem que não sabe deve dizer isso.
-- Texto exibido ao usuário vai em `app/i18n/translations.ts`, em português e inglês.
+- Texto exibido ao usuário vai em `app/i18n/dictionaries/`, em `pt-BR.ts` e em `en.ts`.
 - Nada de segredos em código, testes ou exemplos.
 
 As contribuições ficam sob a [licença MIT](LICENSE) e seguem o [código de conduta](CODE_OF_CONDUCT.md).

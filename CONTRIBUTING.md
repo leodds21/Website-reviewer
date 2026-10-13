@@ -23,7 +23,7 @@ For anything bigger than a small fix, open an issue first.
 - One change per pull request.
 - Commit subjects up to 50 characters, imperative, with a prefix (`fix:`, `feat:`, `docs:`…). A body only when the reason isn't obvious.
 - Never report a problem the scanner couldn't verify; a check that can't tell should say so.
-- User-facing text goes in `app/i18n/translations.ts`, in Portuguese and English.
+- User-facing text goes in `app/i18n/dictionaries/`, in both `pt-BR.ts` and `en.ts`.
 - No secrets in code, tests or examples.
 
 Contributions are licensed under the [MIT License](LICENSE) and follow the [code of conduct](CODE_OF_CONDUCT.md).

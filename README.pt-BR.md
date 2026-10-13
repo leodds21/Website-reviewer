@@ -20,9 +20,11 @@ Eu avaliava sites de possíveis clientes à mão, em várias ferramentas, e trad
 ## Destaques
 
 - **Checagens próprias, mais as do Google.** HTTPS, cabeçalhos de segurança, metadados, texto alternativo, sitemap/robots.txt e links quebrados são implementados aqui; o PageSpeed Insights acrescenta as notas e auditorias do Lighthouse.
-- **Checagens em paralelo, com progresso real.** Cinco tarefas rodam juntas, cada uma com seu tempo limite, e o progresso chega ao navegador por Server-Sent Events.
+- **Um relatório que se completa enquanto roda.** Cinco tarefas rodam juntas, cada uma com seu tempo limite. O relatório abre assim que as checagens próprias terminam (cerca de 3 s), por Server-Sent Events, e a medição do Google completa depois.
 - **Falha parcial é normal.** Um tempo esgotado ou um firewall afeta só a própria categoria, que diz por que ficou incompleta.
 - **Nota explicável e determinística.** Cada categoria é a média simples de medições com nome, e o relatório mostra quanto cada uma custou. Sem IA.
+- **Relatórios compartilháveis.** Cada relatório ganha um link próprio (`/pt-BR/report/<id>`) com imagem de prévia, guardado por 30 dias.
+- **Uma execução por URL.** Análises iguais ao mesmo tempo dividem uma única chamada ao PageSpeed, com uma trava no Redis.
 - **URLs tratadas como entrada não confiável.** Redes privadas bloqueadas, cada redirecionamento conferido de novo, o endereço checado outra vez na conexão (DNS rebinding), tamanho de resposta limitado.
 
 ## O que é verificado
@@ -44,18 +46,22 @@ flowchart LR
     U[URL] --> V[Valida a URL<br/>bloqueia hosts privados]
     V --> C{Em cache?}
     C -- sim --> R
-    C -- não --> L[Limite<br/>por IP]
+    C -- não --> I{Mesma URL<br/>rodando?}
+    I -- sim --> W[Acompanha o progresso]
+    W --> R
+    I -- não --> L[Limite por IP<br/>+ trava]
     L --> H[HTTPS + cabeçalhos]
     L --> P[HTML da página<br/>meta · alt · plataforma]
     P --> K[Links quebrados]
     L --> S[sitemap / robots]
     L --> G[PageSpeed]
-    H & P & K & S & G --> SC[Nota<br/>médias das medições]
+    H & P & K & S --> PR[Relatório parcial]
+    PR & G --> SC[Nota<br/>médias das medições]
     SC --> F[Achados<br/>ordenados]
-    F --> R[Relatório]
+    F --> R[Relatório + link]
 ```
 
-A página é buscada uma vez e compartilhada por quatro checagens, então a análise leva mais ou menos o tempo da checagem mais lenta (em geral o PageSpeed). Cada falha é classificada (bloqueio, tempo esgotado, inacessível, cota…) e ligada às categorias que dependem dela. Nota, achados e acertos são funções puras sobre um único objeto de resultados.
+A página é buscada uma vez e compartilhada por quatro checagens, então a análise leva mais ou menos o tempo da checagem mais lenta (em geral o PageSpeed). Quando as checagens próprias terminam, sai um relatório parcial, com as categorias que esperam o Google marcadas assim. Cada falha é classificada (bloqueio, tempo esgotado, inacessível, cota…) e ligada às categorias que dependem dela. Nota, achados e acertos são funções puras sobre um único objeto de resultados.
 
 ## Nota
 
@@ -63,7 +69,7 @@ Cada categoria é a média simples das suas medições de 0 a 100: uma nota do G
 
 ## Stack
 
-Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, undici, Upstash Redis, API do Google PageSpeed Insights, Formspree, Vitest, Playwright, GitHub Actions, Vercel.
+Next.js 16 (App Router, uma rota por idioma), React 19 (`<Activity>`, `<ViewTransition>`), TypeScript, Tailwind CSS 4, undici, Upstash Redis, API do Google PageSpeed Insights, Formspree, Vercel Speed Insights, Vitest, Playwright, GitHub Actions, Vercel.
 
 ## Desafios técnicos
 
@@ -97,7 +103,7 @@ cp .env.example .env.local   # todas as variáveis são opcionais
 npm run dev                  # http://localhost:3000
 ```
 
-Testes, scripts e depuração estão em [DEVELOPMENT.pt-BR.md](docs/DEVELOPMENT.pt-BR.md).
+`npm run analyze` abre o analisador de bundle, e `npm run check:bundle` confere o orçamento de JS depois de um build. Testes, scripts e depuração estão em [DEVELOPMENT.pt-BR.md](docs/DEVELOPMENT.pt-BR.md).
 
 ## Licença
 
