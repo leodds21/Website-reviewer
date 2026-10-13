@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { classifyCheckFailure, primaryReason } from "./checkFailure";
 import { HttpStatusError, UnreachableError } from "./httpStatus";
-import { PageSpeedError } from "./pagespeed";
+import { PageSpeedError } from "./pageSpeedError";
 import { BlockedHostError } from "./safeFetch";
 
 describe("classifyCheckFailure", () => {

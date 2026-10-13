@@ -19,7 +19,7 @@ const loadNextStepScreen = () => import("../components/NextStepScreen");
 const LazyReportScreen = dynamic(() => loadReportScreen().then((module) => module.ReportScreen));
 const LazyNextStepScreen = dynamic(() => loadNextStepScreen().then((module) => module.NextStepScreen));
 
-export type ReportScreens = {
+type ReportScreens = {
   ReportScreen: React.ComponentType<React.ComponentProps<typeof LazyReportScreen>>;
   NextStepScreen: React.ComponentType<React.ComponentProps<typeof LazyNextStepScreen>>;
 };
