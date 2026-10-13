@@ -215,3 +215,71 @@ describe("useAnalysis", () => {
     expect(signal.aborted).toBe(true);
   });
 });
+
+describe("useAnalysis, progressive report", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn());
+    vi.stubGlobal("navigator", { onLine: true });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  // A stream the test feeds frame by frame.
+  function liveStream() {
+    const encoder = new TextEncoder();
+    let controller!: ReadableStreamDefaultController<Uint8Array>;
+    const body = new ReadableStream<Uint8Array>({ start: (c) => (controller = c) });
+    return {
+      response: { ok: true, status: 200, body } as unknown as Response,
+      send: (event: string, data: unknown) => controller.enqueue(encoder.encode(sseFrame(event, data))),
+      close: () => controller.close(),
+    };
+  }
+
+  it("opens the report on the partial one, then swaps in the final report without changing screen", async () => {
+    const stream = liveStream();
+    vi.mocked(fetch).mockResolvedValueOnce(stream.response);
+    const { result } = renderHook(() => useAnalysis());
+
+    let run!: Promise<void>;
+    act(() => {
+      run = result.current.startAnalysis("example.com");
+    });
+    await act(async () => stream.send("partial", { domain: "example.com", inProgress: true }));
+    await vi.waitFor(() => expect(result.current.stage).toBe("report"));
+    expect(result.current.report).toEqual({ domain: "example.com", inProgress: true });
+
+    act(() => result.current.setStage("next-step"));
+    await act(async () => {
+      stream.send("done", { domain: "example.com" });
+      stream.close();
+      await run;
+    });
+
+    expect(result.current.report).toEqual({ domain: "example.com" });
+    expect(result.current.stage).toBe("next-step");
+    expect(result.current.unfinished).toBe(false);
+  });
+
+  it("keeps the partial report when the stream drops before Google's measurement", async () => {
+    const stream = liveStream();
+    vi.mocked(fetch).mockResolvedValueOnce(stream.response);
+    const { result } = renderHook(() => useAnalysis());
+
+    let run!: Promise<void>;
+    act(() => {
+      run = result.current.startAnalysis("example.com");
+    });
+    await act(async () => {
+      stream.send("partial", { domain: "example.com", inProgress: true });
+      stream.close();
+      await run;
+    });
+
+    expect(result.current.stage).toBe("report");
+    expect(result.current.error).toBeNull();
+    expect(result.current.unfinished).toBe(true);
+  });
+});

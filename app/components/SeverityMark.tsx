@@ -10,6 +10,7 @@ const MARK: Record<MarkKind, string> = {
   critico: "rotate-45 bg-[var(--color-severity-critico)]",
   sugestao: "rounded-full border-[1.5px] border-[var(--color-severity-sugestao)]",
   indisponivel: "rounded-full border-[1.5px] border-[var(--color-line-strong)]",
+  pendente: "pulse-dot rounded-full border-[1.5px] border-[var(--color-link)]",
 };
 
 export const SEVERITY_TEXT: Record<MarkKind, string> = {
@@ -18,6 +19,7 @@ export const SEVERITY_TEXT: Record<MarkKind, string> = {
   critico: "text-[var(--color-severity-critico-text)]",
   sugestao: "text-[var(--color-severity-sugestao)]",
   indisponivel: "text-[var(--color-subtle)]",
+  pendente: "text-[var(--color-link)]",
 };
 
 export function SeverityMark({ kind }: { kind: MarkKind }) {

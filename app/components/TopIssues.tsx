@@ -15,7 +15,7 @@ function showFinding(code: Issue["code"]) {
 }
 
 // A summary pointing at the findings below, not a copy of them.
-export function TopIssues({ issues, score }: { issues: Issue[]; score: AggregatedScore }) {
+export function TopIssues({ issues, score, provisional = false }: { issues: Issue[]; score: AggregatedScore; provisional?: boolean }) {
   const { locale, t } = useLanguage();
   if (issues.length === 0) return null;
   const top = topIssues(issues, score);
@@ -25,6 +25,7 @@ export function TopIssues({ issues, score }: { issues: Issue[]; score: Aggregate
       <h2 id="top-issues-heading" className="text-2xl tracking-[-0.015em]">
         {t.topIssuesHeading}
       </h2>
+      {provisional && <p className="-mt-1.5 text-[13px] text-[var(--color-subtle)]">{t.topIssuesProvisional}</p>}
       {top.length === 0 ? (
         <p className="text-[15px] text-[var(--color-muted)]">{t.topIssuesNone}</p>
       ) : (

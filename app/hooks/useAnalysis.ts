@@ -3,6 +3,7 @@ import { SCAN_STEPS, type StepKey } from "@/lib/scanSteps";
 import type { AnalyzeReport } from "@/lib/report";
 import type { AnalyzeError } from "@/lib/analyzeError";
 import { createSseParser } from "@/lib/sse";
+import { parseAnalysisEvent } from "@/lib/analysisEvents";
 
 export type Stage = "idle" | "analyzing" | "report" | "next-step";
 
@@ -28,6 +29,8 @@ export function useAnalysis() {
   const [completedSteps, setCompletedSteps] = useState<StepKey[]>([]);
   const [report, setReport] = useState<AnalyzeReport | null>(null);
   const [error, setError] = useState<AnalyzeError | null>(null);
+  // The partial report stays up when Google's measurement never arrives.
+  const [unfinished, setUnfinished] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -42,6 +45,7 @@ export function useAnalysis() {
     setCompletedSteps([]);
     setError(null);
     setReport(null);
+    setUnfinished(false);
 
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
       setError({ code: "offline" });
@@ -50,6 +54,7 @@ export function useAnalysis() {
     }
 
     const timeout = setTimeout(() => controller.abort(new DOMException("timeout", "TimeoutError")), OVERALL_TIMEOUT_MS);
+    let shownPartial = false;
 
     try {
       const response = await fetch(`/api/analyze?url=${encodeURIComponent(url)}${cachedOnly ? "&cached=only" : ""}`, {
@@ -78,36 +83,54 @@ export function useAnalysis() {
         const { done, value } = await reader.read();
         if (done) break;
 
-        for (const event of parser.push(value)) {
+        for (const frame of parser.push(value)) {
+          const event = parseAnalysisEvent(frame);
+          if (!event) continue;
           if (event.event === "step") {
-            const { step } = JSON.parse(event.data) as { step: StepKey };
+            const { step } = event.data;
             setCompletedSteps((previous) => (previous.includes(step) ? previous : [...previous, step]));
+          } else if (event.event === "partial") {
+            shownPartial = true;
+            setReport(event.data);
+            setStage("report");
           } else if (event.event === "done") {
             finished = true;
-            const finishedReport = JSON.parse(event.data) as AnalyzeReport;
             clearTimeout(timeout);
             setCompletedSteps([...SCAN_STEPS]);
-            await pause(FINISH_HOLD_MS, controller.signal);
-            if (controller.signal.aborted) return;
-            setReport(finishedReport);
-            setStage("report");
+            // Already on the report (or the next step): just swap in the final data.
+            if (!shownPartial) {
+              await pause(FINISH_HOLD_MS, controller.signal);
+              if (controller.signal.aborted) return;
+              setStage("report");
+            }
+            setReport(event.data);
           } else if (event.event === "failed") {
-            setError(JSON.parse(event.data) as AnalyzeError);
-            setStage("idle");
             finished = true;
+            if (shownPartial) setUnfinished(true);
+            else {
+              setError(event.data);
+              setStage("idle");
+            }
           }
         }
       }
 
       // The connection dropped mid-analysis.
       if (!finished) {
-        setError({ code: "unknown" });
-        setStage("idle");
+        if (shownPartial) setUnfinished(true);
+        else {
+          setError({ code: "unknown" });
+          setStage("idle");
+        }
       }
     } catch (caught) {
       // A new analysis or unmount aborted this one: not a failure.
       if (controller.signal.aborted && (caught as DOMException)?.name !== "TimeoutError") return;
 
+      if (shownPartial) {
+        setUnfinished(true);
+        return;
+      }
       setError({ code: classifyFailure(caught) });
       setStage("idle");
     } finally {
@@ -115,7 +138,7 @@ export function useAnalysis() {
     }
   }, []);
 
-  return { stage, setStage, completedSteps, report, error, startAnalysis };
+  return { stage, setStage, completedSteps, report, error, unfinished, startAnalysis };
 }
 
 async function readErrorBody(response: Response): Promise<AnalyzeError> {

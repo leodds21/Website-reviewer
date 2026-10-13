@@ -13,7 +13,7 @@ import { useLanguage } from "./i18n/LanguageContext";
 export default function Home() {
   const [url, setUrl] = useState("");
   const [manualReview, setManualReview] = useState(false);
-  const { stage, setStage, completedSteps, report, error, startAnalysis } = useAnalysis();
+  const { stage, setStage, completedSteps, report, error, unfinished, startAnalysis } = useAnalysis();
   // Idle and analyzing are one screen; moving focus would undo the scroll on phones.
   const stageRef = useStageFocus<HTMLDivElement>(stage === "analyzing" ? "idle" : stage);
   const { t } = useLanguage();
@@ -37,7 +37,8 @@ export default function Home() {
       return;
     }
     const { overall, overallSeverity } = openReport.score;
-    const prefix = overallSeverity === "indisponivel" ? openReport.domain : `${overall} · ${openReport.domain}`;
+    const prefix =
+      overallSeverity === "indisponivel" || overallSeverity === "pendente" ? openReport.domain : `${overall} · ${openReport.domain}`;
     document.title = `${prefix} | ${t.documentTitle}`;
   }, [openReport, t.documentTitle]);
 
@@ -66,6 +67,7 @@ export default function Home() {
           <div hidden={stage !== "report"} className="flex flex-1 flex-col">
             <ReportScreen
               report={openReport}
+              unfinished={unfinished}
               onNextStep={() => {
                 setManualReview(false);
                 setStage("next-step");
