@@ -4,7 +4,8 @@ import type { CheckResults } from "./checkResults";
 import { primaryReason, type CheckFailures, type CheckKey, type FailureReason } from "./checkFailure";
 import type { Issue, IssueCode } from "./issues";
 
-export type Severity = "critico" | "atencao" | "ok" | "indisponivel";
+export type Severity = "critico" | "atencao" | "ok" | "indisponivel" | "pendente";
+type ScoredSeverity = Exclude<Severity, "indisponivel" | "pendente">;
 
 export type ScoreComponentKey =
   | "google-performance"
@@ -27,10 +28,12 @@ export type ScoreComponent = {
   count?: number;
 };
 
-// Reports cached before `components` existed don't have it.
+// Reports cached before `components` existed don't have it. `pending` marks a
+// provisional score: some of its sources are still running.
 export type CategoryScore =
-  | { score: number; severity: Exclude<Severity, "indisponivel">; partial: boolean; components?: ScoreComponent[] }
-  | { score: null; severity: "indisponivel"; reason: FailureReason };
+  | { score: number; severity: ScoredSeverity; partial: boolean; pending?: true; components?: ScoreComponent[] }
+  | { score: null; severity: "indisponivel"; reason: FailureReason }
+  | { score: null; severity: "pendente" };
 
 export type AggregatedScore = {
   overall: number;
@@ -41,7 +44,7 @@ export type AggregatedScore = {
   security: CategoryScore;
 };
 
-function severityFor(score: number): Exclude<Severity, "indisponivel"> {
+function severityFor(score: number): ScoredSeverity {
   if (score < 50) return "critico";
   if (score < 80) return "atencao";
   return "ok";
@@ -101,10 +104,12 @@ function pointsLost(values: number[], score: number): number[] {
 type Measurement = { key: ScoreComponentKey; value: number | null; count?: number };
 
 // No failure recorded but no value either: Lighthouse can skip a single category.
-function finalize(measurements: Measurement[], sources: CheckKey[], failures: CheckFailures): CategoryScore {
+function finalize(measurements: Measurement[], sources: CheckKey[], failures: CheckFailures, pending: readonly CheckKey[]): CategoryScore {
   const reasons = sources.map((key) => failures[key]);
+  const waiting = sources.some((key) => pending.includes(key));
   const taken = measurements.filter((measurement): measurement is Measurement & { value: number } => measurement.value !== null);
   if (taken.length === 0) {
+    if (waiting) return { score: null, severity: "pendente" };
     return { score: null, severity: "indisponivel", reason: primaryReason(reasons) ?? "measurement-failed" };
   }
   const values = taken.map((measurement) => measurement.value);
@@ -114,6 +119,7 @@ function finalize(measurements: Measurement[], sources: CheckKey[], failures: Ch
     score: rounded,
     severity: severityFor(rounded),
     partial: reasons.some(Boolean),
+    ...(waiting && { pending: true as const }),
     components: taken.map((measurement, index) => ({ ...measurement, lost: lost[index] })),
   };
 }
@@ -122,12 +128,18 @@ function finalize(measurements: Measurement[], sources: CheckKey[], failures: Ch
  * Only checks with critico/atencao findings feed the score; suggestions
  * (sitemap, hardening headers) never lower it, and robots.txt isn't scored.
  * A check that failed contributes nothing, never a made-up 0 or 100.
+ * `pending` lists checks still running; the overall score waits for all of them.
  */
-export function aggregateScore(input: Partial<CheckResults>, failures: CheckFailures = {}): AggregatedScore {
+export function aggregateScore(
+  input: Partial<CheckResults>,
+  failures: CheckFailures = {},
+  pending: readonly CheckKey[] = [],
+): AggregatedScore {
   const performance = finalize(
     [{ key: "google-performance", value: input.pagespeed?.scores.performance ?? null }],
     CATEGORY_SOURCES.performance,
     failures,
+    pending,
   );
 
   // Lighthouse's audit stands in when our own fetch was refused.
@@ -141,6 +153,7 @@ export function aggregateScore(input: Partial<CheckResults>, failures: CheckFail
     ],
     CATEGORY_SOURCES.seo,
     failures,
+    pending,
   );
 
   const accessibility = finalize(
@@ -152,15 +165,16 @@ export function aggregateScore(input: Partial<CheckResults>, failures: CheckFail
     ],
     CATEGORY_SOURCES.accessibility,
     failures,
+    pending,
   );
 
   // Without the https check there is no security score; failed HTTPS is 0
   // whatever best-practices says.
   const httpsSignal = input.https?.noHttpRedirect ? HTTPS_WITHOUT_REDIRECT_SCORE : 100;
   const security = !input.https
-    ? finalize([], CATEGORY_SOURCES.security, failures)
+    ? finalize([], CATEGORY_SOURCES.security, failures, pending)
     : !input.https.passed
-      ? finalize([{ key: "https", value: 0 }], [], failures)
+      ? finalize([{ key: "https", value: 0 }], [], failures, pending)
       : finalize(
           [
             { key: "https", value: httpsSignal },
@@ -168,9 +182,11 @@ export function aggregateScore(input: Partial<CheckResults>, failures: CheckFail
           ],
           CATEGORY_SOURCES.security,
           failures,
+          pending,
         );
 
   const categories = { performance, seo, accessibility, security };
+  if (pending.length > 0) return { overall: 0, overallSeverity: "pendente", ...categories };
   const overall = averageOf(Object.values(categories).map((category) => category.score));
   const roundedOverall = overall === null ? null : Math.round(overall);
 

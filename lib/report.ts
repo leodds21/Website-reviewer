@@ -15,4 +15,6 @@ export type AnalyzeReport = {
   // The site or Lighthouse refused automated access.
   blocked?: boolean;
   checkedAt: string;
+  // A partial report sent while Google's measurement is still running.
+  inProgress?: true;
 };

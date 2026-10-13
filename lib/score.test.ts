@@ -303,3 +303,41 @@ describe("score explanation (components)", () => {
     expect(aggregateScore(SCORE_SCENARIOS.average.input)).toEqual(aggregateScore(SCORE_SCENARIOS.average.input));
   });
 });
+
+describe("aggregateScore while checks are still running", () => {
+  const ownChecks = {
+    https: { passed: true, finalUrl: "https://x.com", redirectedFromHttp: false },
+    metaTags: { hasViewport: true, hasTitle: true, title: "X", hasDescription: false, description: null },
+    altImages: { sampledCount: 4, missingAltCount: 0, missingAltSrcs: [] },
+    brokenLinks: { checkedCount: 5, brokenCount: 0, brokenUrls: [] },
+  };
+
+  it("gives categories with a measurement a provisional score and waits on the rest", () => {
+    const score = aggregateScore(ownChecks, {}, ["pagespeed"]);
+
+    expect(score.performance).toEqual({ score: null, severity: "pendente" });
+    expect(score.seo).toMatchObject({ score: 67, pending: true });
+    expect(score.accessibility).toMatchObject({ score: 100, pending: true });
+    expect(score.security).toMatchObject({ score: 100, pending: true });
+  });
+
+  it("holds back the overall score until nothing is pending", () => {
+    const score = aggregateScore(ownChecks, {}, ["pagespeed"]);
+
+    expect(score.overallSeverity).toBe("pendente");
+    expect(score.overall).toBe(0);
+  });
+
+  it("scores a site without HTTPS at 0 right away, since nothing else counts", () => {
+    const score = aggregateScore({ ...ownChecks, https: { passed: false, finalUrl: "http://x.com", redirectedFromHttp: false } }, {}, ["pagespeed"]);
+
+    expect(score.security).toEqual(expect.objectContaining({ score: 0, severity: "critico" }));
+    expect(score.security).not.toHaveProperty("pending");
+  });
+
+  it("gives the same final score as before once nothing is pending", () => {
+    const { input, failures } = SCORE_SCENARIOS.average;
+
+    expect(aggregateScore(input, failures, [])).toEqual(aggregateScore(input, failures));
+  });
+});
