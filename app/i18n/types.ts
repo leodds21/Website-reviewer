@@ -13,6 +13,9 @@ export type Dictionary = {
   documentTitle: string;
   notFoundTitle: string;
   notFoundAction: string;
+  errorTitle: string;
+  errorBody: string;
+  errorRetry: string;
   reportExpiredTitle: string;
   reportExpiredBody: string;
   reportExpiredAction: string;

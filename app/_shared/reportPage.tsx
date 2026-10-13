@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { AppHeader, Brand, PageContainer, buttonClass } from "../components/Chrome";
 import { DICTIONARIES } from "../i18n/dictionaries";
 import { OG_LOCALE, type Locale } from "../i18n/locale";
@@ -6,12 +7,15 @@ import { localizedAlternates } from "./RootLayout";
 import { SharedReport } from "./SharedReport";
 import { getStoredReport } from "@/lib/reportStore";
 
+// Metadata and page read the same report in one request: one Redis read, not two.
+const readReport = cache((id: string) => getStoredReport(id));
+
 type Params = Promise<{ id: string }>;
 
 export async function reportMetadata(locale: Locale, params: Params): Promise<Metadata> {
   const { id } = await params;
   const t = DICTIONARIES[locale];
-  const stored = await getStoredReport(id);
+  const stored = await readReport(id);
   // Reports are about other people's sites: shareable, but not for search results.
   const robots = { index: false, follow: false };
   if (!stored) return { title: `${t.reportExpiredTitle} | ${t.documentTitle}`, robots };
@@ -32,7 +36,7 @@ export async function reportMetadata(locale: Locale, params: Params): Promise<Me
 
 export async function ReportPage({ locale, params }: { locale: Locale; params: Params }) {
   const { id } = await params;
-  const stored = await getStoredReport(id);
+  const stored = await readReport(id);
   if (stored) return <SharedReport report={stored.report} />;
 
   const t = DICTIONARIES[locale];

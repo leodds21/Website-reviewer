@@ -4,9 +4,11 @@ import type { StepKey } from "./scanSteps";
 import type { SseEvent } from "./sse";
 
 /**
- * The analyze stream: `step` per finished check, at most one `partial`
- * report (our own checks done, Google still running), then `done` or `failed`.
- * After a `partial`, the stream always ends in `done`.
+ * The analyze stream: `step` per finished check, a `partial` report once our
+ * own checks are done and Google is still running, then `done` or `failed`.
+ * A leading run always ends a `partial` with `done`; a follower can still end
+ * in `failed` (its own deadline, a takeover refused by the rate limit), and a
+ * takeover sends its steps and `partial` again.
  */
 export type AnalysisEvent =
   | { event: "step"; data: { step: StepKey } }

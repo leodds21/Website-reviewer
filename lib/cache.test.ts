@@ -70,7 +70,7 @@ describe("cache (Upstash Redis path)", () => {
     vi.resetModules();
     const get = vi.fn().mockResolvedValue({ score: 7 });
     const set = vi.fn().mockResolvedValue("OK");
-    vi.doMock("./kv", () => ({ redis: { get, set } }));
+    vi.doMock("./kv", async (importOriginal) => ({ ...(await importOriginal<typeof import("./kv")>()), redis: { get, set } }));
 
     const redisBackedCache = await import("./cache");
     await redisBackedCache.setCached("redis-test.example", { score: 7 }, 12345);
@@ -86,7 +86,10 @@ describe("cache (Upstash Redis path)", () => {
 
   it("returns null, not undefined, for a Redis miss", async () => {
     vi.resetModules();
-    vi.doMock("./kv", () => ({ redis: { get: vi.fn().mockResolvedValue(undefined), set: vi.fn() } }));
+    vi.doMock("./kv", async (importOriginal) => ({
+      ...(await importOriginal<typeof import("./kv")>()),
+      redis: { get: vi.fn().mockResolvedValue(undefined), set: vi.fn() },
+    }));
 
     const redisBackedCache = await import("./cache");
     expect(await redisBackedCache.getCached("redis-test-miss.example")).toBeNull();
