@@ -1,16 +1,19 @@
 import type { NextConfig } from "next";
 import { contentSecurityPolicy } from "./lib/csp";
 
+export const STATIC_CSP_PATHS = ["/api/:path*", "/_next/:path*", "/_vercel/:path*", "/icon.svg", "/robots.txt", "/sitemap.xml"];
+
 const nextConfig: NextConfig = {
+  typedRoutes: true,
   poweredByHeader: false,
 
   async headers() {
     return [
-      {
-        // Not the page itself: proxy.ts sets its CSP with a nonce.
-        source: "/:path+",
+      // Exactly the paths proxy.ts skips; it sets the page CSP, with a nonce.
+      ...STATIC_CSP_PATHS.map((source) => ({
+        source,
         headers: [{ key: "Content-Security-Policy", value: contentSecurityPolicy() }],
-      },
+      })),
       {
         source: "/(.*)",
         headers: [

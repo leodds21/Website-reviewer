@@ -123,7 +123,7 @@ export async function mockAnalysisError(page: Page, status: number, error: Analy
 }
 
 export async function analyze(page: Page, url: string): Promise<void> {
-  await page.goto("/?lang=pt");
+  await page.goto("/pt-BR");
   await page.getByLabel("Endereço do site").fill(url);
   await page.getByRole("button", { name: /Rodar diagnóstico/ }).click();
 }

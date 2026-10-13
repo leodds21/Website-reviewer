@@ -1,45 +1,17 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { DICTIONARIES, LOCALE_COOKIE, type Dictionary, type Locale } from "./translations";
+import { createContext, useContext } from "react";
+import type { Locale } from "./locale";
+import type { Dictionary } from "./types";
 
-type LanguageContextValue = {
-  locale: Locale;
-  setLocale: (locale: Locale) => void;
-  t: Dictionary;
-};
+type LanguageContextValue = { locale: Locale; t: Dictionary };
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
-// Read server-side, so a manual toggle survives a reload.
-function writeLocaleCookie(locale: Locale) {
-  const oneYear = 60 * 60 * 24 * 365;
-  const secure = window.location.protocol === "https:" ? "; secure" : "";
-  document.cookie = `${LOCALE_COOKIE}=${locale}; path=/; max-age=${oneYear}; samesite=lax${secure}`;
-}
-
-export function LanguageProvider({
-  children,
-  initialLocale = "pt",
-}: {
-  children: React.ReactNode;
-  initialLocale?: Locale;
-}) {
-  const [locale, setLocaleState] = useState<Locale>(initialLocale);
-
-  // Not the tab title: the page sets that, and this would overwrite it.
-  useEffect(() => {
-    document.documentElement.lang = locale === "en" ? "en" : "pt-BR";
-  }, [locale]);
-
-  function setLocale(next: Locale) {
-    setLocaleState(next);
-    writeLocaleCookie(next);
-  }
-
-  const value = useMemo(() => ({ locale, setLocale, t: DICTIONARIES[locale] }), [locale]);
-
-  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
+// Each locale's root layout renders this through its own wrapper
+// (PtBrLanguage, EnLanguage), so a page only ships its own dictionary.
+export function LanguageProvider({ locale, t, children }: LanguageContextValue & { children: React.ReactNode }) {
+  return <LanguageContext.Provider value={{ locale, t }}>{children}</LanguageContext.Provider>;
 }
 
 export function useLanguage() {

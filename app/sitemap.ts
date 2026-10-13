@@ -1,14 +1,14 @@
 import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/siteUrl";
 
-// The app is a single page.
+// One page, in two languages.
 export default function sitemap(): MetadataRoute.Sitemap {
-  return [
-    {
-      url: SITE_URL,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 1,
-    },
-  ];
+  const languages = { "pt-BR": `${SITE_URL}/pt-BR`, en: `${SITE_URL}/en` };
+  return Object.values(languages).map((url) => ({
+    url,
+    lastModified: new Date(),
+    changeFrequency: "monthly",
+    priority: 1,
+    alternates: { languages },
+  }));
 }

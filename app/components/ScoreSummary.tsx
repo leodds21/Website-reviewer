@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ToggleSummary } from "./Chrome";
 import { SEVERITY_TEXT, SeverityMark } from "./SeverityMark";
 import { useLanguage } from "@/app/i18n/LanguageContext";
-import type { CategoryKey } from "@/app/i18n/translations";
+import type { CategoryKey } from "@/app/i18n/types";
 import type { AnalyzeReport } from "@/lib/report";
 import type { IssueSeverity } from "@/lib/issues";
 import type { CategoryScore, ScoreComponent, Severity } from "@/lib/score";

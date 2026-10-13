@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { DICTIONARIES, synthesizeCriticalImpact, translateAnalysisError } from "./translations";
+import { synthesizeCriticalImpact, translateAnalysisError } from "./translate";
+import { ptBR } from "./dictionaries/pt-BR";
+import { en } from "./dictionaries/en";
 import type { Issue } from "@/lib/issues";
 
 const CATEGORY_BY_CODE: Record<Issue["code"], Issue["category"]> = {
@@ -31,18 +33,18 @@ function issue(code: Issue["code"]): Issue {
 
 describe("synthesizeCriticalImpact", () => {
   it("returns null when there are no critical issues", () => {
-    expect(synthesizeCriticalImpact("pt", [])).toBeNull();
+    expect(synthesizeCriticalImpact(ptBR, [])).toBeNull();
   });
 
   it("builds a single-clause sentence for one critical issue", () => {
-    const result = synthesizeCriticalImpact("pt", [issue("no-https")]);
+    const result = synthesizeCriticalImpact(ptBR, [issue("no-https")]);
 
     expect(result).toContain("insegurança da conexão");
     expect(result).toMatch(/^A /); // capitalized, not "a insegurança..."
   });
 
   it("joins two clauses and caps at two even with more critical issues", () => {
-    const result = synthesizeCriticalImpact("pt", [issue("no-https"), issue("no-title"), issue("missing-alt")]);
+    const result = synthesizeCriticalImpact(ptBR, [issue("no-https"), issue("no-title"), issue("missing-alt")]);
 
     expect(result).toContain("insegurança da conexão");
     expect(result).toContain("título");
@@ -50,14 +52,14 @@ describe("synthesizeCriticalImpact", () => {
   });
 
   it("skips issues whose code has no clause defined yet", () => {
-    const result = synthesizeCriticalImpact("pt", [issue("no-sitemap"), issue("no-https")]);
+    const result = synthesizeCriticalImpact(ptBR, [issue("no-sitemap"), issue("no-https")]);
 
     expect(result).toContain("insegurança da conexão");
     expect(result).not.toContain("undefined");
   });
 
   it("caps at one clause per category, so co-occurring performance findings don't duplicate each other", () => {
-    const result = synthesizeCriticalImpact("pt", [issue("low-performance"), issue("slow-load-impact"), issue("no-https")]);
+    const result = synthesizeCriticalImpact(ptBR, [issue("low-performance"), issue("slow-load-impact"), issue("no-https")]);
 
     expect(result).toContain("lentidão geral do carregamento");
     expect(result).not.toContain("tempo de carregamento alto");
@@ -65,7 +67,7 @@ describe("synthesizeCriticalImpact", () => {
   });
 
   it("produces English output in en locale", () => {
-    const result = synthesizeCriticalImpact("en", [issue("no-https")]);
+    const result = synthesizeCriticalImpact(en, [issue("no-https")]);
 
     expect(result).toContain("insecure connection");
     expect(result).toMatch(/^The /);
@@ -74,17 +76,17 @@ describe("synthesizeCriticalImpact", () => {
 
 describe("translateAnalysisError", () => {
   it("renders the rate-limit wait in minutes, rounded up", () => {
-    expect(translateAnalysisError("pt", { code: "rate-limited", retryAfterSeconds: 3467 })).toContain("58 minutos");
-    expect(translateAnalysisError("en", { code: "rate-limited", retryAfterSeconds: 3467 })).toContain("58 minutes");
+    expect(translateAnalysisError(ptBR, { code: "rate-limited", retryAfterSeconds: 3467 })).toContain("58 minutos");
+    expect(translateAnalysisError(en, { code: "rate-limited", retryAfterSeconds: 3467 })).toContain("58 minutes");
   });
 
   it("uses seconds, and the singular, for a short wait", () => {
-    expect(translateAnalysisError("pt", { code: "rate-limited", retryAfterSeconds: 1 })).toContain("1 segundo.");
-    expect(translateAnalysisError("en", { code: "rate-limited", retryAfterSeconds: 1 })).toContain("1 second.");
+    expect(translateAnalysisError(ptBR, { code: "rate-limited", retryAfterSeconds: 1 })).toContain("1 segundo.");
+    expect(translateAnalysisError(en, { code: "rate-limited", retryAfterSeconds: 1 })).toContain("1 second.");
   });
 
   it("falls back to a wait-less message when the server sent no retry time", () => {
-    const message = translateAnalysisError("pt", { code: "rate-limited" });
+    const message = translateAnalysisError(ptBR, { code: "rate-limited" });
 
     expect(message).not.toContain("undefined");
     expect(message).not.toContain("NaN");
@@ -92,7 +94,7 @@ describe("translateAnalysisError", () => {
 
   it("gives each failure its own wording rather than one generic message", () => {
     const codes = ["offline", "timeout", "invalid-url", "blocked-url", "quota-exceeded", "analysis-failed", "missing-url"] as const;
-    const messages = codes.map((code) => translateAnalysisError("pt", { code }));
+    const messages = codes.map((code) => translateAnalysisError(ptBR, { code }));
 
     expect(new Set(messages).size).toBe(codes.length);
     for (const message of messages) expect(message.length).toBeGreaterThan(10);
@@ -101,38 +103,38 @@ describe("translateAnalysisError", () => {
   it("falls back to the unknown message for a code it doesn't recognize", () => {
     // Reachable when a deployed server is newer than the client bundle
     // a visitor already has loaded.
-    const message = translateAnalysisError("pt", { code: "something-new" as "unknown" });
+    const message = translateAnalysisError(ptBR, { code: "something-new" as "unknown" });
 
-    expect(message).toBe(translateAnalysisError("pt", { code: "unknown" }));
+    expect(message).toBe(translateAnalysisError(ptBR, { code: "unknown" }));
   });
 });
 
 describe("issueSummary", () => {
   it("counts each severity with the right plural, leaving zero counts out", () => {
-    expect(DICTIONARIES.pt.issueSummary({ critico: 2, atencao: 1, sugestao: 1 })).toEqual(["2 críticos", "1 de atenção", "1 sugestão"]);
-    expect(DICTIONARIES.pt.issueSummary({ critico: 0, atencao: 0, sugestao: 3 })).toEqual(["3 sugestões"]);
-    expect(DICTIONARIES.en.issueSummary({ critico: 1, atencao: 0, sugestao: 2 })).toEqual(["1 critical", "2 suggestions"]);
+    expect(ptBR.issueSummary({ critico: 2, atencao: 1, sugestao: 1 })).toEqual(["2 críticos", "1 de atenção", "1 sugestão"]);
+    expect(ptBR.issueSummary({ critico: 0, atencao: 0, sugestao: 3 })).toEqual(["3 sugestões"]);
+    expect(en.issueSummary({ critico: 1, atencao: 0, sugestao: 2 })).toEqual(["1 critical", "2 suggestions"]);
   });
 
   it("is empty when there's nothing to summarize", () => {
-    expect(DICTIONARIES.pt.issueSummary({ critico: 0, atencao: 0, sugestao: 0 })).toEqual([]);
+    expect(ptBR.issueSummary({ critico: 0, atencao: 0, sugestao: 0 })).toEqual([]);
   });
 });
 
 describe("loadTime", () => {
   it("writes the seconds with each language's decimal separator", () => {
-    expect(DICTIONARIES.pt.loadTime(2.4)).toBe("Carrega em 2,4s no celular");
-    expect(DICTIONARIES.en.loadTime(2.4)).toBe("Loads in 2.4s on phones");
-    expect(DICTIONARIES.pt.loadTime(3)).toBe("Carrega em 3s no celular");
+    expect(ptBR.loadTime(2.4)).toBe("Carrega em 2,4s no celular");
+    expect(en.loadTime(2.4)).toBe("Loads in 2.4s on phones");
+    expect(ptBR.loadTime(3)).toBe("Carrega em 3s no celular");
   });
 });
 
 describe("scoreComponent", () => {
   it("says there was nothing to check instead of a vacuous 100%", () => {
-    expect(DICTIONARIES.pt.scoreComponent["alt-images"](100, 0)).toBe("Nenhuma imagem na página para checar");
-    expect(DICTIONARIES.pt.scoreComponent["alt-images"](75, 12)).toBe("Imagens com texto alternativo: 75%");
-    expect(DICTIONARIES.en.scoreComponent.links(100, 0)).toBe("No home page links to check");
+    expect(ptBR.scoreComponent["alt-images"](100, 0)).toBe("Nenhuma imagem na página para checar");
+    expect(ptBR.scoreComponent["alt-images"](75, 12)).toBe("Imagens com texto alternativo: 75%");
+    expect(en.scoreComponent.links(100, 0)).toBe("No home page links to check");
     // Reports cached before counts existed keep the percentage.
-    expect(DICTIONARIES.pt.scoreComponent.links(100)).toBe("Links da home funcionando: 100%");
+    expect(ptBR.scoreComponent.links(100)).toBe("Links da home funcionando: 100%");
   });
 });
