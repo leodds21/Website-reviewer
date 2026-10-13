@@ -1,4 +1,4 @@
-import { isLocale, toLocale, type Locale } from "@/app/i18n/locale";
+import { DEFAULT_LOCALE, isLocale, toLocale, type Locale } from "@/app/i18n/locale";
 
 function localeFromAcceptLanguage(acceptLanguage: string | null): Locale {
   const first = acceptLanguage
@@ -6,7 +6,7 @@ function localeFromAcceptLanguage(acceptLanguage: string | null): Locale {
     ?.split(";")[0]
     ?.trim()
     .toLowerCase();
-  return first?.startsWith("en") ? "en" : "pt-BR";
+  return first?.startsWith("en") ? "en" : DEFAULT_LOCALE;
 }
 
 // ?lang= first, then the cookie, then Accept-Language.

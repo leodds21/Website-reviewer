@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 import { contentSecurityPolicy } from "./lib/csp";
 
-export const STATIC_CSP_PATHS = ["/api/:path*", "/_next/:path*", "/_vercel/:path*", "/icon.svg", "/robots.txt", "/sitemap.xml"];
+const STATIC_CSP_PATHS = ["/api/:path*", "/_next/:path*", "/_vercel/:path*", "/icon.svg", "/robots.txt", "/sitemap.xml"];
 
 const nextConfig: NextConfig = {
   typedRoutes: true,

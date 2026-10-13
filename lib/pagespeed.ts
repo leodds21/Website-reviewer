@@ -4,7 +4,6 @@ import { PAGESPEED_TIMEOUT_MS } from "./timeouts";
 
 const PAGESPEED_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed";
 
-export { PageSpeedError };
 
 // Only the fields read below, not the full Lighthouse schema.
 type PageSpeedApiResponse = {
