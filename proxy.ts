@@ -6,6 +6,12 @@ import { localeInPath, resolveLocale } from "@/lib/resolveLocale";
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Speed Insights posts to a per-project random prefix Vercel injects at build;
+  // it has to reach Vercel untouched, not be sent to a locale.
+  const observability = process.env.NEXT_PUBLIC_VERCEL_OBSERVABILITY_BASEPATH;
+  if (observability && pathname.startsWith(`${observability}/`)) return NextResponse.next();
+
   const locale = localeInPath(pathname);
 
   // Every page lives under a locale; anything else is sent to the visitor's.
