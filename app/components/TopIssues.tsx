@@ -2,7 +2,7 @@
 
 import { SEVERITY_TEXT, SeverityMark } from "./SeverityMark";
 import { useLanguage } from "@/app/i18n/LanguageContext";
-import { translateIssue } from "@/app/i18n/translations";
+import { translateIssue } from "@/app/i18n/translate";
 import { topIssues, type Issue } from "@/lib/issues";
 import type { AggregatedScore } from "@/lib/score";
 
@@ -16,7 +16,7 @@ function showFinding(code: Issue["code"]) {
 
 // A summary pointing at the findings below, not a copy of them.
 export function TopIssues({ issues, score, provisional = false }: { issues: Issue[]; score: AggregatedScore; provisional?: boolean }) {
-  const { locale, t } = useLanguage();
+  const { t } = useLanguage();
   if (issues.length === 0) return null;
   const top = topIssues(issues, score);
 
@@ -31,7 +31,7 @@ export function TopIssues({ issues, score, provisional = false }: { issues: Issu
       ) : (
         <ol className="rounded-lg border border-[var(--color-line-strong)] bg-[var(--color-surface)]">
           {top.map((issue, index) => {
-            const { title } = translateIssue(locale, issue.code, issue.params);
+            const { title } = translateIssue(t, issue.code, issue.params);
             const severity = issue.severity === "critico" ? "critico" : "atencao";
             return (
               <li

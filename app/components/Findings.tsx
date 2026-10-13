@@ -3,7 +3,7 @@
 import { ToggleSummary } from "./Chrome";
 import { SeverityMark } from "./SeverityMark";
 import { useLanguage } from "@/app/i18n/LanguageContext";
-import { translateIssue, translateRecommendation } from "@/app/i18n/translations";
+import { translateIssue, translateRecommendation } from "@/app/i18n/translate";
 import { rankIssues, type Issue, type IssueSeverity } from "@/lib/issues";
 import type { AggregatedScore } from "@/lib/score";
 
@@ -12,10 +12,10 @@ const MAX_AFFECTED_SHOWN = 10;
 const GROUP_ORDER: IssueSeverity[] = ["critico", "atencao", "sugestao"];
 
 function useIssueText(issue: Issue) {
-  const { locale } = useLanguage();
+  const { t } = useLanguage();
   return {
-    ...translateIssue(locale, issue.code, issue.params),
-    recommendation: translateRecommendation(locale, issue.code),
+    ...translateIssue(t, issue.code, issue.params),
+    recommendation: translateRecommendation(t, issue.code),
   };
 }
 

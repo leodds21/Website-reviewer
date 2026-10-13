@@ -6,7 +6,7 @@ import { LanguageSwitcher } from "./LanguageSwitcher";
 import { PrivacyPolicyDialog } from "./PrivacyPolicyDialog";
 import { ScanPlan } from "./ScanPlan";
 import { useLanguage } from "@/app/i18n/LanguageContext";
-import { translateAnalysisError } from "@/app/i18n/translations";
+import { translateAnalysisError } from "@/app/i18n/translate";
 import type { AnalyzeError } from "@/lib/analyzeError";
 import type { StepKey } from "@/lib/scanSteps";
 
@@ -34,7 +34,7 @@ export function HomeScreen({
   analyzing: boolean;
   completedSteps: StepKey[];
 }) {
-  const { locale, t } = useLanguage();
+  const { t } = useLanguage();
   const planRef = useRef<HTMLElement>(null);
   const noteRef = useRef<HTMLDivElement>(null);
 
@@ -49,7 +49,7 @@ export function HomeScreen({
     <div className="flex min-h-dvh flex-col">
       <AppHeader>
         <Brand />
-        <LanguageSwitcher />
+        <LanguageSwitcher disabled={analyzing} />
       </AppHeader>
 
       <PageContainer className="grid flex-1 items-center gap-12 py-12 sm:py-16 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16">
@@ -87,10 +87,10 @@ export function HomeScreen({
               {error.code === "not-cached" ? (
                 // An expired report link isn't an error, so a neutral note.
                 <p role="status" className="rounded-lg border border-[var(--color-line)] px-4 py-3 text-sm leading-relaxed text-[var(--color-muted)]">
-                  {translateAnalysisError(locale, error)}
+                  {translateAnalysisError(t, error)}
                 </p>
               ) : (
-                <ErrorNote>{translateAnalysisError(locale, error)}</ErrorNote>
+                <ErrorNote>{translateAnalysisError(t, error)}</ErrorNote>
               )}
             </div>
           )}

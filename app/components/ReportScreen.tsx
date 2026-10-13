@@ -7,6 +7,7 @@ import { Passes } from "./Passes";
 import { TopIssues } from "./TopIssues";
 import { ScoreSummary } from "./ScoreSummary";
 import { useLanguage } from "@/app/i18n/LanguageContext";
+import { INTL_LOCALE } from "@/app/i18n/locale";
 import type { AnalyzeReport } from "@/lib/report";
 import type { TechPlatform } from "@/lib/checks/techDetect";
 import { SITE_URL } from "@/lib/siteUrl";
@@ -68,7 +69,7 @@ export function ReportScreen({
     };
   }, []);
 
-  const checkedAt = new Intl.DateTimeFormat(locale === "en" ? "en-US" : "pt-BR", { dateStyle: "short", timeStyle: "short" }).format(
+  const checkedAt = new Intl.DateTimeFormat(INTL_LOCALE[locale], { dateStyle: "short", timeStyle: "short" }).format(
     new Date(report.checkedAt),
   );
 
