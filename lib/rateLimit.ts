@@ -1,4 +1,4 @@
-import { redis } from "./kv";
+import { redis, redisError } from "./kv";
 
 const WINDOW_MS = 60 * 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 10;
@@ -60,7 +60,7 @@ async function checkRateLimitRedis(ip: string, now: number): Promise<RateLimitRe
   if (count <= MAX_REQUESTS_PER_WINDOW) return { limited: false };
 
   // Best effort: rethrowing would fall back to memory and could let this request in.
-  await redis!.zrem(key, member).catch((error) => console.error("rateLimit: Redis cleanup failed", error));
+  await redis!.zrem(key, member).catch((error) => console.error("rateLimit: Redis cleanup failed:", redisError(error)));
   const oldestTimestamp = oldest.length >= 2 ? Number(oldest[1]) : now;
   return { limited: true, retryAfterSeconds: Math.ceil((WINDOW_MS - (now - oldestTimestamp)) / 1000) };
 }
@@ -73,7 +73,7 @@ export async function checkRateLimit(ip: string, now: number = Date.now()): Prom
       return await checkRateLimitRedis(ip, now);
     } catch (error) {
       // A Redis outage shouldn't take the site down.
-      console.error("rateLimit: Redis failed, falling back to memory", error);
+      console.error("rateLimit: Redis failed, falling back to memory:", redisError(error));
     }
   }
   return checkRateLimitInMemory(ip, now);

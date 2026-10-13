@@ -101,7 +101,7 @@ describe("checkRateLimit (Upstash Redis path)", () => {
   it("allows the first 10 requests, blocks the 11th, using the real retry time from the oldest entry", async () => {
     vi.resetModules();
     const redis = mockRedis();
-    vi.doMock("./kv", () => ({ redis }));
+    vi.doMock("./kv", async (importOriginal) => ({ ...(await importOriginal<typeof import("./kv")>()), redis }));
     const { checkRateLimit: checkRateLimitRedis } = await import("./rateLimit");
 
     const ip = "redis-rate-limit-test.ip";
@@ -126,7 +126,7 @@ describe("checkRateLimit (Upstash Redis path)", () => {
     const redis = mockRedis();
     redis.zrem.mockRejectedValue(new Error("connection reset"));
     vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.doMock("./kv", () => ({ redis }));
+    vi.doMock("./kv", async (importOriginal) => ({ ...(await importOriginal<typeof import("./kv")>()), redis }));
     const { checkRateLimit: checkRateLimitRedis } = await import("./rateLimit");
 
     const ip = "redis-rate-limit-cleanup.ip";
@@ -141,7 +141,7 @@ describe("checkRateLimit (Upstash Redis path)", () => {
 
   it("prunes entries outside the window instead of counting them", async () => {
     vi.resetModules();
-    vi.doMock("./kv", () => ({ redis: mockRedis() }));
+    vi.doMock("./kv", async (importOriginal) => ({ ...(await importOriginal<typeof import("./kv")>()), redis: mockRedis() }));
     const { checkRateLimit: checkRateLimitRedis } = await import("./rateLimit");
 
     const ip = "redis-rate-limit-window-test.ip";

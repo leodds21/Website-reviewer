@@ -1,4 +1,4 @@
-import { redis } from "./kv";
+import { redis, redisError } from "./kv";
 
 export const FULL_TTL_MS = 6 * 60 * 60 * 1000;
 // Short, so a transient failure doesn't stick for hours.
@@ -33,7 +33,7 @@ export async function getCached<T>(key: string): Promise<T | null> {
       return (await redis.get<T>(key)) ?? null;
     } catch (error) {
       // The cache is an optimization; a Redis failure shouldn't fail the analysis.
-      console.error("cache: Redis read failed, falling back to memory", error);
+      console.error("cache: Redis read failed, falling back to memory:", redisError(error));
     }
   }
 
@@ -54,7 +54,7 @@ export async function setCached<T>(key: string, data: T, ttlMs: number = FULL_TT
       await redis.set(key, data, { px: ttlMs });
       return;
     } catch (error) {
-      console.error("cache: Redis write failed, falling back to memory", error);
+      console.error("cache: Redis write failed, falling back to memory:", redisError(error));
     }
   }
 
