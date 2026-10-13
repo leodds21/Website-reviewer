@@ -4,8 +4,12 @@ import { checkRateLimit } from "@/lib/rateLimit";
 import { isBlockedHost } from "@/lib/safeFetch";
 import { normalizeUrl } from "@/lib/url";
 import { runAnalysis } from "@/lib/runAnalysis";
+import { analysisInFlight, claimAnalysis, followAnalysis, type Leader, type Snapshot } from "@/lib/inflight";
 import { sseFrame, type AnalysisEvent } from "@/lib/analysisEvents";
 import type { AnalyzeReport } from "@/lib/report";
+
+// The cached shape; the prefix keeps it apart from the older format.
+type CachedAnalysis = { report: AnalyzeReport };
 import type { AnalyzeError, AnalyzeErrorCode } from "@/lib/analyzeError";
 
 export const dynamic = "force-dynamic";
@@ -62,22 +66,29 @@ export async function GET(request: Request) {
   const domain = targetUrl.hostname;
   const target = targetUrl.toString();
   // Per path; query and hash left out (they're usually tracking params).
-  const cacheKey = `${targetUrl.origin}${targetUrl.pathname}`;
+  const cacheKey = `analysis:v2:${targetUrl.origin}${targetUrl.pathname}`;
 
   // Cached reports cost nothing, so they don't count against the rate limit.
-  const cached = await getCached<AnalyzeReport>(cacheKey);
-  if (cached) return new Response(sseFrame({ event: "done", data: cached }), { headers: SSE_HEADERS });
+  const cached = await getCached<CachedAnalysis>(cacheKey);
+  if (cached) return new Response(sseFrame({ event: "done", data: cached.report }), { headers: SSE_HEADERS });
 
   // Report links only read the cache; a link alone never starts an analysis.
   if (searchParams.get("cached") === "only") return errorResponse({ code: "not-cached" }, 404);
 
   // The rightmost entry is the one Vercel appends; the rest can be spoofed.
   const ip = request.headers.get("x-forwarded-for")?.split(",").pop()?.trim() ?? "unknown";
-  const rateLimit = await checkRateLimit(ip);
-  if (rateLimit.limited) {
-    return errorResponse({ code: "rate-limited", retryAfterSeconds: rateLimit.retryAfterSeconds }, 429, {
-      "Retry-After": String(rateLimit.retryAfterSeconds),
-    });
+
+  // Following an analysis already running costs no PageSpeed quota, so,
+  // like a cached report, it isn't charged against the rate limit.
+  let leader: Leader | null = null;
+  if (!(await analysisInFlight(cacheKey))) {
+    const rateLimit = await checkRateLimit(ip);
+    if (rateLimit.limited) {
+      return errorResponse({ code: "rate-limited", retryAfterSeconds: rateLimit.retryAfterSeconds }, 429, {
+        "Retry-After": String(rateLimit.retryAfterSeconds),
+      });
+    }
+    leader = await claimAnalysis(cacheKey);
   }
 
   const encoder = new TextEncoder();
@@ -108,26 +119,85 @@ export async function GET(request: Request) {
         }
       }
 
-      try {
-        const outcome = await runAnalysis(
-          { rawUrl, target, domain, signal: abortController.signal, deadline },
-          {
-            onStep: (step) => send({ event: "step", data: { step } }),
-            onPartial: (report) => send({ event: "partial", data: report }),
-          },
-        );
+      async function lead(run: Leader) {
+        const snapshot: Snapshot = { steps: [] };
+        try {
+          const outcome = await runAnalysis(
+            { rawUrl, target, domain, signal: abortController.signal, deadline },
+            {
+              onStep: (step) => {
+                snapshot.steps = [...snapshot.steps, step];
+                run.publish({ ...snapshot });
+                send({ event: "step", data: { step } });
+              },
+              onPartial: (report) => {
+                snapshot.partial = report;
+                run.publish({ ...snapshot });
+                send({ event: "partial", data: report });
+              },
+            },
+          );
 
-        // The visitor left: don't cache a half-finished report.
-        if (outcome.kind === "aborted") return;
+          // The visitor left: don't cache a half-finished report, and let a
+          // follower take over.
+          if (outcome.kind === "aborted") return await run.finish({ ...snapshot, aborted: true });
 
-        if (outcome.kind === "failed") {
-          send({ event: "failed", data: { code: outcome.code } });
-          return;
+          if (outcome.kind === "failed") {
+            await run.finish({ ...snapshot, failed: outcome.code });
+            return send({ event: "failed", data: { code: outcome.code } });
+          }
+
+          // Partial reports get a short TTL so a transient failure doesn't stick.
+          await setCached<CachedAnalysis>(cacheKey, { report: outcome.report }, outcome.complete ? FULL_TTL_MS : PARTIAL_TTL_MS);
+          await run.finish({ ...snapshot, final: outcome.report });
+          send({ event: "done", data: outcome.report });
+        } catch (error) {
+          await run.finish({ ...snapshot, failed: "analysis-failed" });
+          throw error;
         }
+      }
 
-        // Partial reports get a short TTL so a transient failure doesn't stick.
-        await setCached(cacheKey, outcome.report, outcome.complete ? FULL_TTL_MS : PARTIAL_TTL_MS);
-        send({ event: "done", data: outcome.report });
+      // Relays the leader's progress; "orphaned" when it ended without a result.
+      async function follow(): Promise<"orphaned" | "settled"> {
+        const sentSteps = new Set<string>();
+        let sentPartial = false;
+        const outcome = await followAnalysis(cacheKey, {
+          signal: abortController.signal,
+          deadline,
+          onSnapshot: (state) => {
+            for (const step of state.steps) {
+              if (sentSteps.has(step)) continue;
+              sentSteps.add(step);
+              send({ event: "step", data: { step } });
+            }
+            if (state.partial && !sentPartial) {
+              sentPartial = true;
+              send({ event: "partial", data: state.partial });
+            }
+          },
+        });
+        if (outcome.kind === "orphaned") return "orphaned";
+        if (outcome.kind === "final") send({ event: "done", data: outcome.report });
+        else if (outcome.kind === "failed") send({ event: "failed", data: { code: outcome.code } });
+        else if (outcome.kind === "timeout") send({ event: "failed", data: { code: "timeout" } });
+        return "settled";
+      }
+
+      try {
+        if (leader) return await lead(leader);
+        if ((await follow()) === "settled" || abortController.signal.aborted) return;
+
+        // The leader left without a result. It may have just cached one;
+        // otherwise this request runs the analysis itself, once.
+        const finished = await getCached<CachedAnalysis>(cacheKey);
+        if (finished) return send({ event: "done", data: finished.report });
+        const rateLimit = await checkRateLimit(ip);
+        if (rateLimit.limited) {
+          return send({ event: "failed", data: { code: "rate-limited", retryAfterSeconds: rateLimit.retryAfterSeconds } });
+        }
+        const takeover = await claimAnalysis(cacheKey);
+        if (takeover) return await lead(takeover);
+        if ((await follow()) === "orphaned") send({ event: "failed", data: { code: "analysis-failed" } });
       } catch (error) {
         console.error(`Analysis of ${target} failed unexpectedly:`, error);
         abortController.abort();
