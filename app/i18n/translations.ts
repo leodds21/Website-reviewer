@@ -71,6 +71,13 @@ type Dictionary = {
   severity: Record<Severity | IssueSeverity, string>;
   unavailableReason: Record<FailureReason, string>;
   partialMeasure: string;
+  pendingMeasure: string;
+  provisionalMeasure: string;
+  scoreLabelPending: string;
+  topIssuesProvisional: string;
+  liveReportPartial: string;
+  liveReportDone: string;
+  googleUnfinished: string;
   loadTime: (seconds: number) => string;
   coverageNote: (measured: number) => string;
   blockedNote: string;
@@ -226,7 +233,7 @@ const pt: Dictionary = {
     accessibility: "Acessibilidade",
     security: "Segurança",
   },
-  severity: { critico: "crítico", atencao: "atenção", sugestao: "sugestão", ok: "ok", indisponivel: "não medido" },
+  severity: { critico: "crítico", atencao: "atenção", sugestao: "sugestão", ok: "ok", indisponivel: "não medido", pendente: "medindo" },
   unavailableReason: {
     blocked: "O site recusou nosso acesso automático.",
     timeout: "A medição demorou demais. Vale tentar de novo.",
@@ -237,6 +244,13 @@ const pt: Dictionary = {
     unknown: "Não deu pra medir desta vez. Vale tentar de novo.",
   },
   partialMeasure: "medido em parte",
+  pendingMeasure: "Aguardando a medição do Google",
+  provisionalMeasure: "provisório, falta a medição do Google",
+  scoreLabelPending: "Calculando a nota geral",
+  topIssuesProvisional: "Provisório: a medição do Google ainda pode mudar esta ordem.",
+  liveReportPartial: "Relatório parcial pronto. Aguardando a medição do Google.",
+  liveReportDone: "Relatório completo.",
+  googleUnfinished: "A medição do Google não terminou. O relatório mostra só as nossas checagens.",
   // PageSpeed measures as a phone on a mobile connection by default.
   loadTime: (seconds) => `Carrega em ${seconds.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}s no celular`,
   coverageNote: (measured) =>
@@ -549,7 +563,7 @@ const en: Dictionary = {
     accessibility: "Accessibility",
     security: "Security",
   },
-  severity: { critico: "critical", atencao: "attention", sugestao: "suggestion", ok: "ok", indisponivel: "not measured" },
+  severity: { critico: "critical", atencao: "attention", sugestao: "suggestion", ok: "ok", indisponivel: "not measured", pendente: "measuring" },
   unavailableReason: {
     blocked: "The site refused our automated access.",
     timeout: "The measurement took too long. Worth trying again.",
@@ -560,6 +574,13 @@ const en: Dictionary = {
     unknown: "We couldn't measure this time. Worth trying again.",
   },
   partialMeasure: "partly measured",
+  pendingMeasure: "Waiting for Google's measurement",
+  provisionalMeasure: "provisional, Google's measurement pending",
+  scoreLabelPending: "Calculating the overall score",
+  topIssuesProvisional: "Provisional: Google's measurement may still change this order.",
+  liveReportPartial: "Partial report ready. Waiting for Google's measurement.",
+  liveReportDone: "Report complete.",
+  googleUnfinished: "Google's measurement didn't finish. The report shows only our own checks.",
   loadTime: (seconds) => `Loads in ${seconds.toLocaleString("en-US", { maximumFractionDigits: 1 })}s on phones`,
   coverageNote: (measured) =>
     `Score based on ${measured} of 4 categories. The others couldn't be measured, see why below.`,

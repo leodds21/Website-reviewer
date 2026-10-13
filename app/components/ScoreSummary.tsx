@@ -18,6 +18,7 @@ const SEGMENT_FILL: Record<Severity, string> = {
   atencao: "bg-[var(--color-severity-atencao)]",
   critico: "bg-[var(--color-severity-critico)]",
   indisponivel: "bg-[var(--color-line-strong)]",
+  pendente: "bg-[var(--color-line-strong)]",
 };
 
 function ScoreMeter({ score, severity }: { score: number; severity: Severity }) {
@@ -94,13 +95,17 @@ function CategoryRow({ category, result, loadSeconds }: { category: CategoryKey;
   const { t } = useLanguage();
   // "?? unknown" covers reports cached before reasons existed.
   const note =
-    result.score === null
-      ? (t.unavailableReason[result.reason] ?? t.unavailableReason.unknown)
-      : result.partial
-        ? t.partialMeasure
-        : loadSeconds !== undefined
-          ? t.loadTime(loadSeconds)
-          : null;
+    result.severity === "pendente"
+      ? t.pendingMeasure
+      : result.score === null
+        ? (t.unavailableReason[result.reason] ?? t.unavailableReason.unknown)
+        : result.pending
+          ? t.provisionalMeasure
+          : result.partial
+            ? t.partialMeasure
+            : loadSeconds !== undefined
+              ? t.loadTime(loadSeconds)
+              : null;
 
   return (
     <li className="border-b border-[var(--color-line)] py-3">
@@ -110,7 +115,7 @@ function CategoryRow({ category, result, loadSeconds }: { category: CategoryKey;
           {t.categories[category]}
         </span>
         <span className={`font-mono text-[15px] ${SEVERITY_TEXT[result.severity]}`}>
-          {result.score === null ? t.severity.indisponivel : result.score}
+          {result.score === null ? t.severity[result.severity] : result.score}
           {result.score !== null && <span className="sr-only"> · {t.severity[result.severity]}</span>}
         </span>
       </div>
@@ -136,8 +141,14 @@ export function ScoreSummary({ report }: { report: AnalyzeReport }) {
   const summary = t.issueSummary(counts);
 
   const { overall, overallSeverity } = report.score;
-  const label =
-    overallSeverity === "ok" ? t.scoreLabelOk : overallSeverity === "critico" ? t.scoreLabelCritical : t.scoreLabelAttention;
+  const pending = overallSeverity === "pendente";
+  const label = pending
+    ? t.scoreLabelPending
+    : overallSeverity === "ok"
+      ? t.scoreLabelOk
+      : overallSeverity === "critico"
+        ? t.scoreLabelCritical
+        : t.scoreLabelAttention;
 
   return (
     <aside
@@ -147,7 +158,11 @@ export function ScoreSummary({ report }: { report: AnalyzeReport }) {
       <div className="flex flex-col gap-2.5">
         <span className="font-mono text-[11px] tracking-[0.18em] text-[var(--color-label)] uppercase">{t.overallScore}</span>
         <div className="flex items-baseline gap-2">
-          <span className="font-heading text-[84px] leading-[0.9] font-medium tracking-[-0.05em] text-[var(--color-text)]">{overall}</span>
+          <span
+            className={`font-heading text-[84px] leading-[0.9] font-medium tracking-[-0.05em] ${pending ? "text-[var(--color-line-strong)]" : "text-[var(--color-text)]"}`}
+          >
+            {pending ? <span aria-hidden="true">--</span> : overall}
+          </span>
           <span className="font-mono text-sm text-[var(--color-subtle)]">/100</span>
         </div>
         <ScoreMeter score={overall} severity={overallSeverity} />
@@ -162,7 +177,7 @@ export function ScoreSummary({ report }: { report: AnalyzeReport }) {
             ))}
           </p>
         )}
-        {measured < CATEGORY_KEYS.length && (
+        {!pending && measured < CATEGORY_KEYS.length && (
           <p className="text-xs leading-snug text-[var(--color-subtle)]">{t.coverageNote(measured)}</p>
         )}
       </div>
@@ -181,7 +196,7 @@ export function ScoreSummary({ report }: { report: AnalyzeReport }) {
       <details>
         <ToggleSummary className="flex min-h-11 text-[13px]">{t.scoreExplanationToggle}</ToggleSummary>
         <p className="mt-1 text-[13px] leading-relaxed text-[var(--color-muted)]">{t.scoreExplanation}</p>
-        {measured > 1 && (
+        {!pending && measured > 1 && (
           <p className="mt-2 font-mono text-xs text-[var(--color-body)]">
             {t.overallArithmetic(measuredScores, measuredScores.reduce((sum, score) => sum + score, 0) / measured, overall)}
           </p>
