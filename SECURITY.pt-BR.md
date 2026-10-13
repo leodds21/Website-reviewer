@@ -12,9 +12,23 @@ O projeto é mantido por uma pessoa, então as respostas são no melhor esforço
 
 ## Escopo
 
-Dentro: o código deste repositório e o app publicado, em especial o tratamento das URLs analisadas (SSRF, redirecionamentos, redes privadas), os limites contra abuso e qualquer coisa que exponha segredos ou dados de outros visitantes.
+Dentro: o código deste repositório e o app publicado, em especial o tratamento das URLs analisadas (SSRF, redirecionamentos, redes privadas), os limites contra abuso, os links de relatório compartilhado e qualquer coisa que exponha segredos ou dados de outros visitantes.
 
 Fora: problemas que o scanner aponta em outros sites, negação de serviço por volume de tráfego e vulnerabilidades na Vercel, no Upstash, no Google ou no Formspree (reporte ao fornecedor). Ao testar o app publicado, não degrade o serviço para outras pessoas nem tente acessar dados que não são seus.
+
+## Dados que o app guarda
+
+| O quê | Onde | Por quanto tempo |
+|---|---|---|
+| Relatório pronto e a URL analisada, para o link de compartilhamento | Upstash (`report:<id>`) | `REPORT_TTL_DAYS`, padrão 30 dias |
+| Cache de relatórios, pela origem e caminho analisados | Upstash | 6 horas, 5 minutos quando uma checagem falhou |
+| Progresso de uma análise em andamento, para requisições iguais simultâneas | Upstash | No máximo 2 minutos |
+| Horários das requisições por IP, para o limite de uso | Upstash | 1 hora |
+| Idioma escolhido | Cookie `isdias-lang` | 1 ano |
+
+O HTML das páginas não é guardado. Os IDs de relatório são 10 caracteres base62 aleatórios (cerca de 59 bits) e são validados antes de qualquer leitura. Não dá para adivinhá-los, mas quem tem o link abre o relatório, então o link deve ser compartilhado como o próprio relatório. As páginas de relatório e suas imagens de prévia mostram só o que o relatório mostra, e são marcadas como `noindex`.
+
+O Vercel Speed Insights mede a velocidade das páginas (Core Web Vitals) sem cookies. O ID do relatório e a query string saem da URL antes do envio. Quando uma checagem falha, o log do servidor pode incluir a URL analisada. O navegador só recebe códigos de erro.
 
 ## Alertas conhecidos
 
