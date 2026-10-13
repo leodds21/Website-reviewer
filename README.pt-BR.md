@@ -83,7 +83,7 @@ Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, undici, Upstash R
 
 ## Segurança e privacidade
 
-Erros chegam ao navegador só como códigos, conteúdo dos sites analisados nunca é renderizado como HTML, e a página roda sob uma CSP com nonce por requisição. A URL analisada vai para o Google PageSpeed; relatórios ficam em cache no Upstash por até 6 horas e IPs por até 1 hora; mensagens de contato passam pelo Formspree. Sem analytics; o único cookie guarda o idioma. Para relatar uma vulnerabilidade, veja [SECURITY.pt-BR.md](SECURITY.pt-BR.md).
+Erros chegam ao navegador só como códigos, conteúdo dos sites analisados nunca é renderizado como HTML, e a página roda sob uma CSP com nonce por requisição. A URL analisada vai para o Google PageSpeed; relatórios e a URL analisada ficam no Upstash por 30 dias, para os links de relatório funcionarem, e IPs por até 1 hora; mensagens de contato passam pelo Formspree. Sem analytics; o único cookie guarda o idioma. Para relatar uma vulnerabilidade, veja [SECURITY.pt-BR.md](SECURITY.pt-BR.md).
 
 ## Como rodar
 
