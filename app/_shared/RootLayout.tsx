@@ -3,6 +3,7 @@ import { JetBrains_Mono, Manrope, Space_Grotesk } from "next/font/google";
 import { OG_LOCALE, type Locale } from "../i18n/locale";
 import { DICTIONARIES } from "../i18n/dictionaries";
 import { SITE_URL } from "@/lib/siteUrl";
+import { Vitals } from "./Vitals";
 import "../globals.css";
 
 // Self-hosted by next/font, so the CSP's font-src 'self' holds.
@@ -46,7 +47,10 @@ export function localizedAlternates(locale: Locale, path = ""): Metadata["altern
 export function RootLayout({ locale, children }: { locale: Locale; children: React.ReactNode }) {
   return (
     <html lang={locale} className={`${spaceGrotesk.variable} ${manrope.variable} ${jetBrainsMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <Vitals />
+      </body>
     </html>
   );
 }
