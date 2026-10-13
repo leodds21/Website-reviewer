@@ -5,6 +5,8 @@ import { PageSpeedError, runPageSpeed } from "@/lib/pagespeed";
 import { fetchHtml } from "@/lib/fetchHtml";
 import * as cache from "@/lib/cache";
 import * as rateLimit from "@/lib/rateLimit";
+import * as reportStore from "@/lib/reportStore";
+import { getStoredReport } from "@/lib/reportStore";
 import { HttpStatusError } from "@/lib/httpStatus";
 import type { AnalyzeReport } from "@/lib/report";
 import { GET } from "./route";
@@ -328,20 +330,41 @@ describe("GET /api/analyze", () => {
     }
   });
 
-  it("answers a report link from the cache, and never starts an analysis for one past it", async () => {
-    const domain = "route-test-cached-only.example";
-    const cachedOnly = (url: string) =>
-      new Request(`http://localhost/api/analyze?url=${encodeURIComponent(url)}&cached=only`, { headers: { "x-forwarded-for": "route-test-cached-only.ip" } });
-    vi.mocked(checkHttps).mockClear();
+  it("gives the final report a share id, stores it, and reuses it from the cache", async () => {
+    const domain = "route-test-share-id.example";
+    const first = (await readSseEvents(await GET(requestFor(domain, "route-test-share-id.ip")))).at(-1)!.data as AnalyzeReport;
 
-    const miss = await GET(cachedOnly(domain));
-    expect(miss.status).toBe(404);
-    expect(await miss.json()).toEqual({ code: "not-cached" });
-    expect(checkHttps).not.toHaveBeenCalled();
+    expect(first.id).toMatch(/^[0-9A-Za-z]{10}$/);
+    const stored = await getStoredReport(first.id!);
+    expect(stored).toMatchObject({ version: 1, domain, targetUrl: `https://${domain}/` });
+    expect(stored!.report).toEqual(first);
 
-    await readSseEvents(await GET(requestFor(domain, "route-test-cached-only.ip")));
-    const hit = await GET(cachedOnly(domain));
-    expect((await readSseEvents(hit))[0].event).toBe("done");
+    const again = (await readSseEvents(await GET(requestFor(domain, "route-test-share-id.ip")))).at(-1)!.data as AnalyzeReport;
+    expect(again.id).toBe(first.id);
+  });
+
+  it("gives a cached report from before share links an id once", async () => {
+    const domain = "route-test-old-cache.example";
+    const old = { domain, checkedAt: "2026-10-13T12:00:00.000Z" } as AnalyzeReport;
+    await cache.setCached(`analysis:v2:https://${domain}/`, { report: old });
+
+    const first = (await readSseEvents(await GET(requestFor(domain, "route-test-old-cache.ip"))))[0].data as AnalyzeReport;
+    const second = (await readSseEvents(await GET(requestFor(domain, "route-test-old-cache.ip"))))[0].data as AnalyzeReport;
+
+    expect(first.id).toMatch(/^[0-9A-Za-z]{10}$/);
+    expect(second.id).toBe(first.id);
+  });
+
+  it("still finishes the analysis when the shared report can't be stored", async () => {
+    const saveSpy = vi.spyOn(reportStore, "saveReport").mockRejectedValueOnce(new Error("store down"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const events = await readSseEvents(await GET(requestFor("route-test-store-down.example", "route-test-store-down.ip")));
+
+    expect(events.at(-1)?.event).toBe("done");
+    expect(events.at(-1)?.data).not.toHaveProperty("id");
+    saveSpy.mockRestore();
+    errorSpy.mockRestore();
   });
 
   it("keeps two paths on the same host from colliding in the cache", async () => {
