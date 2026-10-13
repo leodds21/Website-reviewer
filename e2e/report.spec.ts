@@ -19,14 +19,16 @@ test.describe("security policy", () => {
       if (/Content Security Policy/i.test(message.text())) violations.push(message.text());
     });
 
-    const first = await page.goto("/?lang=pt");
+    const first = await page.goto("/pt-BR");
+    // Exactly one policy: two would be enforced together.
+    expect((await first!.headersArray()).filter((header) => header.name.toLowerCase() === "content-security-policy")).toHaveLength(1);
     const csp = first!.headers()["content-security-policy"];
     const scriptSrc = csp.split(";").find((directive) => directive.trim().startsWith("script-src"))!;
     expect(scriptSrc).toMatch(/'nonce-[^']+' 'strict-dynamic'/);
     expect(scriptSrc).not.toContain("unsafe-inline");
 
     // A fresh nonce on every view.
-    const second = await page.goto("/?lang=pt");
+    const second = await page.goto("/pt-BR");
     expect(second!.headers()["content-security-policy"]).not.toBe(csp);
 
     // The page still hydrates and works under it.
@@ -38,7 +40,7 @@ test.describe("security policy", () => {
 
 test.describe("home", () => {
   test("lists the seven real checks before anything runs", async ({ page }) => {
-    await page.goto("/?lang=pt");
+    await page.goto("/pt-BR");
 
     const plan = page.getByRole("region", { name: /plano da varredura/i });
     await expect(plan.getByRole("listitem")).toHaveCount(7);
@@ -216,7 +218,7 @@ test.describe("report", () => {
     const reportHeading = page.getByRole("heading", { level: 2, name: "Críticos" });
     await expect(reportHeading).toBeVisible();
     await expect(page).toHaveURL(/[?&]url=exemplo\.com\.br(&|$)/);
-    await expect(page).toHaveURL(/[?&]lang=pt/);
+    await expect(page).toHaveURL(/\/pt-BR\?/);
 
     // A reload (or the link opened elsewhere) runs it again and lands on the report.
     await page.reload();
@@ -240,7 +242,7 @@ test.describe("report", () => {
 
   test("opens a shared report link directly", async ({ page }) => {
     await mockAnalysis(page, REPORT_WITH_FINDINGS);
-    await page.goto("/?lang=pt&url=exemplo.com.br");
+    await page.goto("/pt-BR?url=exemplo.com.br");
 
     await expect(page.getByRole("heading", { level: 1, name: "Relatório de exemplo.com.br" })).toBeAttached();
     await page.getByRole("button", { name: "Nova análise" }).click();
@@ -277,7 +279,7 @@ test.describe("report", () => {
       analyses++;
       return route.fallback();
     });
-    await page.goto("/?lang=pt&url=exemplo.com.br");
+    await page.goto("/pt-BR?url=exemplo.com.br");
 
     await expect(page.getByText("O relatório desse link não está mais guardado.", { exact: false })).toBeVisible();
     await expect(page.getByLabel("Endereço do site")).toHaveValue("exemplo.com.br");
@@ -370,5 +372,47 @@ test.describe("progressive report", () => {
 
     await expect(page.getByText("A medição do Google não terminou.", { exact: false }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Nova análise" })).toBeVisible();
+  });
+});
+
+test.describe("languages", () => {
+  test("sends the root address to the visitor's language", async ({ browser }) => {
+    for (const [locale, path] of [["pt-BR", "/pt-BR"], ["en-US", "/en"]] as const) {
+      const context = await browser.newContext({ locale });
+      const page = await context.newPage();
+      await page.goto("/");
+      await expect(page).toHaveURL(new RegExp(`${path}$`));
+      await context.close();
+    }
+  });
+
+  test("keeps older ?lang= links working", async ({ page }) => {
+    await page.goto("/?lang=pt&url=exemplo.com.br");
+    await expect(page).toHaveURL(/\/pt-BR\?url=exemplo\.com\.br$/);
+  });
+
+  test("switches language through the other locale's address, and remembers it", async ({ page }) => {
+    await page.goto("/pt-BR");
+    await page.getByRole("link", { name: /EN/ }).click();
+
+    await expect(page).toHaveURL(/\/en$/);
+    await expect(page.getByLabel("Site address")).toBeVisible();
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+
+    await page.goto("/");
+    await expect(page).toHaveURL(/\/en$/);
+  });
+
+  test("describes each language version for search engines", async ({ page }) => {
+    await page.goto("/en");
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", /\/en$/);
+    await expect(page.locator('link[rel="alternate"][hreflang="pt-BR"]')).toHaveAttribute("href", /\/pt-BR$/);
+    await expect(page.locator('meta[property="og:locale"]')).toHaveAttribute("content", "en_US");
+  });
+
+  test("shows a page of its own for an address that doesn't exist", async ({ page }) => {
+    const response = await page.goto("/pt-BR/nada-aqui");
+    expect(response!.status()).toBe(404);
+    await expect(page.getByRole("heading", { name: "Esta página não existe." })).toBeVisible();
   });
 });
