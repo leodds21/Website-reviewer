@@ -445,3 +445,24 @@ test.describe("languages", () => {
     await expect(page.getByRole("heading", { name: "Esta página não existe." })).toBeVisible();
   });
 });
+
+test.describe("reduced motion", () => {
+  test.use({ reducedMotion: "reduce" });
+
+  test("moves between every screen without the transitions", async ({ page }) => {
+    await mockAnalysis(page, REPORT_WITH_FINDINGS);
+    await analyze(page, "exemplo.com.br");
+    await expect(page.getByRole("heading", { level: 2, name: "Críticos" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Ver como corrigir →" }).first().click();
+    await page.getByLabel("Nome").fill("Ana");
+    await page.getByRole("button", { name: /Voltar ao relatório/ }).click();
+    await expect(page.getByRole("heading", { level: 2, name: "Críticos" })).toBeVisible();
+    await page.getByRole("button", { name: "Ver como corrigir →" }).first().click();
+    await expect(page.getByLabel("Nome")).toHaveValue("Ana");
+
+    await page.getByRole("button", { name: /Voltar ao relatório/ }).click();
+    await page.getByRole("button", { name: "Nova análise" }).click();
+    await expect(page.getByLabel("Endereço do site")).toBeVisible();
+  });
+});
