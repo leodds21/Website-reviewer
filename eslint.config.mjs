@@ -14,9 +14,8 @@ const eslintConfig = defineConfig([
       "unicorn/filename-case": ["error", { case: "camelCase" }],
     },
   },
-  // Override default ignores of eslint-config-next.
+  // eslint-config-next's default ignores, plus test output and a local-only folder.
   globalIgnores([
-    // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",
     "build/**",

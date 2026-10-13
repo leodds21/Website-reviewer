@@ -85,7 +85,7 @@ export function HomeScreen({
           {error && (
             <div ref={noteRef}>
               {error.code === "not-cached" ? (
-                // An expired report link isn't an error, so a neutral note.
+                // An older ?url= link isn't an error, so a neutral note.
                 <p role="status" className="rounded-lg border border-[var(--color-line)] px-4 py-3 text-sm leading-relaxed text-[var(--color-muted)]">
                   {translateAnalysisError(t, error)}
                 </p>
