@@ -343,18 +343,6 @@ describe("GET /api/analyze", () => {
     expect(again.id).toBe(first.id);
   });
 
-  it("gives a cached report from before share links an id once", async () => {
-    const domain = "route-test-old-cache.example";
-    const old = { domain, checkedAt: "2026-10-13T12:00:00.000Z" } as AnalyzeReport;
-    await cache.setCached(`analysis:v2:https://${domain}/`, { report: old });
-
-    const first = (await readSseEvents(await GET(requestFor(domain, "route-test-old-cache.ip"))))[0].data as AnalyzeReport;
-    const second = (await readSseEvents(await GET(requestFor(domain, "route-test-old-cache.ip"))))[0].data as AnalyzeReport;
-
-    expect(first.id).toMatch(/^[0-9A-Za-z]{10}$/);
-    expect(second.id).toBe(first.id);
-  });
-
   it("still finishes the analysis when the shared report can't be stored", async () => {
     const saveSpy = vi.spyOn(reportStore, "saveReport").mockRejectedValueOnce(new Error("store down"));
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});

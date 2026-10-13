@@ -1,4 +1,4 @@
-import { redis } from "./kv";
+import { redis, redisError } from "./kv";
 import { newReportId, isReportId } from "./reportId";
 import type { AnalyzeReport } from "./report";
 
@@ -9,7 +9,8 @@ const MAX_MEMORY_REPORTS = 500;
 // have it opened, short enough not to keep analyzed URLs around for long.
 export function reportTtlMs(): number {
   const days = Number(process.env.REPORT_TTL_DAYS);
-  return (Number.isFinite(days) && days >= 1 && days <= 365 ? days : 30) * DAY_MS;
+  // Whole milliseconds: Upstash rejects a fractional PX, which 1.1 days would give.
+  return Math.round((Number.isFinite(days) && days >= 1 && days <= 365 ? days : 30) * DAY_MS);
 }
 
 /** What a shared report link points to. Never the analyzed page's HTML. */
@@ -46,31 +47,33 @@ export async function saveReport(report: AnalyzeReport, targetUrl: string, now =
     expiresAt: new Date(now + ttl).toISOString(),
   };
 
+  // With Redis, a failed write throws: a copy in this instance's memory would
+  // give a link that other instances can't open.
   if (redis) {
-    try {
-      await redis.set(keyFor(id), stored, { px: ttl });
-      return stored;
-    } catch (error) {
-      console.error("reportStore: Redis write failed, keeping it in memory", error);
-    }
+    await redis.set(keyFor(id), stored, { px: ttl });
+    return stored;
   }
   rememberInMemory(stored);
   return stored;
 }
 
-/** null for an unknown, expired or malformed id. */
+/**
+ * null for an unknown, expired or malformed id. A failed Redis read throws:
+ * it isn't an expired report, and must not be shown (or cached) as one.
+ */
 export async function getStoredReport(id: string, now = Date.now()): Promise<StoredReport | null> {
   if (!isReportId(id)) return null;
 
-  let stored: StoredReport | null = null;
+  let stored: StoredReport | null;
   if (redis) {
     try {
       stored = await redis.get<StoredReport>(keyFor(id));
     } catch (error) {
-      console.error("reportStore: Redis read failed", error);
+      throw new Error(`reportStore: Redis read failed: ${redisError(error)}`);
     }
+  } else {
+    stored = memory.get(id) ?? null;
   }
-  stored ??= memory.get(id) ?? null;
 
   if (!stored || stored.version !== 1 || Date.parse(stored.expiresAt) <= now) return null;
   return stored;
