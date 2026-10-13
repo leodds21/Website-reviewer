@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Check } from "lucide-react";
+import { CheckIcon, SpinnerIcon } from "./Icons";
 import { AppHeader, Brand, ErrorNote, PageContainer, buttonClass } from "./Chrome";
 import { useLanguage } from "@/app/i18n/LanguageContext";
 import { synthesizeCriticalImpact, translateIssue, translateRecommendation } from "@/app/i18n/translate";
@@ -92,7 +92,7 @@ export function NextStepScreen({
             // The last chance to spot a typo in the email.
             <div role="status" className="flex flex-col gap-1.5">
               <p className="flex items-center gap-2 text-lg font-semibold text-[var(--color-text)]">
-                <Check size={18} strokeWidth={2.5} aria-hidden="true" className="text-[var(--color-severity-ok)]" />
+                <CheckIcon size={18} strokeWidth={2.5} className="text-[var(--color-severity-ok)]" />
                 {t.sendSuccess}
               </p>
               <p className="text-sm text-[var(--color-muted)]">{t.sendSuccessDetail(contact.email)}</p>
@@ -154,9 +154,9 @@ export function NextStepScreen({
                 className="flex min-h-13 items-center justify-center gap-2 rounded-full bg-[var(--color-accent)] px-6 py-3 font-heading text-base font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-80"
               >
                 {justSucceeded ? (
-                  <Check size={17} strokeWidth={2.5} aria-hidden="true" />
+                  <CheckIcon size={17} strokeWidth={2.5} />
                 ) : submitting ? (
-                  <Loader2 size={17} strokeWidth={2} aria-hidden="true" className="animate-spin" />
+                  <SpinnerIcon size={17} strokeWidth={2} className="animate-spin" />
                 ) : null}
                 {justSucceeded ? t.sent : submitting ? t.sending : t.sendButton}
               </button>
