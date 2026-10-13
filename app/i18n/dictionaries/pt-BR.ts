@@ -45,7 +45,7 @@ export const ptBR: Dictionary = {
       },
       {
         label: "Com quem compartilhamos",
-        text: "A URL vai para o Google PageSpeed Insights, que gera parte do relatório. O relatório e o controle de abuso ficam no Upstash, um banco em nuvem; o formulário de contato passa pelo Formspree até o nosso e-mail. O site roda na Vercel.",
+        text: "A URL vai para o Google PageSpeed Insights, que gera parte do relatório. O relatório e o controle de abuso ficam no Upstash, um banco em nuvem; o formulário de contato passa pelo Formspree até o nosso e-mail. O site roda na Vercel, que também mede a velocidade das páginas.",
       },
       {
         label: "Por quanto tempo guardamos",
@@ -53,7 +53,7 @@ export const ptBR: Dictionary = {
       },
       {
         label: "Rastreamento",
-        text: "Sem analytics. O único cookie guarda o seu idioma. Seu IP só serve pra limitar abusos e fica guardado por até 1 hora, sem ligação com você.",
+        text: "Não usamos analytics nem cookies de rastreamento: o único cookie guarda o seu idioma. Medimos só a velocidade de carregamento das páginas (Vercel Speed Insights), sem cookies e sem o endereço analisado nem o link do relatório. Seu IP só serve pra limitar abusos e fica guardado por até 1 hora, sem ligação com você.",
       },
     ],
   },
