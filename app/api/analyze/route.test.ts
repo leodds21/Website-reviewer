@@ -4,6 +4,7 @@ import { checkSitemapRobots } from "@/lib/checks/sitemapRobots";
 import { PageSpeedError, runPageSpeed } from "@/lib/pagespeed";
 import { fetchHtml } from "@/lib/fetchHtml";
 import * as cache from "@/lib/cache";
+import * as rateLimit from "@/lib/rateLimit";
 import { HttpStatusError } from "@/lib/httpStatus";
 import type { AnalyzeReport } from "@/lib/report";
 import { GET } from "./route";
@@ -520,6 +521,69 @@ describe("GET /api/analyze, progressive report", () => {
 
     expect(names).not.toContain("partial");
     expect(names.at(-1)).toBe("done");
+    errorSpy.mockRestore();
+  });
+});
+
+describe("GET /api/analyze, identical analyses at the same time", () => {
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>((r) => (resolve = r));
+    return { promise, resolve };
+  }
+
+  it("runs PageSpeed once and gives both visitors the same report", async () => {
+    const pagespeed = deferred<typeof HAPPY.pagespeed>();
+    vi.mocked(runPageSpeed).mockReset().mockReturnValueOnce(pagespeed.promise);
+
+    const first = await GET(requestFor("route-test-coalesce.example", "route-test-coalesce-a.ip"));
+    const second = await GET(requestFor("route-test-coalesce.example", "route-test-coalesce-b.ip"));
+    pagespeed.resolve(HAPPY.pagespeed);
+    const [a, b] = await Promise.all([readSseEvents(first), readSseEvents(second)]);
+
+    expect(runPageSpeed).toHaveBeenCalledTimes(1);
+    expect(a.at(-1)?.event).toBe("done");
+    expect(b.at(-1)).toEqual(a.at(-1));
+    // The follower still shows progress, not just the end.
+    expect(b.filter((event) => event.event === "step").length).toBeGreaterThan(0);
+  });
+
+  it("doesn't charge a follower against the rate limit", async () => {
+    const pagespeed = deferred<typeof HAPPY.pagespeed>();
+    vi.mocked(runPageSpeed).mockReset().mockReturnValueOnce(pagespeed.promise);
+    const first = await GET(requestFor("route-test-coalesce-limit.example", "route-test-coalesce-limit-a.ip"));
+    const limitSpy = vi.spyOn(rateLimit, "checkRateLimit");
+
+    const second = await GET(requestFor("route-test-coalesce-limit.example", "route-test-coalesce-limit-b.ip"));
+    pagespeed.resolve(HAPPY.pagespeed);
+    await Promise.all([readSseEvents(first), readSseEvents(second)]);
+
+    expect(limitSpy).not.toHaveBeenCalled();
+    limitSpy.mockRestore();
+  });
+
+  it("takes over when the leading visitor leaves before the end", async () => {
+    vi.mocked(runPageSpeed)
+      .mockReset()
+      .mockImplementationOnce((_url, signal) => new Promise((_, reject) => signal?.addEventListener("abort", () => reject(new Error("aborted")))))
+      .mockResolvedValueOnce(HAPPY.pagespeed);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const controller = new AbortController();
+    const leaderRequest = new Request("http://localhost/api/analyze?url=route-test-takeover.example", {
+      headers: { "x-forwarded-for": "route-test-takeover-a.ip" },
+      signal: controller.signal,
+    });
+    const leader = await GET(leaderRequest);
+    const follower = await GET(requestFor("route-test-takeover.example", "route-test-takeover-b.ip"));
+    const followerEvents = readSseEvents(follower);
+    await vi.waitFor(() => expect(runPageSpeed).toHaveBeenCalledTimes(1));
+    controller.abort();
+    await leader.text().catch(() => {});
+
+    const events = await followerEvents;
+    expect(events.at(-1)?.event).toBe("done");
+    expect(runPageSpeed).toHaveBeenCalledTimes(2);
     errorSpy.mockRestore();
   });
 });
