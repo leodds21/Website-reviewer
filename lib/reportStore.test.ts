@@ -72,7 +72,7 @@ describe("reportStore with Redis", () => {
 
   it("stores with a whole-millisecond TTL, even for a fractional REPORT_TTL_DAYS", async () => {
     vi.stubEnv("REPORT_TTL_DAYS", "1.1");
-    const set = vi.fn(async (..._args: unknown[]) => "OK");
+    const set = vi.fn<(...args: unknown[]) => Promise<string>>(async () => "OK");
     const { saveReport } = await storeWith({ set });
 
     await saveReport(REPORT, "https://x.com/");

@@ -15,14 +15,19 @@ const FINISH_HOLD_MS = 700;
 
 function pause(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
-    const id = setTimeout(resolve, ms);
-    const onAbort = () => {
+    const done = () => {
       clearTimeout(id);
+      signal.removeEventListener("abort", done);
       resolve();
     };
-    signal.addEventListener("abort", onAbort, { once: true });
+    const id = setTimeout(done, ms);
+    signal.addEventListener("abort", done, { once: true });
   });
 }
+
+// A finished analysis opens the report only if the visitor is still waiting
+// for it; someone who went back meanwhile stays where they are.
+const toReport = (stage: Stage): Stage => (stage === "analyzing" ? "report" : stage);
 
 // initialReport: a shared report the server already rendered.
 export function useAnalysis(initialReport: AnalyzeReport | null = null) {
@@ -32,6 +37,8 @@ export function useAnalysis(initialReport: AnalyzeReport | null = null) {
   const [error, setError] = useState<AnalyzeError | null>(null);
   // The partial report stays up when Google's measurement never arrives.
   const [unfinished, setUnfinished] = useState(false);
+  // This run showed a partial report, so its completion is worth announcing.
+  const [hadPartial, setHadPartial] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -46,6 +53,7 @@ export function useAnalysis(initialReport: AnalyzeReport | null = null) {
     setError(null);
     setReport(null);
     setUnfinished(false);
+    setHadPartial(false);
 
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
       setError({ code: "offline" });
@@ -95,7 +103,8 @@ export function useAnalysis(initialReport: AnalyzeReport | null = null) {
             // Screen changes run as transitions, which is what animates them.
             startTransition(() => {
               setReport(partial);
-              setStage("report");
+              setHadPartial(true);
+              setStage(toReport);
             });
           } else if (event.event === "done") {
             finished = true;
@@ -109,7 +118,7 @@ export function useAnalysis(initialReport: AnalyzeReport | null = null) {
             }
             startTransition(() => {
               setReport(final);
-              if (!shownPartial) setStage("report");
+              if (!shownPartial) setStage(toReport);
             });
           } else if (event.event === "failed") {
             finished = true;
@@ -148,7 +157,7 @@ export function useAnalysis(initialReport: AnalyzeReport | null = null) {
   // Callers change screens through transitions too, so every change can animate.
   const changeStage = useCallback((next: Stage) => startTransition(() => setStage(next)), []);
 
-  return { stage, setStage: changeStage, completedSteps, report, error, unfinished, startAnalysis };
+  return { stage, setStage: changeStage, completedSteps, report, error, unfinished, hadPartial, startAnalysis };
 }
 
 async function readErrorBody(response: Response): Promise<AnalyzeError> {

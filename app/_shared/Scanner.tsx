@@ -8,6 +8,8 @@ import { useStageFocus } from "../hooks/useStageFocus";
 import { backToReport, useReportLink } from "../hooks/useReportLink";
 import { topIssues } from "@/lib/issues";
 import type { AnalyzeReport } from "@/lib/report";
+import type { AnalyzeError } from "@/lib/analyzeError";
+import { PageContainer } from "../components/Chrome";
 import { useLanguage } from "../i18n/LanguageContext";
 
 // Only needed once a report exists, so not in the home page's first load.
@@ -24,6 +26,9 @@ export type ReportScreens = {
 
 const LAZY_SCREENS: ReportScreens = { ReportScreen: LazyReportScreen, NextStepScreen: LazyNextStepScreen };
 
+// One object, so the note's scroll-into-view effect doesn't rerun on every keystroke.
+const OLD_LINK_NOTE: AnalyzeError = { code: "not-cached" };
+
 function preloadReportScreens() {
   void loadReportScreen();
   void loadNextStepScreen();
@@ -35,9 +40,9 @@ export function Scanner({ initialReport = null, screens = LAZY_SCREENS }: { init
   const { ReportScreen, NextStepScreen } = screens;
   const [url, setUrl] = useState("");
   const [manualReview, setManualReview] = useState(false);
-  // An old ?url= link or an expired report: the field comes filled, nothing runs on its own.
+  // An old ?url= link: the field comes filled, nothing runs on its own.
   const [prefilled, setPrefilled] = useState(false);
-  const { stage, setStage, completedSteps, report, error, unfinished, startAnalysis } = useAnalysis(initialReport);
+  const { stage, setStage, completedSteps, report, error, unfinished, hadPartial, startAnalysis } = useAnalysis(initialReport);
   // Idle and analyzing are one screen; moving focus would undo the scroll on phones.
   const stageRef = useStageFocus<HTMLDivElement>(stage === "analyzing" ? "idle" : stage);
   const { locale, t } = useLanguage();
@@ -49,6 +54,17 @@ export function Scanner({ initialReport = null, screens = LAZY_SCREENS }: { init
   useReportLink({ locale, stage, setStage, report, onPrefill: prefill });
 
   const openReport = stage === "report" || stage === "next-step" ? report : null;
+  // One polite message per milestone. Lives here, mounted from the start, so
+  // screen readers announce it instead of ignoring a region inserted with text.
+  const liveMessage = !openReport
+    ? ""
+    : openReport.inProgress
+      ? unfinished
+        ? t.googleUnfinished
+        : t.liveReportPartial
+      : hadPartial
+        ? t.liveReportDone
+        : "";
 
   useEffect(() => {
     if (!openReport) {
@@ -71,13 +87,19 @@ export function Scanner({ initialReport = null, screens = LAZY_SCREENS }: { init
 
   return (
     <div ref={stageRef} tabIndex={-1} className="flex flex-1 flex-col focus:outline-none">
+      <p role="status" className="sr-only">
+        {liveMessage}
+      </p>
       {(stage === "idle" || stage === "analyzing") && (
         <ScreenTransition>
           <HomeScreen
             url={url}
-            onUrlChange={setUrl}
+            onUrlChange={(value) => {
+              setUrl(value);
+              setPrefilled(false);
+            }}
             onSubmit={handleSubmit}
-            error={error ?? (prefilled ? { code: "not-cached" } : null)}
+            error={error ?? (prefilled ? OLD_LINK_NOTE : null)}
             analyzing={stage === "analyzing"}
             completedSteps={stage === "analyzing" ? completedSteps : []}
           />
@@ -86,7 +108,7 @@ export function Scanner({ initialReport = null, screens = LAZY_SCREENS }: { init
 
       {/* Hidden screens keep their state (typed text, open sections) and pause their effects. */}
       {openReport && (
-        <Suspense>
+        <Suspense fallback={<ReportLoading />}>
           <Activity mode={stage === "report" ? "visible" : "hidden"}>
             <ScreenTransition>
               <ReportScreen
@@ -117,6 +139,18 @@ export function Scanner({ initialReport = null, screens = LAZY_SCREENS }: { init
         </Suspense>
       )}
     </div>
+  );
+}
+
+// Shown only if the report's code is still downloading when its data arrives.
+function ReportLoading() {
+  const { t } = useLanguage();
+  return (
+    <PageContainer className="flex flex-1 items-center py-16">
+      <p role="status" className="font-mono text-sm text-[var(--color-subtle)]">
+        {t.loadingReport}
+      </p>
+    </PageContainer>
   );
 }
 

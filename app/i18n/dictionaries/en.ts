@@ -113,6 +113,9 @@ export const en: Dictionary = {
   pendingMeasure: "Waiting for Google's measurement",
   provisionalMeasure: "provisional, Google's measurement pending",
   scoreLabelPending: "Calculating the overall score",
+  scoreLabelUnavailable: "The overall score couldn't be calculated",
+  pendingFailed: "Google's measurement didn't finish",
+  loadingReport: "Opening the report…",
   topIssuesProvisional: "Provisional: Google's measurement may still change this order.",
   liveReportPartial: "Partial report ready. Waiting for Google's measurement.",
   liveReportDone: "Report complete.",
@@ -210,7 +213,7 @@ export const en: Dictionary = {
     timeout: () => "The site took too long to respond and we stopped waiting. Try again in a moment.",
     offline: () => "You appear to be offline. Check your connection and try again.",
     unknown: () => "We couldn't finish the analysis. Try again in a moment.",
-    "not-cached": () => "This link's report is no longer stored. Run the diagnosis to see the current result.",
+    "not-cached": () => "This address came from an older link. Run the diagnosis to see the current result.",
   },
   issue: {
     "no-https": () => ({
