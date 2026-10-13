@@ -1,11 +1,26 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "lsdias.dev scanner: descubra o que está atrapalhando o seu site";
-export const size = { width: 1200, height: 630 };
-export const contentType = "image/png";
+import type { Locale } from "../i18n/locale";
+
+export const OG_SIZE = { width: 1200, height: 630 };
+
+const COPY: Record<Locale, { alt: string; headline: string; subline: string }> = {
+  "pt-BR": {
+    alt: "lsdias.dev scanner: descubra o que está atrapalhando o seu site",
+    headline: "Descubra o que está atrapalhando o seu site.",
+    subline: "Performance, SEO, acessibilidade e segurança em menos de um minuto.",
+  },
+  en: {
+    alt: "lsdias.dev scanner: find out what's holding your site back",
+    headline: "Find out what's holding your site back.",
+    subline: "Performance, SEO, accessibility and security in under a minute.",
+  },
+};
+
+export const homeOgAlt = (locale: Locale) => COPY[locale].alt;
 
 // Generated, so it can't drift from the app's palette.
-export default function OpengraphImage() {
+export function homeOgImage(locale: Locale) {
   return new ImageResponse(
     (
       <div
@@ -26,13 +41,13 @@ export default function OpengraphImage() {
           <span style={{ color: "#8193ae", fontSize: 26, fontWeight: 400, marginLeft: 14 }}>/ scanner</span>
         </div>
         <div style={{ display: "flex", fontSize: 68, fontWeight: 600, lineHeight: 1.08, color: "#edf4ff", maxWidth: 980 }}>
-          Descubra o que está atrapalhando o seu site.
+          {COPY[locale].headline}
         </div>
         <div style={{ display: "flex", fontSize: 30, marginTop: 32, color: "#aab8ca", maxWidth: 860 }}>
-          Performance, SEO, acessibilidade e segurança em menos de um minuto.
+          {COPY[locale].subline}
         </div>
       </div>
     ),
-    { ...size },
+    { ...OG_SIZE },
   );
 }

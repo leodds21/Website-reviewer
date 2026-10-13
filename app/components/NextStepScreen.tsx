@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Loader2, Check } from "lucide-react";
 import { AppHeader, Brand, ErrorNote, PageContainer, buttonClass } from "./Chrome";
 import { useLanguage } from "@/app/i18n/LanguageContext";
-import { synthesizeCriticalImpact, translateIssue, translateRecommendation } from "@/app/i18n/translations";
+import { synthesizeCriticalImpact, translateIssue, translateRecommendation } from "@/app/i18n/translate";
 import { useContactForm } from "@/app/hooks/useContactForm";
 import type { AnalyzeReport } from "@/lib/report";
 import type { Issue } from "@/lib/issues";
@@ -23,7 +23,7 @@ export function NextStepScreen({
   manualReview?: boolean;
   onBack: () => void;
 }) {
-  const { locale, t } = useLanguage();
+  const { t } = useLanguage();
   const copy = manualReview
     ? { kicker: t.manualKicker, headline: t.manualHeadline, body: t.manualBody }
     : report.issues.length === 0
@@ -42,7 +42,7 @@ export function NextStepScreen({
   }
 
   const criticalIssues = report.issues.filter((issue) => issue.severity === "critico");
-  const impactSynthesis = synthesizeCriticalImpact(locale, criticalIssues);
+  const impactSynthesis = synthesizeCriticalImpact(t, criticalIssues);
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -75,8 +75,8 @@ export function NextStepScreen({
                   <li key={issue.code} className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3 border-b border-[var(--color-line)] py-4 last:border-b-0">
                     <span className="font-heading text-2xl leading-none font-medium text-[var(--color-text)]">{index + 1}</span>
                     <div className="flex flex-col gap-1">
-                      <p className="text-[15px] font-semibold text-[var(--color-text)]">{translateIssue(locale, issue.code, issue.params).title}</p>
-                      <p className="text-sm leading-relaxed text-[var(--color-muted)]">{translateRecommendation(locale, issue.code)}</p>
+                      <p className="text-[15px] font-semibold text-[var(--color-text)]">{translateIssue(t, issue.code, issue.params).title}</p>
+                      <p className="text-sm leading-relaxed text-[var(--color-muted)]">{translateRecommendation(t, issue.code)}</p>
                     </div>
                   </li>
                 ))}
