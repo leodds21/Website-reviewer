@@ -13,6 +13,10 @@ export type Dictionary = {
   documentTitle: string;
   notFoundTitle: string;
   notFoundAction: string;
+  reportExpiredTitle: string;
+  reportExpiredBody: string;
+  reportExpiredAction: string;
+  reportDescription: (domain: string, overall: number | null) => string;
   subheadline: string;
   homeHeadline: string;
   homeIntro: string;

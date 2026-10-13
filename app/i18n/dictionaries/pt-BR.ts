@@ -5,6 +5,11 @@ export const ptBR: Dictionary = {
   documentTitle: "lsdias.dev, diagnóstico de site",
   notFoundTitle: "Esta página não existe.",
   notFoundAction: "Ir para o diagnóstico",
+  reportExpiredTitle: "Este relatório expirou.",
+  reportExpiredBody: "Relatórios compartilhados ficam guardados por um tempo limitado. Execute uma nova análise para ver o resultado de agora.",
+  reportExpiredAction: "Fazer uma nova análise",
+  reportDescription: (domain, overall) =>
+    overall === null ? `Diagnóstico de ${domain}: segurança, SEO, acessibilidade e performance.` : `${domain} tirou ${overall}/100 em segurança, SEO, acessibilidade e performance.`,
   subheadline:
     "A gente encontra o seu em menos de um minuto: performance, SEO, acessibilidade e segurança, tudo junto.",
   homeHeadline: "Descubra o que está atrapalhando o seu site.",
@@ -28,7 +33,7 @@ export const ptBR: Dictionary = {
       pagespeed: { name: "pagespeed", description: "Velocidade e acessibilidade, medidas pelo Google" },
     },
   },
-  privacyNote: "O relatório fica em cache por até 6 horas e depois é descartado. Alguns serviços técnicos processam os dados nesse meio-tempo.",
+  privacyNote: "O relatório e o endereço analisado ficam guardados por 30 dias, para o link do relatório funcionar, e depois são apagados.",
   privacyLinkLabel: "Como tratamos seus dados",
   close: "Fechar",
   privacyPolicy: {
@@ -44,7 +49,7 @@ export const ptBR: Dictionary = {
       },
       {
         label: "Por quanto tempo guardamos",
-        text: "O relatório fica em cache por até 6 horas e depois é descartado. Quando uma checagem falha, o endereço analisado pode aparecer nos registros técnicos do servidor, usados só pra corrigir problemas. Não guardamos os dados do formulário em nenhum banco de dados próprio.",
+        text: "O relatório e o endereço analisado ficam guardados por 30 dias, para o link do relatório poder ser compartilhado, e depois são apagados. Quando uma checagem falha, o endereço analisado pode aparecer nos registros técnicos do servidor, usados só pra corrigir problemas. Não guardamos os dados do formulário em nenhum banco de dados próprio.",
       },
       {
         label: "Rastreamento",

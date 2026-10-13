@@ -1,85 +1,97 @@
 import { useEffect, useRef } from "react";
 import type { Stage } from "./useAnalysis";
-
-const PARAM = "url";
+import type { Locale } from "@/app/i18n/locale";
+import type { AnalyzeReport } from "@/lib/report";
 
 type LinkedStage = Exclude<Stage, "analyzing">;
 
-function linkedSite(): string | null {
-  return new URLSearchParams(window.location.search).get(PARAM);
+const REPORT_PATH = /^\/(?:pt-BR|en)\/report\/([0-9A-Za-z]+)$/;
+
+function reportIdInPath(): string | null {
+  return REPORT_PATH.exec(window.location.pathname)?.[1] ?? null;
 }
 
-function addressFor(site: string | null): string {
-  const next = new URL(window.location.href);
-  if (site) next.searchParams.set(PARAM, site);
-  else next.searchParams.delete(PARAM);
-  return `${next.pathname}${next.search}${next.hash}`;
+function addressFor(locale: Locale, stage: LinkedStage, reportId: string | undefined): string {
+  return stage === "idle" || !reportId ? `/${locale}` : `/${locale}/report/${reportId}`;
+}
+
+function taggedStage(): LinkedStage | undefined {
+  return window.history.state?.stage as LinkedStage | undefined;
 }
 
 /**
- * Keeps the report in the address bar (?url=) and each screen in history.
- * An entry that already matches the screen is left alone, so back/forward
- * doesn't push duplicates.
+ * Keeps each screen in browser history, tagged with its stage, and the
+ * report at its own address (/pt-BR/report/<id>) once it has an id. The next
+ * step is an entry with the report's address, not a route.
+ *
+ * Native pushState is enough: Next keeps the current tree for these entries,
+ * so back and forward never refetch or remount.
  */
 export function useReportLink({
+  locale,
   stage,
   setStage,
-  analyzedUrl,
-  hasReport,
-  run,
+  report,
+  onPrefill,
 }: {
+  locale: Locale;
   stage: Stage;
   setStage: (stage: Stage) => void;
-  analyzedUrl: string;
-  hasReport: boolean;
-  run: (site: string, options?: { cachedOnly?: boolean }) => void;
+  report: AnalyzeReport | null;
+  onPrefill: (site: string) => void;
 }) {
-  // While a link opens, its entry is replaced, not stacked on.
-  const openingLink = useRef(false);
-  // No ref guard: a remount aborts the first run, so it must run again.
+  const reportId = report?.id;
+  const hasReport = report !== null;
+  // Read by the popstate listener, which outlives a single render.
+  const latest = useRef({ reportId, hasReport });
   useEffect(() => {
-    const site = linkedSite();
-    if (!site) return;
-    openingLink.current = true;
-    run(site, { cachedOnly: true });
-  }, [run]);
+    latest.current = { reportId, hasReport };
+  }, [reportId, hasReport]);
+  const mounted = useRef(false);
+
+  // The entry the page loaded on: a reload keeps its tag, e.g. the next step.
+  useEffect(() => {
+    const site = new URLSearchParams(window.location.search).get("url");
+    if (site) onPrefill(site);
+
+    const tagged = taggedStage();
+    const hasReport = latest.current.hasReport;
+    if (hasReport && tagged === "next-step") setStage("next-step");
+    const stage: LinkedStage = hasReport ? (tagged === "next-step" ? "next-step" : "report") : "idle";
+    window.history.replaceState({ ...window.history.state, stage }, "", addressFor(locale, stage, latest.current.reportId));
+  }, [locale, onPrefill, setStage]);
 
   useEffect(() => {
-    if (stage === "analyzing") return;
-    if (openingLink.current) {
-      // Still opening, or it failed: the link stays as it is.
-      if (stage === "idle") return;
-      openingLink.current = false;
-      window.history.replaceState({ stage }, "", addressFor(analyzedUrl));
+    if (!mounted.current) {
+      mounted.current = true;
       return;
     }
-
-    const tagged = window.history.state?.stage as LinkedStage | undefined;
-    const current = linkedSite();
-    const site = stage === "idle" ? null : analyzedUrl;
-    if (tagged === stage && current === site) return;
-    const entry = { stage };
-    // The page's own first entry (untagged) is claimed, not stacked on.
-    if (tagged === undefined && current === site) window.history.replaceState(entry, "", addressFor(site));
-    else window.history.pushState(entry, "", addressFor(site));
-  }, [stage, analyzedUrl]);
+    if (stage === "analyzing") return;
+    const address = addressFor(locale, stage, reportId);
+    // Same screen: only the address can be behind, when the id arrives late.
+    if (taggedStage() === stage) {
+      if (window.location.pathname !== address) window.history.replaceState(window.history.state, "", address);
+      return;
+    }
+    window.history.pushState({ stage }, "", address);
+  }, [stage, reportId, locale]);
 
   useEffect(() => {
     function onPopState(event: PopStateEvent) {
-      const site = linkedSite();
-      const wanted = (event.state?.stage as LinkedStage | undefined) ?? (site ? "report" : "idle");
-      if (!site || wanted === "idle") setStage("idle");
-      else if (hasReport && site === analyzedUrl) setStage(wanted);
-      else {
-        openingLink.current = true;
-        run(site, { cachedOnly: true });
-      }
+      const stage = event.state?.stage as LinkedStage | undefined;
+      if (!stage) return;
+      if (stage === "idle") return setStage("idle");
+      // Another report than the one in memory: let the server render it.
+      const pathId = reportIdInPath();
+      if (!latest.current.hasReport || (pathId && pathId !== latest.current.reportId)) return window.location.reload();
+      setStage(stage);
     }
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
-  }, [hasReport, analyzedUrl, run, setStage]);
+  }, [setStage]);
 }
 
+/** The in-app "back to report": a real history step when the next step was pushed as one. */
 export function backToReport(setStage: (stage: Stage) => void) {
   if (window.history.state?.stage === "next-step") window.history.back();
   else setStage("report");

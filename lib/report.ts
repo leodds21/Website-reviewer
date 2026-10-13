@@ -15,6 +15,8 @@ export type AnalyzeReport = {
   // The site or Lighthouse refused automated access.
   blocked?: boolean;
   checkedAt: string;
+  // The shared report id; absent on partial reports and older cached ones.
+  id?: string;
   // A partial report sent while Google's measurement is still running.
   inProgress?: true;
 };
