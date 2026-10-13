@@ -5,6 +5,11 @@ export const en: Dictionary = {
   documentTitle: "lsdias.dev, website diagnostics",
   notFoundTitle: "This page doesn't exist.",
   notFoundAction: "Go to the diagnostics",
+  reportExpiredTitle: "This report has expired.",
+  reportExpiredBody: "Shared reports are kept for a limited time. Run a new analysis to see the current result.",
+  reportExpiredAction: "Run a new analysis",
+  reportDescription: (domain, overall) =>
+    overall === null ? `Diagnostics for ${domain}: security, SEO, accessibility and performance.` : `${domain} scored ${overall}/100 on security, SEO, accessibility and performance.`,
   subheadline: "We find yours in under a minute: performance, SEO, accessibility and security, all at once.",
   homeHeadline: "Find out what's holding your site back.",
   homeIntro: "Seven real checks running at the same time. You can follow each one as it runs.",
@@ -27,7 +32,7 @@ export const en: Dictionary = {
       pagespeed: { name: "pagespeed", description: "Speed and accessibility, measured by Google" },
     },
   },
-  privacyNote: "The report is cached for up to 6 hours and then discarded. Some technical services process the data in the meantime.",
+  privacyNote: "The report and the analyzed address are kept for 30 days, so the report link works, then deleted.",
   privacyLinkLabel: "How we handle your data",
   close: "Close",
   privacyPolicy: {
@@ -43,7 +48,7 @@ export const en: Dictionary = {
       },
       {
         label: "How long we keep it",
-        text: "The report is cached for up to 6 hours, then discarded. When a check fails, the analyzed address may appear in the server's technical logs, used only to fix problems. We don't keep contact form data in any database of our own.",
+        text: "The report and the analyzed address are kept for 30 days, so the report link can be shared, then deleted. When a check fails, the analyzed address may appear in the server's technical logs, used only to fix problems. We don't keep contact form data in any database of our own.",
       },
       {
         label: "Tracking",
