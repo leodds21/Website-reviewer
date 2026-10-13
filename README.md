@@ -20,9 +20,11 @@ I used to check prospective clients' sites by hand in several tools and translat
 ## Highlights
 
 - **Own checks plus Google's.** HTTPS, security headers, metadata, alt text, sitemap/robots.txt and broken links are implemented here; PageSpeed Insights adds Lighthouse scores and audits.
-- **Concurrent checks with live progress.** Five tasks run in parallel with their own timeouts, and progress streams to the browser over Server-Sent Events.
+- **A report that fills in as it runs.** Five tasks run in parallel with their own timeouts. The report opens as soon as the scanner's own checks finish (about 3 s), streamed over Server-Sent Events, and Google's measurement completes it later.
 - **Partial failure is normal.** A timeout or a firewall only affects its own category, which says why it is incomplete.
 - **Explainable, deterministic scoring.** Each category is a plain average of named measurements, and the report shows what each one cost. No AI involved.
+- **Shareable reports.** Every report gets its own link (`/en/report/<id>`) with a preview image, kept for 30 days.
+- **One run per URL.** Identical analyses at the same time share one PageSpeed run through a Redis lock.
 - **URLs treated as untrusted input.** Private networks blocked, every redirect rechecked, the address checked again at connection time (DNS rebinding), response size capped.
 
 ## What it checks
@@ -44,18 +46,22 @@ flowchart LR
     U[URL] --> V[Validate URL<br/>block private hosts]
     V --> C{Cached?}
     C -- yes --> R
-    C -- no --> L[Per-IP<br/>rate limit]
+    C -- no --> I{Same URL<br/>running?}
+    I -- yes --> W[Follow its progress]
+    W --> R
+    I -- no --> L[Per-IP rate limit<br/>+ lock]
     L --> H[HTTPS + headers]
     L --> P[Page HTML<br/>meta · alt · platform]
     P --> K[Broken links]
     L --> S[sitemap / robots]
     L --> G[PageSpeed]
-    H & P & K & S & G --> SC[Score<br/>averages of measurements]
+    H & P & K & S --> PR[Partial report]
+    PR & G --> SC[Score<br/>averages of measurements]
     SC --> F[Findings<br/>ranked]
-    F --> R[Report]
+    F --> R[Report + share link]
 ```
 
-The page is fetched once and shared by four checks, so a scan takes about as long as its slowest check (usually PageSpeed). Each failure is classified (blocked, timeout, unreachable, quota…) and attached to the categories that depend on it. Scoring, findings and passes are pure functions over one typed result object.
+The page is fetched once and shared by four checks, so a scan takes about as long as its slowest check (usually PageSpeed). Once the scanner's own checks are in, a partial report is streamed, with the categories that wait on Google marked as such. Each failure is classified (blocked, timeout, unreachable, quota…) and attached to the categories that depend on it. Scoring, findings and passes are pure functions over one typed result object.
 
 ## Scoring
 
@@ -63,7 +69,7 @@ Each category is the plain average of its 0–100 measurements: a Google score, 
 
 ## Stack
 
-Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, undici, Upstash Redis, Google PageSpeed Insights API, Formspree, Vitest, Playwright, GitHub Actions, Vercel.
+Next.js 16 (App Router, one route per language), React 19 (`<Activity>`, `<ViewTransition>`), TypeScript, Tailwind CSS 4, undici, Upstash Redis, Google PageSpeed Insights API, Formspree, Vercel Speed Insights, Vitest, Playwright, GitHub Actions, Vercel.
 
 ## Technical challenges
 
@@ -97,7 +103,7 @@ cp .env.example .env.local   # every variable is optional
 npm run dev                  # http://localhost:3000
 ```
 
-Tests, scripts and debugging are in [DEVELOPMENT.md](docs/DEVELOPMENT.md).
+`npm run analyze` opens the bundle analyzer, and `npm run check:bundle` checks the JS budget after a build. Tests, scripts and debugging are in [DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## License
 
