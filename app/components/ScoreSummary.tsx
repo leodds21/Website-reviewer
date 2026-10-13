@@ -91,16 +91,32 @@ function ScoreBreakdown({ score, components }: { score: number; components: Scor
   );
 }
 
-function CategoryRow({ category, result, loadSeconds }: { category: CategoryKey; result: CategoryScore; loadSeconds?: number }) {
+function CategoryRow({
+  category,
+  result,
+  loadSeconds,
+  stopped,
+}: {
+  category: CategoryKey;
+  result: CategoryScore;
+  loadSeconds?: number;
+  // Google's measurement ended without a result: nothing is still coming.
+  stopped: boolean;
+}) {
   const { t } = useLanguage();
+  const severity = stopped && result.severity === "pendente" ? "indisponivel" : result.severity;
   // "?? unknown" covers reports cached before reasons existed.
   const note =
     result.severity === "pendente"
-      ? t.pendingMeasure
+      ? stopped
+        ? t.pendingFailed
+        : t.pendingMeasure
       : result.score === null
         ? (t.unavailableReason[result.reason] ?? t.unavailableReason.unknown)
         : result.pending
-          ? t.provisionalMeasure
+          ? stopped
+            ? t.partialMeasure
+            : t.provisionalMeasure
           : result.partial
             ? t.partialMeasure
             : loadSeconds !== undefined
@@ -111,11 +127,11 @@ function CategoryRow({ category, result, loadSeconds }: { category: CategoryKey;
     <li className="border-b border-[var(--color-line)] py-3">
       <div className="flex items-center justify-between gap-3">
         <span className="flex items-center gap-2.5 text-[15px] text-[var(--color-body)]">
-          <SeverityMark kind={result.severity} />
+          <SeverityMark kind={severity} />
           {t.categories[category]}
         </span>
-        <span className={`font-mono text-[15px] ${SEVERITY_TEXT[result.severity]}`}>
-          {result.score === null ? t.severity[result.severity] : result.score}
+        <span className={`font-mono text-[15px] ${SEVERITY_TEXT[severity]}`}>
+          {result.score === null ? t.severity[severity] : result.score}
           {result.score !== null && <span className="sr-only"> · {t.severity[result.severity]}</span>}
         </span>
       </div>
@@ -131,7 +147,7 @@ function CategoryRow({ category, result, loadSeconds }: { category: CategoryKey;
   );
 }
 
-export function ScoreSummary({ report }: { report: AnalyzeReport }) {
+export function ScoreSummary({ report, unfinished = false }: { report: AnalyzeReport; unfinished?: boolean }) {
   const { t } = useLanguage();
   const measuredScores = CATEGORY_KEYS.map((key) => report.score[key].score).filter((score): score is number => score !== null);
   const measured = measuredScores.length;
@@ -140,15 +156,21 @@ export function ScoreSummary({ report }: { report: AnalyzeReport }) {
   for (const issue of report.issues) counts[issue.severity]++;
   const summary = t.issueSummary(counts);
 
-  const { overall, overallSeverity } = report.score;
-  const pending = overallSeverity === "pendente";
-  const label = pending
-    ? t.scoreLabelPending
-    : overallSeverity === "ok"
-      ? t.scoreLabelOk
-      : overallSeverity === "critico"
-        ? t.scoreLabelCritical
-        : t.scoreLabelAttention;
+  const { overall } = report.score;
+  const pending = report.score.overallSeverity === "pendente";
+  // A report where nothing could be measured, or whose Google measurement never came, has no overall score.
+  const overallSeverity = pending && unfinished ? "indisponivel" : report.score.overallSeverity;
+  const noScore = pending || overallSeverity === "indisponivel";
+  const label =
+    overallSeverity === "pendente"
+      ? t.scoreLabelPending
+      : overallSeverity === "indisponivel"
+        ? t.scoreLabelUnavailable
+        : overallSeverity === "ok"
+          ? t.scoreLabelOk
+          : overallSeverity === "critico"
+            ? t.scoreLabelCritical
+            : t.scoreLabelAttention;
 
   return (
     <aside
@@ -159,9 +181,9 @@ export function ScoreSummary({ report }: { report: AnalyzeReport }) {
         <span className="font-mono text-[11px] tracking-[0.18em] text-[var(--color-label)] uppercase">{t.overallScore}</span>
         <div className="flex items-baseline gap-2">
           <span
-            className={`font-heading text-[84px] leading-[0.9] font-medium tracking-[-0.05em] ${pending ? "text-[var(--color-line-strong)]" : "text-[var(--color-text)]"}`}
+            className={`font-heading text-[84px] leading-[0.9] font-medium tracking-[-0.05em] ${noScore ? "text-[var(--color-line-strong)]" : "text-[var(--color-text)]"}`}
           >
-            {pending ? <span aria-hidden="true">--</span> : overall}
+            {noScore ? <span aria-hidden="true">--</span> : overall}
           </span>
           <span className="font-mono text-sm text-[var(--color-subtle)]">/100</span>
         </div>
@@ -177,7 +199,7 @@ export function ScoreSummary({ report }: { report: AnalyzeReport }) {
             ))}
           </p>
         )}
-        {!pending && measured < CATEGORY_KEYS.length && (
+        {!noScore && measured < CATEGORY_KEYS.length && (
           <p className="text-xs leading-snug text-[var(--color-subtle)]">{t.coverageNote(measured)}</p>
         )}
       </div>
@@ -190,6 +212,7 @@ export function ScoreSummary({ report }: { report: AnalyzeReport }) {
             category={key}
             result={report.score[key]}
             loadSeconds={key === "performance" ? report.loadSeconds : undefined}
+            stopped={unfinished}
           />
         ))}
       </ul>
@@ -197,7 +220,7 @@ export function ScoreSummary({ report }: { report: AnalyzeReport }) {
       <details>
         <ToggleSummary className="flex min-h-11 text-[13px]">{t.scoreExplanationToggle}</ToggleSummary>
         <p className="mt-1 text-[13px] leading-relaxed text-[var(--color-muted)]">{t.scoreExplanation}</p>
-        {!pending && measured > 1 && (
+        {!noScore && measured > 1 && (
           <p className="mt-2 font-mono text-xs text-[var(--color-body)]">
             {t.overallArithmetic(measuredScores, measuredScores.reduce((sum, score) => sum + score, 0) / measured, overall)}
           </p>

@@ -109,7 +109,7 @@ export function ScanPlan({
         <h2 id="scan-plan-heading" className="font-mono text-xs font-medium tracking-[0.16em] text-[var(--color-label)] uppercase">
           {t.scanPlan.heading}
         </h2>
-        {/* The only live region, so rows don't each announce their status. */}
+        {/* One region for the plan, so rows don't each announce their status. */}
         <span role="status" className="font-mono text-xs text-[var(--color-subtle)]">
           {t.scanPlan.progress(doneCount, SCAN_STEPS.length)}
         </span>

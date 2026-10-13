@@ -65,6 +65,9 @@ export type Dictionary = {
   pendingMeasure: string;
   provisionalMeasure: string;
   scoreLabelPending: string;
+  scoreLabelUnavailable: string;
+  pendingFailed: string;
+  loadingReport: string;
   topIssuesProvisional: string;
   liveReportPartial: string;
   liveReportDone: string;

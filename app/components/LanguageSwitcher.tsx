@@ -35,11 +35,12 @@ export function LanguageSwitcher({ disabled = false }: { disabled?: boolean }) {
             </span>
           );
         }
+        // Unavailable while an analysis runs: still announced as a link, just disabled.
         if (disabled) {
           return (
-            <span key={value} aria-disabled="true" lang={value} className={`${OPTION_CLASS} border-transparent text-[var(--color-line-strong)]`}>
+            <a role="link" key={value} aria-disabled="true" lang={value} className={`${OPTION_CLASS} border-transparent text-[var(--color-line-strong)]`}>
               {name}
-            </span>
+            </a>
           );
         }
         return (

@@ -115,6 +115,9 @@ export const ptBR: Dictionary = {
   pendingMeasure: "Aguardando a medição do Google",
   provisionalMeasure: "provisório, falta a medição do Google",
   scoreLabelPending: "Calculando a nota geral",
+  scoreLabelUnavailable: "Não deu para calcular a nota geral",
+  pendingFailed: "A medição do Google não terminou",
+  loadingReport: "Abrindo o relatório…",
   topIssuesProvisional: "Provisório: a medição do Google ainda pode mudar esta ordem.",
   liveReportPartial: "Relatório parcial pronto. Aguardando a medição do Google.",
   liveReportDone: "Relatório completo.",
@@ -215,7 +218,7 @@ export const ptBR: Dictionary = {
     timeout: () => "O site demorou demais pra responder e desistimos de esperar. Tenta de novo em instantes.",
     offline: () => "Você parece estar sem conexão. Confere sua internet e tenta de novo.",
     unknown: () => "Não conseguimos concluir a análise. Tenta de novo em instantes.",
-    "not-cached": () => "O relatório desse link não está mais guardado. Rode o diagnóstico pra ver o resultado de agora.",
+    "not-cached": () => "Este endereço veio de um link antigo. Rode o diagnóstico para ver o resultado de agora.",
   },
   issue: {
     "no-https": () => ({

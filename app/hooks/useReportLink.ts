@@ -5,27 +5,27 @@ import type { AnalyzeReport } from "@/lib/report";
 
 type LinkedStage = Exclude<Stage, "analyzing">;
 
-const REPORT_PATH = /^\/(?:pt-BR|en)\/report\/([0-9A-Za-z]+)$/;
-
-function reportIdInPath(): string | null {
-  return REPORT_PATH.exec(window.location.pathname)?.[1] ?? null;
-}
+// What we keep in each history entry. `run` names the analysis the entry
+// belongs to, so going back to an older one never shows the current report.
+type Entry = { stage: LinkedStage; run: string; reportId?: string };
 
 function addressFor(locale: Locale, stage: LinkedStage, reportId: string | undefined): string {
   return stage === "idle" || !reportId ? `/${locale}` : `/${locale}/report/${reportId}`;
 }
 
-function taggedStage(): LinkedStage | undefined {
-  return window.history.state?.stage as LinkedStage | undefined;
+function currentEntry(): Partial<Entry> {
+  const state = window.history.state as Partial<Entry> | null;
+  return { stage: state?.stage, run: state?.run, reportId: state?.reportId };
 }
 
 /**
- * Keeps each screen in browser history, tagged with its stage, and the
- * report at its own address (/pt-BR/report/<id>) once it has an id. The next
- * step is an entry with the report's address, not a route.
+ * Keeps each screen in browser history, tagged with its stage and run, and
+ * the report at its own address (/pt-BR/report/<id>) once it has an id. The
+ * next step is an entry with the report's address, not a route.
  *
- * Native pushState is enough: Next keeps the current tree for these entries,
- * so back and forward never refetch or remount.
+ * Only our own fields are passed to pushState/replaceState: Next copies its
+ * internal state in and syncs usePathname, which it skips when that state is
+ * passed back in. Its tree stays the same, so back and forward never refetch.
  */
 export function useReportLink({
   locale,
@@ -41,54 +41,60 @@ export function useReportLink({
   onPrefill: (site: string) => void;
 }) {
   const reportId = report?.id;
-  const hasReport = report !== null;
-  // Read by the popstate listener, which outlives a single render.
-  const latest = useRef({ reportId, hasReport });
-  useEffect(() => {
-    latest.current = { reportId, hasReport };
-  }, [reportId, hasReport]);
-  const mounted = useRef(false);
+  const run = useRef("");
+  const loaded = useRef(false);
 
-  // The entry the page loaded on: a reload keeps its tag, e.g. the next step.
+  // The entry the page loaded on takes the screen the page rendered: a reload
+  // on the next step comes back to its report. Later changes are the next
+  // effect's job.
   useEffect(() => {
+    if (loaded.current) return;
+    loaded.current = true;
     const site = new URLSearchParams(window.location.search).get("url");
     if (site) onPrefill(site);
 
-    const tagged = taggedStage();
-    const hasReport = latest.current.hasReport;
-    if (hasReport && tagged === "next-step") setStage("next-step");
-    const stage: LinkedStage = hasReport ? (tagged === "next-step" ? "next-step" : "report") : "idle";
-    window.history.replaceState({ ...window.history.state, stage }, "", addressFor(locale, stage, latest.current.reportId));
-  }, [locale, onPrefill, setStage]);
+    run.current = crypto.randomUUID();
+    const stage: LinkedStage = reportId ? "report" : "idle";
+    const entry: Entry = { stage, run: run.current, ...(reportId && { reportId }) };
+    // On the first render Next patches history after its children's effects,
+    // so this write goes straight to the browser and must keep Next's own
+    // fields (without them, Next reloads the page on back/forward).
+    window.history.replaceState({ ...window.history.state, ...entry }, "");
+    // Dropping ?url= waits for Next's patch, so useSearchParams sees it too.
+    if (site) setTimeout(() => window.history.replaceState(entry, "", addressFor(locale, stage, reportId)));
+  }, [locale, onPrefill, reportId]);
 
   useEffect(() => {
-    if (!mounted.current) {
-      mounted.current = true;
+    if (stage === "analyzing") {
+      run.current = crypto.randomUUID();
       return;
     }
-    if (stage === "analyzing") return;
+    const tagged = currentEntry();
     const address = addressFor(locale, stage, reportId);
-    // Same screen: only the address can be behind, when the id arrives late.
-    if (taggedStage() === stage) {
-      if (window.location.pathname !== address) window.history.replaceState(window.history.state, "", address);
+    const entry: Entry = { stage, run: run.current, ...(reportId && { reportId }) };
+    // Same screen of the same run: only the id and address can be behind.
+    if (tagged.stage === stage && tagged.run === run.current) {
+      if (tagged.reportId !== reportId || window.location.pathname !== address) window.history.replaceState(entry, "", address);
       return;
     }
-    window.history.pushState({ stage }, "", address);
+    window.history.pushState(entry, "", address);
   }, [stage, reportId, locale]);
 
   useEffect(() => {
     function onPopState(event: PopStateEvent) {
-      const stage = event.state?.stage as LinkedStage | undefined;
-      if (!stage) return;
-      if (stage === "idle") return setStage("idle");
-      // Another report than the one in memory: let the server render it.
-      const pathId = reportIdInPath();
-      if (!latest.current.hasReport || (pathId && pathId !== latest.current.reportId)) return window.location.reload();
-      setStage(stage);
+      const entry = event.state as Partial<Entry> | null;
+      if (!entry?.stage) return;
+      if (entry.stage === "idle") return setStage("idle");
+      if (entry.run === run.current) return setStage(entry.stage);
+      // Another analysis's report: the server renders it from its address.
+      if (entry.reportId) return window.location.reload();
+      // An earlier partial report that never got an id can't be shown again.
+      window.history.replaceState({ stage: "idle", run: run.current } satisfies Entry, "", `/${locale}`);
+      setStage("idle");
     }
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
-  }, [setStage]);
+  }, [setStage, locale]);
 }
 
 /** The in-app "back to report": a real history step when the next step was pushed as one. */
