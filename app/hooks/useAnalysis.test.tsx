@@ -283,3 +283,36 @@ describe("useAnalysis, progressive report", () => {
     expect(result.current.unfinished).toBe(true);
   });
 });
+
+describe("useAnalysis, leaving before the end", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn());
+    vi.stubGlobal("navigator", { onLine: true });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("doesn't pull a visitor who went back to the start into the report", async () => {
+    const encoder = new TextEncoder();
+    let controller!: ReadableStreamDefaultController<Uint8Array>;
+    const body = new ReadableStream<Uint8Array>({ start: (c) => (controller = c) });
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: true, status: 200, body } as unknown as Response);
+    const { result } = renderHook(() => useAnalysis());
+
+    let run!: Promise<void>;
+    act(() => {
+      run = result.current.startAnalysis("example.com");
+    });
+    act(() => result.current.setStage("idle"));
+    await act(async () => {
+      controller.enqueue(encoder.encode(sseFrame("partial", { domain: "example.com", inProgress: true })));
+      controller.close();
+      await run;
+    });
+
+    expect(result.current.stage).toBe("idle");
+    expect(result.current.hadPartial).toBe(true);
+  });
+});
