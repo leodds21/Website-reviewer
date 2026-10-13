@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 import { SCAN_STEPS, type StepKey } from "@/lib/scanSteps";
 import type { AnalyzeReport } from "@/lib/report";
 import type { AnalyzeError } from "@/lib/analyzeError";
@@ -91,19 +91,26 @@ export function useAnalysis(initialReport: AnalyzeReport | null = null) {
             setCompletedSteps((previous) => (previous.includes(step) ? previous : [...previous, step]));
           } else if (event.event === "partial") {
             shownPartial = true;
-            setReport(event.data);
-            setStage("report");
+            const partial = event.data;
+            // Screen changes run as transitions, which is what animates them.
+            startTransition(() => {
+              setReport(partial);
+              setStage("report");
+            });
           } else if (event.event === "done") {
             finished = true;
             clearTimeout(timeout);
             setCompletedSteps([...SCAN_STEPS]);
             // Already on the report (or the next step): just swap in the final data.
+            const final = event.data;
             if (!shownPartial) {
               await pause(FINISH_HOLD_MS, controller.signal);
               if (controller.signal.aborted) return;
-              setStage("report");
             }
-            setReport(event.data);
+            startTransition(() => {
+              setReport(final);
+              if (!shownPartial) setStage("report");
+            });
           } else if (event.event === "failed") {
             finished = true;
             if (shownPartial) setUnfinished(true);
@@ -138,7 +145,10 @@ export function useAnalysis(initialReport: AnalyzeReport | null = null) {
     }
   }, []);
 
-  return { stage, setStage, completedSteps, report, error, unfinished, startAnalysis };
+  // Callers change screens through transitions too, so every change can animate.
+  const changeStage = useCallback((next: Stage) => startTransition(() => setStage(next)), []);
+
+  return { stage, setStage: changeStage, completedSteps, report, error, unfinished, startAnalysis };
 }
 
 async function readErrorBody(response: Response): Promise<AnalyzeError> {

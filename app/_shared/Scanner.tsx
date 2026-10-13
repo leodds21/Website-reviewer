@@ -1,9 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Activity, Suspense, ViewTransition, useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { HomeScreen } from "../components/HomeScreen";
-import { ReportScreen } from "../components/ReportScreen";
-import { NextStepScreen } from "../components/NextStepScreen";
 import { useAnalysis } from "../hooks/useAnalysis";
 import { useStageFocus } from "../hooks/useStageFocus";
 import { backToReport, useReportLink } from "../hooks/useReportLink";
@@ -11,8 +10,29 @@ import { topIssues } from "@/lib/issues";
 import type { AnalyzeReport } from "@/lib/report";
 import { useLanguage } from "../i18n/LanguageContext";
 
+// Only needed once a report exists, so not in the home page's first load.
+// Starting an analysis fetches them while the checks run (same promise as dynamic()).
+const loadReportScreen = () => import("../components/ReportScreen");
+const loadNextStepScreen = () => import("../components/NextStepScreen");
+const LazyReportScreen = dynamic(() => loadReportScreen().then((module) => module.ReportScreen));
+const LazyNextStepScreen = dynamic(() => loadNextStepScreen().then((module) => module.NextStepScreen));
+
+export type ReportScreens = {
+  ReportScreen: React.ComponentType<React.ComponentProps<typeof LazyReportScreen>>;
+  NextStepScreen: React.ComponentType<React.ComponentProps<typeof LazyNextStepScreen>>;
+};
+
+const LAZY_SCREENS: ReportScreens = { ReportScreen: LazyReportScreen, NextStepScreen: LazyNextStepScreen };
+
+function preloadReportScreens() {
+  void loadReportScreen();
+  void loadNextStepScreen();
+}
+
 // The interactive part of every page: form, progress, report and next step.
-export function Scanner({ initialReport = null }: { initialReport?: AnalyzeReport | null }) {
+// A shared report page passes the screens in directly: it needs them on first paint.
+export function Scanner({ initialReport = null, screens = LAZY_SCREENS }: { initialReport?: AnalyzeReport | null; screens?: ReportScreens }) {
+  const { ReportScreen, NextStepScreen } = screens;
   const [url, setUrl] = useState("");
   const [manualReview, setManualReview] = useState(false);
   // An old ?url= link or an expired report: the field comes filled, nothing runs on its own.
@@ -44,6 +64,7 @@ export function Scanner({ initialReport = null }: { initialReport?: AnalyzeRepor
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setPrefilled(false);
+    preloadReportScreens();
     startAnalysis(url);
   }
 
@@ -51,39 +72,59 @@ export function Scanner({ initialReport = null }: { initialReport?: AnalyzeRepor
   return (
     <div ref={stageRef} tabIndex={-1} className="flex flex-1 flex-col focus:outline-none">
       {(stage === "idle" || stage === "analyzing") && (
-        <HomeScreen
-          url={url}
-          onUrlChange={setUrl}
-          onSubmit={handleSubmit}
-          error={error ?? (prefilled ? { code: "not-cached" } : null)}
-          analyzing={stage === "analyzing"}
-          completedSteps={stage === "analyzing" ? completedSteps : []}
-        />
+        <ScreenTransition>
+          <HomeScreen
+            url={url}
+            onUrlChange={setUrl}
+            onSubmit={handleSubmit}
+            error={error ?? (prefilled ? { code: "not-cached" } : null)}
+            analyzing={stage === "analyzing"}
+            completedSteps={stage === "analyzing" ? completedSteps : []}
+          />
+        </ScreenTransition>
       )}
 
-      {/* Both stay mounted so switching back keeps the form and open sections. */}
+      {/* Hidden screens keep their state (typed text, open sections) and pause their effects. */}
       {openReport && (
-        <>
-          <div hidden={stage !== "report"} className="flex flex-1 flex-col">
-            <ReportScreen
-              report={openReport}
-              unfinished={unfinished}
-              onNextStep={() => {
-                setManualReview(false);
-                setStage("next-step");
-              }}
-              onManualAnalysis={() => {
-                setManualReview(true);
-                setStage("next-step");
-              }}
-              onNewAnalysis={() => setStage("idle")}
-            />
-          </div>
-          <div hidden={stage !== "next-step"} className="flex flex-1 flex-col">
-            <NextStepScreen report={openReport} topIssues={topIssues(openReport.issues, openReport.score)} manualReview={manualReview} onBack={() => backToReport(setStage)} />
-          </div>
-        </>
+        <Suspense>
+          <Activity mode={stage === "report" ? "visible" : "hidden"}>
+            <ScreenTransition>
+              <ReportScreen
+                report={openReport}
+                unfinished={unfinished}
+                onNextStep={() => {
+                  setManualReview(false);
+                  setStage("next-step");
+                }}
+                onManualAnalysis={() => {
+                  setManualReview(true);
+                  setStage("next-step");
+                }}
+                onNewAnalysis={() => setStage("idle")}
+              />
+            </ScreenTransition>
+          </Activity>
+          <Activity mode={stage === "next-step" ? "visible" : "hidden"}>
+            <ScreenTransition>
+              <NextStepScreen
+                report={openReport}
+                topIssues={topIssues(openReport.issues, openReport.score)}
+                manualReview={manualReview}
+                onBack={() => backToReport(setStage)}
+              />
+            </ScreenTransition>
+          </Activity>
+        </Suspense>
       )}
     </div>
+  );
+}
+
+// A screen fades in as the previous one fades out; nothing else animates.
+function ScreenTransition({ children }: { children: React.ReactNode }) {
+  return (
+    <ViewTransition enter="screen-in" exit="screen-out" default="none">
+      <div className="flex flex-1 flex-col">{children}</div>
+    </ViewTransition>
   );
 }
