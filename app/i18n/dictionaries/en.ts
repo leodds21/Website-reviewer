@@ -44,7 +44,7 @@ export const en: Dictionary = {
       },
       {
         label: "Who we share it with",
-        text: "The URL goes to Google PageSpeed Insights, which generates part of the report. The report and the abuse limit are kept in Upstash, a cloud database; the contact form goes through Formspree to our inbox. The site runs on Vercel.",
+        text: "The URL goes to Google PageSpeed Insights, which generates part of the report. The report and the abuse limit are kept in Upstash, a cloud database; the contact form goes through Formspree to our inbox. The site runs on Vercel, which also measures page speed.",
       },
       {
         label: "How long we keep it",
@@ -52,7 +52,7 @@ export const en: Dictionary = {
       },
       {
         label: "Tracking",
-        text: "No analytics. The only cookie remembers your language. Your IP is only used to limit abuse and is kept for up to 1 hour, not tied to your identity.",
+        text: "No analytics or tracking cookies: the only cookie remembers your language. We only measure how fast pages load (Vercel Speed Insights), without cookies and without the analyzed address or the report link. Your IP is only used to limit abuse and is kept for up to 1 hour, not tied to your identity.",
       },
     ],
   },
