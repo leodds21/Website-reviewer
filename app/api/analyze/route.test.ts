@@ -431,3 +431,95 @@ describe("GET /api/analyze", () => {
     expect(eleventh.headers.get("Retry-After")).toBeTruthy();
   });
 });
+
+describe("GET /api/analyze, progressive report", () => {
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>((r) => (resolve = r));
+    return { promise, resolve };
+  }
+
+  // Reads the stream as it arrives, calling onEvent for each event, until it closes.
+  async function readEvents(response: Response, onEvent: (event: string) => void = () => {}): Promise<{ event: string; data: unknown }[]> {
+    const reader = response.body!.pipeThrough(new TextDecoderStream()).getReader();
+    const events: { event: string; data: unknown }[] = [];
+    let buffer = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) return events;
+      buffer += value;
+      let end;
+      while ((end = buffer.indexOf("\n\n")) !== -1) {
+        const block = buffer.slice(0, end);
+        buffer = buffer.slice(end + 2);
+        const event = block.match(/^event: (.+)$/m)?.[1] ?? "";
+        events.push({ event, data: JSON.parse(block.match(/^data: (.+)$/m)?.[1] ?? "null") });
+        onEvent(event);
+      }
+    }
+  }
+
+  it("sends one partial report once our own checks finish, before PageSpeed, then the final one", async () => {
+    const pagespeed = deferred<typeof HAPPY.pagespeed>();
+    vi.mocked(runPageSpeed).mockReset().mockReturnValueOnce(pagespeed.promise);
+
+    const response = await GET(requestFor("route-test-progressive.example", "route-test-progressive.ip"));
+    const events = await readEvents(response, (event) => {
+      if (event === "partial") pagespeed.resolve(HAPPY.pagespeed);
+    });
+
+    const names = events.map((event) => event.event);
+    expect(names.filter((name) => name === "partial")).toHaveLength(1);
+    // PageSpeed's own step comes after the partial: it was still running.
+    const pagespeedStep = events.findIndex((event) => (event.data as { step?: string }).step === "pagespeed");
+    expect(names.indexOf("partial")).toBeLessThan(pagespeedStep);
+    expect(names.at(-1)).toBe("done");
+
+    const partial = events.find((event) => event.event === "partial")!.data as AnalyzeReport;
+    expect(partial.inProgress).toBe(true);
+    expect(partial.score.performance).toEqual({ score: null, severity: "pendente" });
+    expect(partial.score.overallSeverity).toBe("pendente");
+
+    const done = events.at(-1)!.data as AnalyzeReport;
+    expect(done).not.toHaveProperty("inProgress");
+    expect(done.score.overall).toBeGreaterThan(0);
+  });
+
+  it("skips the partial report when PageSpeed finishes before our own checks", async () => {
+    const page = deferred<string>();
+    vi.mocked(fetchHtml).mockReset().mockReturnValueOnce(page.promise);
+
+    const response = await GET(requestFor("route-test-pagespeed-first.example", "route-test-pagespeed-first.ip"));
+    const names = (
+      await readEvents(response, () => {
+        // Every step but the page's has arrived, PageSpeed included: now release the page.
+        page.resolve(HAPPY_HTML);
+      })
+    ).map((event) => event.event);
+
+    expect(names).not.toContain("partial");
+    expect(names.at(-1)).toBe("done");
+  });
+
+  it("sends no partial report when every one of our own checks failed", async () => {
+    const pagespeed = deferred<typeof HAPPY.pagespeed>();
+    vi.mocked(runPageSpeed).mockReset().mockReturnValueOnce(pagespeed.promise);
+    vi.mocked(checkHttps).mockReset().mockRejectedValue(new TypeError("fetch failed"));
+    vi.mocked(fetchHtml).mockReset().mockRejectedValue(new TypeError("fetch failed"));
+    vi.mocked(checkSitemapRobots).mockReset().mockRejectedValue(new TypeError("fetch failed"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const response = await GET(requestFor("route-test-own-checks-failed.example", "route-test-own-checks-failed.ip"));
+    let steps = 0;
+    const names = (
+      await readEvents(response, (event) => {
+        // The six steps of our own checks are in; only now does PageSpeed answer.
+        if (event === "step" && ++steps === 6) pagespeed.resolve(HAPPY.pagespeed);
+      })
+    ).map((event) => event.event);
+
+    expect(names).not.toContain("partial");
+    expect(names.at(-1)).toBe("done");
+    errorSpy.mockRestore();
+  });
+});
