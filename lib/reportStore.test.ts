@@ -39,3 +39,45 @@ describe("reportStore (in memory, no Redis in tests)", () => {
     expect(reportTtlMs()).toBe(30 * DAY);
   });
 });
+
+describe("reportStore with Redis", () => {
+  async function storeWith(redis: object) {
+    vi.resetModules();
+    vi.doMock("./kv", async (importOriginal) => ({ ...(await importOriginal<typeof import("./kv")>()), redis }));
+    return import("./reportStore");
+  }
+
+  afterEach(() => {
+    vi.doUnmock("./kv");
+    vi.resetModules();
+  });
+
+  it("fails the save when Redis does, instead of keeping a copy only this instance can serve", async () => {
+    const { saveReport } = await storeWith({ set: () => Promise.reject(new Error("timeout")) });
+
+    await expect(saveReport(REPORT, "https://x.com/")).rejects.toThrow("timeout");
+  });
+
+  it("treats a failed read as an error, not as an expired report", async () => {
+    const { getStoredReport } = await storeWith({ get: () => Promise.reject(new Error("connection reset, command was: [\"get\"]")) });
+
+    await expect(getStoredReport("abcDEF1234")).rejects.toThrow("Redis read failed: Error: connection reset");
+  });
+
+  it("returns null for a report Redis doesn't have", async () => {
+    const { getStoredReport } = await storeWith({ get: async () => null });
+
+    expect(await getStoredReport("abcDEF1234")).toBeNull();
+  });
+
+  it("stores with a whole-millisecond TTL, even for a fractional REPORT_TTL_DAYS", async () => {
+    vi.stubEnv("REPORT_TTL_DAYS", "1.1");
+    const set = vi.fn(async (..._args: unknown[]) => "OK");
+    const { saveReport } = await storeWith({ set });
+
+    await saveReport(REPORT, "https://x.com/");
+
+    const options = set.mock.calls[0][2] as { px: number };
+    expect(Number.isInteger(options.px)).toBe(true);
+  });
+});

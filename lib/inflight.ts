@@ -1,4 +1,4 @@
-import { redis } from "./kv";
+import { redis, redisError } from "./kv";
 import type { AnalyzeReport } from "./report";
 import type { AnalyzeErrorCode } from "./analyzeError";
 import type { StepKey } from "./scanSteps";
@@ -58,9 +58,18 @@ function redisStore(client: NonNullable<typeof redis>): Store {
   };
 }
 
+const MAX_MEMORY_ENTRIES = 1000;
+
 // Same behavior inside one server instance: dev, tests, no Redis configured.
 function memoryStore(): Store {
   const entries = new Map<string, { value: unknown; expiresAt: number }>();
+  // Each run leaves a state key nobody reads again, so expired ones are swept on write.
+  const put = (key: string, value: unknown, ttl: number) => {
+    const now = Date.now();
+    for (const [existing, entry] of entries) if (entry.expiresAt <= now) entries.delete(existing);
+    while (entries.size >= MAX_MEMORY_ENTRIES) entries.delete(entries.keys().next().value!);
+    entries.set(key, { value, expiresAt: now + ttl });
+  };
   const get = <T>(key: string): T | null => {
     const entry = entries.get(key);
     if (!entry || entry.expiresAt <= Date.now()) {
@@ -72,13 +81,13 @@ function memoryStore(): Store {
   return {
     claim: async (lockKey, runId) => {
       if (get(lockKey) !== null) return false;
-      entries.set(lockKey, { value: runId, expiresAt: Date.now() + LOCK_TTL_MS });
+      put(lockKey, runId, LOCK_TTL_MS);
       return true;
     },
     owner: async (lockKey) => get<string>(lockKey),
     read: async (lockKey, stateKey) => ({ owner: get<string>(lockKey), state: get<Snapshot>(stateKey) }),
     write: async (stateKey, snapshot) => {
-      entries.set(stateKey, { value: snapshot, expiresAt: Date.now() + STATE_TTL_MS });
+      put(stateKey, snapshot, STATE_TTL_MS);
     },
     release: async (lockKey, runId) => {
       if (get(lockKey) === runId) entries.delete(lockKey);
@@ -104,7 +113,7 @@ export async function analysisInFlight(cacheKey: string): Promise<boolean> {
   try {
     return (await store.owner(lockKeyFor(cacheKey))) !== null;
   } catch (error) {
-    console.error("inflight: lock read failed", error);
+    console.error("inflight: lock read failed:", redisError(error));
     return false;
   }
 }
@@ -122,7 +131,7 @@ export async function claimAnalysis(cacheKey: string): Promise<Leader | null> {
     locked = await store.claim(lockKey, runId);
     if (!locked) return null;
   } catch (error) {
-    console.error("inflight: lock claim failed, running uncoalesced", error);
+    console.error("inflight: lock claim failed, running uncoalesced:", redisError(error));
   }
 
   const stateKey = stateKeyFor(runId);
@@ -130,7 +139,7 @@ export async function claimAnalysis(cacheKey: string): Promise<Leader | null> {
   let writes: Promise<void> = Promise.resolve();
   const write = (snapshot: Snapshot) => {
     if (!locked) return writes;
-    writes = writes.then(() => store.write(stateKey, snapshot)).catch((error) => console.error("inflight: state write failed", error));
+    writes = writes.then(() => store.write(stateKey, snapshot)).catch((error) => console.error("inflight: state write failed:", redisError(error)));
     return writes;
   };
 
@@ -139,7 +148,7 @@ export async function claimAnalysis(cacheKey: string): Promise<Leader | null> {
     finish: async (snapshot) => {
       await write(snapshot);
       if (!locked) return;
-      await store.release(lockKey, runId).catch((error) => console.error("inflight: lock release failed", error));
+      await store.release(lockKey, runId).catch((error) => console.error("inflight: lock release failed:", redisError(error)));
     },
   };
 }
@@ -152,10 +161,16 @@ export type FollowOutcome =
   | { kind: "timeout" }
   | { kind: "aborted" };
 
+// Removes its abort listener either way, so a long poll doesn't pile them up.
 function pause(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
-    const id = setTimeout(resolve, ms);
-    signal.addEventListener("abort", () => (clearTimeout(id), resolve()), { once: true });
+    const done = () => {
+      clearTimeout(id);
+      signal.removeEventListener("abort", done);
+      resolve();
+    };
+    const id = setTimeout(done, ms);
+    signal.addEventListener("abort", done, { once: true });
   });
 }
 
@@ -187,7 +202,7 @@ export async function followAnalysis(
       }
       if (owner !== runId) return { kind: "orphaned" };
     } catch (error) {
-      console.error("inflight: progress read failed", error);
+      console.error("inflight: progress read failed:", redisError(error));
       if (++errors >= MAX_READ_ERRORS) return { kind: "failed", code: "analysis-failed" };
     }
     // After the partial report only PageSpeed is left, which takes a while.

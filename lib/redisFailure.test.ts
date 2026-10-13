@@ -4,7 +4,8 @@ const { boom } = vi.hoisted(() => ({
   boom: () => Promise.reject(new Error("getaddrinfo ENOTFOUND")),
 }));
 
-vi.mock("./kv", () => ({
+vi.mock("./kv", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./kv")>()),
   redis: {
     get: boom,
     set: boom,

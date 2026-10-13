@@ -106,10 +106,9 @@ export async function runAnalysis(
     https: httpsCheck,
     page: pageFetch,
     sitemapRobots: withHttpFallback((url) => checkSitemapRobots(url, signal)),
-    // A retry only gets the time left before maxDuration.
-    pagespeed: withHttpFallback((url) =>
-      runPageSpeed(url, url === target ? signal : AbortSignal.any([signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))])),
-    ),
+    // Never past the deadline: a run that took over from another request
+    // starts late, and must still finish (and free its lock) in time.
+    pagespeed: withHttpFallback((url) => runPageSpeed(url, AbortSignal.any([signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))]))),
     brokenLinks: pageFetch.then(({ html, url }) => checkBrokenLinks(html, url, signal)),
   };
 

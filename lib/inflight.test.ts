@@ -1,3 +1,4 @@
+import { getEventListeners } from "node:events";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { analysisInFlight, claimAnalysis, followAnalysis, setInflightStore, type Snapshot } from "./inflight";
 import type { AnalyzeReport } from "./report";
@@ -131,5 +132,19 @@ describe("followAnalysis", () => {
 
     expect(await follow("flaky").outcome).toEqual({ kind: "failed", code: "analysis-failed" });
     expect(reads).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("followAnalysis polling", () => {
+  it("doesn't pile up abort listeners on the request signal while it polls", async () => {
+    const leader = await claimAnalysis("listeners");
+    const controller = new AbortController();
+    const { outcome } = follow("listeners", { signal: controller.signal, pollMs: 1 });
+
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect(getEventListeners(controller.signal, "abort").length).toBeLessThanOrEqual(1);
+
+    await leader!.finish({ steps: [], final: REPORT });
+    await outcome;
   });
 });

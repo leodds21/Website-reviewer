@@ -5,6 +5,7 @@ import { isBlockedHost } from "@/lib/safeFetch";
 import { normalizeUrl } from "@/lib/url";
 import { runAnalysis } from "@/lib/runAnalysis";
 import { saveReport } from "@/lib/reportStore";
+import { redisError } from "@/lib/kv";
 import { analysisInFlight, claimAnalysis, followAnalysis, type Leader, type Snapshot } from "@/lib/inflight";
 import { sseFrame, type AnalysisEvent } from "@/lib/analysisEvents";
 import type { AnalyzeReport } from "@/lib/report";
@@ -40,16 +41,9 @@ async function shareable(report: AnalyzeReport, target: string): Promise<Analyze
   try {
     return (await saveReport(report, target)).report;
   } catch (error) {
-    console.error("Couldn't store the shared report:", error);
+    console.error("Couldn't store the shared report:", redisError(error));
     return report;
   }
-}
-
-// Cache entries from before share links existed get an id once.
-async function withReportId(cacheKey: string, report: AnalyzeReport, target: string): Promise<AnalyzeReport> {
-  const withId = await shareable(report, target);
-  if (withId.id) await setCached<CachedAnalysis>(cacheKey, { report: withId }, PARTIAL_TTL_MS);
-  return withId;
 }
 
 type ParsedTargetUrl = { ok: true; url: URL } | { ok: false; reason: "invalid" | "blocked" };
@@ -89,10 +83,7 @@ export async function GET(request: Request) {
 
   // Cached reports cost nothing, so they don't count against the rate limit.
   const cached = await getCached<CachedAnalysis>(cacheKey);
-  if (cached) {
-    const report = cached.report.id ? cached.report : await withReportId(cacheKey, cached.report, target);
-    return new Response(sseFrame({ event: "done", data: report }), { headers: SSE_HEADERS });
-  }
+  if (cached) return new Response(sseFrame({ event: "done", data: cached.report }), { headers: SSE_HEADERS });
 
   // The rightmost entry is the one Vercel appends; the rest can be spoofed.
   const ip = request.headers.get("x-forwarded-for")?.split(",").pop()?.trim() ?? "unknown";
