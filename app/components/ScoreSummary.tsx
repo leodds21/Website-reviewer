@@ -153,7 +153,7 @@ export function ScoreSummary({ report }: { report: AnalyzeReport }) {
   return (
     <aside
       aria-label={t.overallScore}
-      className="flex flex-col gap-6 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] p-6 lg:sticky lg:top-6"
+      className="@container flex flex-col gap-6 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] p-6 lg:sticky lg:top-6"
     >
       <div className="flex flex-col gap-2.5">
         <span className="font-mono text-[11px] tracking-[0.18em] text-[var(--color-label)] uppercase">{t.overallScore}</span>
@@ -182,7 +182,8 @@ export function ScoreSummary({ report }: { report: AnalyzeReport }) {
         )}
       </div>
 
-      <ul className="flex flex-col border-t border-[var(--color-line)]">
+      {/* Two columns when the panel is wide (full-width on tablets), one in the desktop sidebar. */}
+      <ul className="grid border-t border-[var(--color-line)] @[34rem]:grid-cols-2 @[34rem]:gap-x-8">
         {CATEGORY_KEYS.map((key) => (
           <CategoryRow
             key={key}
