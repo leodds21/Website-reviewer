@@ -1,5 +1,16 @@
 import { expect, test, type Page } from "@playwright/test";
-import { CLEAN_REPORT, PARTIAL_REPORT, REPORT_WITH_FINDINGS, analyze, mockAnalysis, mockAnalysisError } from "./fixtures";
+import {
+  CLEAN_REPORT,
+  IN_PROGRESS_REPORT,
+  PARTIAL_REPORT,
+  REPORT_WITH_FINDINGS,
+  analyze,
+  closeAnalysis,
+  mockAnalysis,
+  mockAnalysisError,
+  mockLiveAnalysis,
+  sendAnalysisEvent,
+} from "./fixtures";
 
 test.describe("security policy", () => {
   test("runs the page on a per-request script nonce, with nothing blocked", async ({ page }) => {
@@ -322,5 +333,42 @@ test.describe("errors", () => {
 
     await expect(formError(page)).toHaveText(/Não conseguimos chegar até esse site/);
     await expect(formError(page)).toBeInViewport();
+  });
+});
+
+test.describe("progressive report", () => {
+  const OWN_STEPS = ["https", "securityHeaders", "metaTags", "altImages", "sitemapRobots", "brokenLinks"];
+
+  test("shows our own checks' report before Google's measurement, then completes it", async ({ page }) => {
+    await mockLiveAnalysis(page);
+    await analyze(page, "exemplo.com.br");
+    for (const step of OWN_STEPS) await sendAnalysisEvent(page, "step", { step });
+    await sendAnalysisEvent(page, "partial", IN_PROGRESS_REPORT);
+
+    const summary = page.getByRole("complementary", { name: "Nota geral" });
+    await expect(summary.getByText("Calculando a nota geral")).toBeVisible();
+    await expect(summary.getByRole("listitem").filter({ hasText: "Performance" })).toContainText("Aguardando a medição do Google");
+    await expect(summary.getByRole("listitem").filter({ hasText: "SEO" })).toContainText("provisório");
+    await expect(page.getByText("Provisório: a medição do Google ainda pode mudar esta ordem.")).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: "Relatório parcial pronto" })).toBeAttached();
+
+    await sendAnalysisEvent(page, "step", { step: "pagespeed" });
+    await sendAnalysisEvent(page, "done", REPORT_WITH_FINDINGS);
+    await closeAnalysis(page);
+
+    await expect(summary.getByText("56", { exact: true })).toBeVisible();
+    await expect(summary.getByText("Calculando a nota geral")).toHaveCount(0);
+    await expect(page.getByText(/^Provisório/)).toHaveCount(0);
+    await expect(page.getByRole("status").filter({ hasText: "Relatório completo." })).toBeAttached();
+  });
+
+  test("keeps the partial report and says so when Google's measurement never arrives", async ({ page }) => {
+    await mockLiveAnalysis(page);
+    await analyze(page, "exemplo.com.br");
+    await sendAnalysisEvent(page, "partial", IN_PROGRESS_REPORT);
+    await closeAnalysis(page);
+
+    await expect(page.getByText("A medição do Google não terminou.", { exact: false }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Nova análise" })).toBeVisible();
   });
 });

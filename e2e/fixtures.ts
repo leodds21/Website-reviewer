@@ -127,3 +127,51 @@ export async function analyze(page: Page, url: string): Promise<void> {
   await page.getByLabel("Endereço do site").fill(url);
   await page.getByRole("button", { name: /Rodar diagnóstico/ }).click();
 }
+
+// The same site while Google's measurement is still running.
+export const IN_PROGRESS_REPORT: AnalyzeReport = {
+  ...REPORT_WITH_FINDINGS,
+  inProgress: true,
+  loadSeconds: undefined,
+  score: {
+    ...REPORT_WITH_FINDINGS.score,
+    overall: 0,
+    overallSeverity: "pendente",
+    performance: { score: null, severity: "pendente" },
+    seo: { score: 67, severity: "atencao", partial: false, pending: true },
+  },
+};
+
+/**
+ * Replaces fetch for the analysis endpoint with a stream the test feeds
+ * through sendAnalysisEvent / closeAnalysis: route.fulfill can only send a
+ * whole body, and these tests need the partial report on screen before the end.
+ */
+export async function mockLiveAnalysis(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const original = window.fetch.bind(window);
+    const encoder = new TextEncoder();
+    const w = window as unknown as {
+      sendAnalysisEvent: (event: string, data: unknown) => void;
+      closeAnalysis: () => void;
+    };
+    window.fetch = (input, init) => {
+      if (!String(input).startsWith("/api/analyze")) return original(input, init);
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          w.sendAnalysisEvent = (event, data) => controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+          w.closeAnalysis = () => controller.close();
+        },
+      });
+      return Promise.resolve(new Response(body, { status: 200, headers: { "Content-Type": "text/event-stream" } }));
+    };
+  });
+}
+
+export async function sendAnalysisEvent(page: Page, event: string, data: unknown): Promise<void> {
+  await page.evaluate(([e, d]) => (window as unknown as { sendAnalysisEvent: (e: string, d: unknown) => void }).sendAnalysisEvent(e as string, d), [event, data]);
+}
+
+export async function closeAnalysis(page: Page): Promise<void> {
+  await page.evaluate(() => (window as unknown as { closeAnalysis: () => void }).closeAnalysis());
+}
