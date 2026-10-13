@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { AppHeader, Brand, PageContainer, buttonClass } from "./Chrome";
 import { Findings } from "./Findings";
 import { Passes } from "./Passes";
@@ -11,6 +11,8 @@ import { INTL_LOCALE } from "@/app/i18n/locale";
 import type { AnalyzeReport } from "@/lib/report";
 import type { TechPlatform } from "@/lib/checks/techDetect";
 import { SITE_URL } from "@/lib/siteUrl";
+
+const noSubscription = () => () => {};
 
 // Proper nouns, the same in every locale.
 const PLATFORM_NAMES: Record<TechPlatform, string> = {
@@ -45,10 +47,6 @@ export function ReportScreen({
 
   const rootRef = useRef<HTMLDivElement>(null);
 
-  // "Complete" is only news after a partial report.
-  const [sawPartial, setSawPartial] = useState(false);
-  if (report.inProgress && !sawPartial) setSawPartial(true);
-  const liveMessage = report.inProgress ? (unfinished ? t.googleUnfinished : t.liveReportPartial) : sawPartial ? t.liveReportDone : "";
 
   // Opens every collapsed section for printing, Ctrl+P included.
   useEffect(() => {
@@ -69,9 +67,14 @@ export function ReportScreen({
     };
   }, []);
 
-  const checkedAt = new Intl.DateTimeFormat(INTL_LOCALE[locale], { dateStyle: "short", timeStyle: "short" }).format(
-    new Date(report.checkedAt),
+  // In the visitor's time zone, so only in the browser: the server's (UTC)
+  // would differ and make React throw away the server-rendered report.
+  const checkedAt = useSyncExternalStore(
+    noSubscription,
+    () => new Intl.DateTimeFormat(INTL_LOCALE[locale], { dateStyle: "short", timeStyle: "short" }).format(new Date(report.checkedAt)),
+    () => null,
   );
+  const details = [checkedAt, report.platform && t.platformDetected(PLATFORM_NAMES[report.platform])].filter(Boolean).join(" · ");
 
   return (
     <div ref={rootRef} className="flex min-h-dvh flex-col">
@@ -80,8 +83,7 @@ export function ReportScreen({
           <Brand />
           <span className="font-mono text-[13px] break-all text-[var(--color-body)]">{report.domain}</span>
           <span className="font-mono text-xs text-[var(--color-subtle)]">
-            {checkedAt}
-            {report.platform && ` · ${t.platformDetected(PLATFORM_NAMES[report.platform])}`}
+            {details}
           </span>
         </div>
         <div className="flex flex-wrap gap-2.5 print:hidden">
@@ -96,13 +98,9 @@ export function ReportScreen({
 
       {/* For assistive tech: the domain above isn't a heading. */}
       <h1 className="sr-only">{t.reportHeading(report.domain)}</h1>
-      {/* One polite message per milestone, not one per update. */}
-      <p role="status" className="sr-only">
-        {liveMessage}
-      </p>
 
       <PageContainer className="grid flex-1 items-start gap-8 py-8 lg:grid-cols-[320px_minmax(0,1fr)] lg:gap-12 lg:py-10">
-        <ScoreSummary report={report} />
+        <ScoreSummary report={report} unfinished={unfinished} />
 
         <div className="flex min-w-0 flex-col gap-10">
           {unfinished && report.inProgress && (
@@ -126,7 +124,7 @@ export function ReportScreen({
             </div>
           )}
 
-          <TopIssues issues={report.issues} score={report.score} provisional={report.inProgress} />
+          <TopIssues issues={report.issues} score={report.score} provisional={report.inProgress && !unfinished} />
           <Findings issues={report.issues} score={report.score} />
           <Passes passes={report.passed ?? []} open={report.issues.length === 0} />
 
