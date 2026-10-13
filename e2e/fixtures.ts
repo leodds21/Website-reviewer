@@ -175,3 +175,29 @@ export async function sendAnalysisEvent(page: Page, event: string, data: unknown
 export async function closeAnalysis(page: Page): Promise<void> {
   await page.evaluate(() => (window as unknown as { closeAnalysis: () => void }).closeAnalysis());
 }
+
+/** Stores a report where the server reads shared reports from, as a finished analysis would. */
+export async function seedSharedReport(report: AnalyzeReport & { id: string }, targetUrl = `https://${report.domain}/`): Promise<void> {
+  const stored = {
+    version: 1,
+    id: report.id,
+    targetUrl,
+    domain: report.domain,
+    report,
+    createdAt: report.checkedAt,
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+  };
+  const response = await fetch("http://localhost:3299/", {
+    method: "POST",
+    headers: { Authorization: "Bearer e2e", "Content-Type": "application/json" },
+    body: JSON.stringify(["SET", `report:${report.id}`, JSON.stringify(stored), "PX", "3600000"]),
+  });
+  if (!response.ok) throw new Error(`couldn't seed report ${report.id}`);
+}
+
+/** A fresh shareable copy of a fixture, so parallel tests never share an id. */
+export function withId<T extends AnalyzeReport>(report: T): T & { id: string } {
+  const alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  const id = Array.from({ length: 10 }, () => alphabet[Math.floor(Math.random() * 62)]).join("");
+  return { ...report, id };
+}
