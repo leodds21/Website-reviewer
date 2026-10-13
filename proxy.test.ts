@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { unstable_doesMiddlewareMatch, unstable_getResponseFromNextConfig } from "next/experimental/testing/server";
 import nextConfig from "./next.config";
@@ -34,6 +34,10 @@ describe("CSP coverage", () => {
 });
 
 describe("proxy", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   const request = (path: string, headers: Record<string, string> = {}) => new NextRequest(`${BASE}${path}`, { headers });
 
   it("sends the root to the visitor's language", () => {
@@ -51,6 +55,19 @@ describe("proxy", () => {
     const response = proxy(request("/?lang=pt&url=exemplo.com.br", { "accept-language": "en-US" }));
 
     expect(response.headers.get("location")).toBe(`${BASE}/pt-BR?url=exemplo.com.br`);
+  });
+
+  it("lets Speed Insights reach Vercel at its injected prefix", () => {
+    vi.stubEnv("NEXT_PUBLIC_VERCEL_OBSERVABILITY_BASEPATH", "/7f221f619e7703a1");
+
+    const response = proxy(request("/7f221f619e7703a1/speed-insights/vitals"));
+
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+  });
+
+  it("still sends a look-alike path to a locale when no prefix is set", () => {
+    expect(proxy(request("/7f221f619e7703a1/speed-insights/vitals")).headers.get("location")).toContain("/pt-BR/");
   });
 
   it("gives a page a fresh nonce CSP and remembers its language", () => {
