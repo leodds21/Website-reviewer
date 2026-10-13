@@ -8,27 +8,25 @@ import { useAnalysis } from "../hooks/useAnalysis";
 import { useStageFocus } from "../hooks/useStageFocus";
 import { backToReport, useReportLink } from "../hooks/useReportLink";
 import { topIssues } from "@/lib/issues";
+import type { AnalyzeReport } from "@/lib/report";
 import { useLanguage } from "../i18n/LanguageContext";
 
 // The interactive part of every page: form, progress, report and next step.
-export function Scanner() {
+export function Scanner({ initialReport = null }: { initialReport?: AnalyzeReport | null }) {
   const [url, setUrl] = useState("");
   const [manualReview, setManualReview] = useState(false);
-  const { stage, setStage, completedSteps, report, error, unfinished, startAnalysis } = useAnalysis();
+  // An old ?url= link or an expired report: the field comes filled, nothing runs on its own.
+  const [prefilled, setPrefilled] = useState(false);
+  const { stage, setStage, completedSteps, report, error, unfinished, startAnalysis } = useAnalysis(initialReport);
   // Idle and analyzing are one screen; moving focus would undo the scroll on phones.
   const stageRef = useStageFocus<HTMLDivElement>(stage === "analyzing" ? "idle" : stage);
-  const { t } = useLanguage();
-  const [analyzedUrl, setAnalyzedUrl] = useState("");
+  const { locale, t } = useLanguage();
 
-  const run = useCallback(
-    (site: string, options?: { cachedOnly?: boolean }) => {
-      setUrl(site);
-      setAnalyzedUrl(site.trim());
-      startAnalysis(site, options);
-    },
-    [startAnalysis],
-  );
-  useReportLink({ stage, setStage, analyzedUrl, hasReport: report !== null, run });
+  const prefill = useCallback((site: string) => {
+    setUrl(site);
+    setPrefilled(true);
+  }, []);
+  useReportLink({ locale, stage, setStage, report, onPrefill: prefill });
 
   const openReport = stage === "report" || stage === "next-step" ? report : null;
 
@@ -45,7 +43,8 @@ export function Scanner() {
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    run(url);
+    setPrefilled(false);
+    startAnalysis(url);
   }
 
 
@@ -56,7 +55,7 @@ export function Scanner() {
           url={url}
           onUrlChange={setUrl}
           onSubmit={handleSubmit}
-          error={error}
+          error={error ?? (prefilled ? { code: "not-cached" } : null)}
           analyzing={stage === "analyzing"}
           completedSteps={stage === "analyzing" ? completedSteps : []}
         />

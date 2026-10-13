@@ -24,10 +24,11 @@ function pause(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-export function useAnalysis() {
-  const [stage, setStage] = useState<Stage>("idle");
+// initialReport: a shared report the server already rendered.
+export function useAnalysis(initialReport: AnalyzeReport | null = null) {
+  const [stage, setStage] = useState<Stage>(initialReport ? "report" : "idle");
   const [completedSteps, setCompletedSteps] = useState<StepKey[]>([]);
-  const [report, setReport] = useState<AnalyzeReport | null>(null);
+  const [report, setReport] = useState<AnalyzeReport | null>(initialReport);
   const [error, setError] = useState<AnalyzeError | null>(null);
   // The partial report stays up when Google's measurement never arrives.
   const [unfinished, setUnfinished] = useState(false);
@@ -35,8 +36,7 @@ export function useAnalysis() {
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  // cachedOnly: for report links, which must never start an analysis.
-  const startAnalysis = useCallback(async (url: string, { cachedOnly = false }: { cachedOnly?: boolean } = {}) => {
+  const startAnalysis = useCallback(async (url: string) => {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -57,7 +57,7 @@ export function useAnalysis() {
     let shownPartial = false;
 
     try {
-      const response = await fetch(`/api/analyze?url=${encodeURIComponent(url)}${cachedOnly ? "&cached=only" : ""}`, {
+      const response = await fetch(`/api/analyze?url=${encodeURIComponent(url)}`, {
         signal: controller.signal,
         headers: { Accept: "text/event-stream" },
       });
