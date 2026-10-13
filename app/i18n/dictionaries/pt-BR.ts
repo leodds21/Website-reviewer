@@ -1,0 +1,336 @@
+import type { Dictionary } from "../types";
+import { formatWait } from "../format";
+
+export const ptBR: Dictionary = {
+  documentTitle: "lsdias.dev, diagnóstico de site",
+  notFoundTitle: "Esta página não existe.",
+  notFoundAction: "Ir para o diagnóstico",
+  subheadline:
+    "A gente encontra o seu em menos de um minuto: performance, SEO, acessibilidade e segurança, tudo junto.",
+  homeHeadline: "Descubra o que está atrapalhando o seu site.",
+  homeIntro: "Sete checagens reais rodando ao mesmo tempo. Você acompanha cada uma em tempo real.",
+  analyzeLabel: "Endereço do site",
+  urlPlaceholder: "seusite.com.br",
+  runButton: "Rodar diagnóstico",
+  runningButton: "Analisando…",
+  scanPlan: {
+    heading: "Plano da varredura",
+    progress: (done, total) => `${done} / ${total} concluídas`,
+    progressLabel: "Progresso",
+    status: { waiting: "em espera", running: "verificando", done: "concluída" },
+    steps: {
+      https: { name: "https", description: "Conexão segura e certificado" },
+      securityHeaders: { name: "cabeçalhos", description: "Proteções do servidor" },
+      metaTags: { name: "meta tags", description: "Título, descrição e viewport" },
+      altImages: { name: "imagens", description: "Texto alternativo numa amostra" },
+      sitemapRobots: { name: "sitemap", description: "sitemap.xml e robots.txt" },
+      brokenLinks: { name: "links", description: "Links da home que levam a erro" },
+      pagespeed: { name: "pagespeed", description: "Velocidade e acessibilidade, medidas pelo Google" },
+    },
+  },
+  privacyNote: "O relatório fica em cache por até 6 horas e depois é descartado. Alguns serviços técnicos processam os dados nesse meio-tempo.",
+  privacyLinkLabel: "Como tratamos seus dados",
+  close: "Fechar",
+  privacyPolicy: {
+    title: "Como tratamos seus dados",
+    sections: [
+      {
+        label: "O que coletamos",
+        text: "A URL que você analisa. Se você usar o formulário de contato, também seu nome, e-mail e mensagem.",
+      },
+      {
+        label: "Com quem compartilhamos",
+        text: "A URL vai para o Google PageSpeed Insights, que gera parte do relatório. O relatório e o controle de abuso ficam no Upstash, um banco em nuvem; o formulário de contato passa pelo Formspree até o nosso e-mail. O site roda na Vercel.",
+      },
+      {
+        label: "Por quanto tempo guardamos",
+        text: "O relatório fica em cache por até 6 horas e depois é descartado. Quando uma checagem falha, o endereço analisado pode aparecer nos registros técnicos do servidor, usados só pra corrigir problemas. Não guardamos os dados do formulário em nenhum banco de dados próprio.",
+      },
+      {
+        label: "Rastreamento",
+        text: "Sem analytics. O único cookie guarda o seu idioma. Seu IP só serve pra limitar abusos e fica guardado por até 1 hora, sem ligação com você.",
+      },
+    ],
+  },
+  overallScore: "Nota geral",
+  scoreLabelOk: "Está bem",
+  scoreLabelAttention: "Precisa de atenção",
+  scoreLabelCritical: "Tem problemas sérios",
+  issueSummary: ({ critico, atencao, sugestao }) =>
+    [
+      critico > 0 && `${critico} ${critico === 1 ? "crítico" : "críticos"}`,
+      atencao > 0 && `${atencao} de atenção`,
+      sugestao > 0 && `${sugestao} ${sugestao === 1 ? "sugestão" : "sugestões"}`,
+    ].filter((part): part is string => Boolean(part)),
+  scoreExplanationToggle: "Como calculamos esta nota",
+  scoreExplanation:
+    "A nota geral é a média simples das categorias, e cada categoria é a média das suas medições: notas do Google e checagens nossas. Sugestões não mudam o número. Uma categoria \"não medido\" fica fora da conta, e \"medido em parte\" quer dizer que alguma checagem dela não rodou.",
+  overallArithmetic: (scores, exact, overall) =>
+    `(${scores.join(" + ")}) ÷ ${scores.length} = ${exact.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}${exact === overall ? "" : ` → ${overall}`}`,
+  scoreBreakdownToggle: "Entenda esta nota",
+  scoreBreakdownIntro: (measurements) => `Média de ${measurements} medições: cada uma vale 1/${measurements} da nota.`,
+  scoreBreakdownStart: "Partindo de",
+  scoreBreakdownTotal: "Nota",
+  scoreSingleMeasurement: "Só uma medição entrou nesta nota:",
+  scoreComponent: {
+    "google-performance": (value) => `Nota de desempenho do Google: ${value}`,
+    "google-seo": (value) => `Avaliação de SEO do Google: ${value}`,
+    title: (value) => (value === 100 ? "Título da página presente" : "Título da página ausente"),
+    description: (value) => (value === 100 ? "Meta description presente" : "Meta description ausente"),
+    links: (value, count) => (count === 0 ? "Nenhum link na home para checar" : `Links da home funcionando: ${Math.round(value)}%`),
+    "google-accessibility": (value) => `Avaliação de acessibilidade do Google: ${value}`,
+    viewport: (value) => (value === 100 ? "Ajuste para celular presente" : "Ajuste para celular ausente"),
+    "alt-images": (value, count) =>
+      count === 0 ? "Nenhuma imagem na página para checar" : `Imagens com texto alternativo: ${Math.round(value)}%`,
+    https: (value) => (value === 100 ? "HTTPS ativo, com redirecionamento" : value === 0 ? "Sem HTTPS confiável" : "HTTPS sem redirecionamento"),
+    "google-best-practices": (value) => `Boas práticas do Google: ${value}`,
+  },
+  scoreFromGoogle: (value) => `Vem direto do Google PageSpeed, medido como celular: ${value}.`,
+  securityWithoutHttps: "Sem HTTPS confiável, a segurança fica em 0, independente do resto.",
+  categories: {
+    performance: "Performance",
+    seo: "SEO",
+    accessibility: "Acessibilidade",
+    security: "Segurança",
+  },
+  severity: { critico: "crítico", atencao: "atenção", sugestao: "sugestão", ok: "ok", indisponivel: "não medido", pendente: "medindo" },
+  unavailableReason: {
+    blocked: "O site recusou nosso acesso automático.",
+    timeout: "A medição demorou demais. Vale tentar de novo.",
+    unreachable: "Não conseguimos chegar até o site.",
+    "site-error": "O site respondeu com uma página de erro.",
+    quota: "Limite diário de medições atingido. Tenta de novo amanhã.",
+    "measurement-failed": "O Google não conseguiu medir esta parte. Vale tentar de novo.",
+    unknown: "Não deu pra medir desta vez. Vale tentar de novo.",
+  },
+  partialMeasure: "medido em parte",
+  pendingMeasure: "Aguardando a medição do Google",
+  provisionalMeasure: "provisório, falta a medição do Google",
+  scoreLabelPending: "Calculando a nota geral",
+  topIssuesProvisional: "Provisório: a medição do Google ainda pode mudar esta ordem.",
+  liveReportPartial: "Relatório parcial pronto. Aguardando a medição do Google.",
+  liveReportDone: "Relatório completo.",
+  googleUnfinished: "A medição do Google não terminou. O relatório mostra só as nossas checagens.",
+  // PageSpeed measures as a phone on a mobile connection by default.
+  loadTime: (seconds) => `Carrega em ${seconds.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}s no celular`,
+  coverageNote: (measured) =>
+    `Nota baseada em ${measured} de 4 categorias. As outras não puderam ser medidas, veja o motivo abaixo.`,
+  blockedNote:
+    "Este site recusa ferramentas automáticas, por isso algumas partes não puderam ser medidas. Isso não quer dizer que ele tenha problema: muitos sites bloqueiam robôs por segurança.",
+  manualAnalysisButton: "Pedir análise manual",
+  manualKicker: "Análise manual",
+  manualHeadline: "Dá pra olhar esse site de perto, sem depender de robô.",
+  manualBody:
+    "Como o site bloqueou a análise automática, posso revisar ele direto no navegador e te mandar o que encontrar.",
+  manualMessagePrefill: (domain) => `Quero uma análise manual de ${domain}.`,
+  howToFix: "Como resolver",
+  findingGroups: { critico: "Críticos", atencao: "Atenção", sugestao: "Melhorias opcionais" },
+  topIssuesHeading: "Corrija primeiro",
+  topIssuesNone: "Nenhum problema prioritário. Só melhorias opcionais abaixo.",
+  impactLabel: { critico: "Alto impacto", atencao: "Médio impacto" },
+  viewDetails: "Ver detalhes",
+  optionalNote: "não mudam a nota",
+  showOptional: (count) => (count === 1 ? "Ver a melhoria opcional" : `Ver as ${count} melhorias opcionais`),
+  affectedHeading: {
+    "missing-alt": (count) => (count === 1 ? "A imagem afetada" : `As ${count} imagens afetadas`),
+    "broken-links": (count) => (count === 1 ? "O link quebrado" : `Os ${count} links quebrados`),
+  },
+  imageWithoutSource: "(imagem sem endereço no HTML)",
+  moreAffected: (count) => `e mais ${count}`,
+  noIssues: "Não encontramos problema nenhum nas checagens que rodamos.",
+  passesHeading: "O que está certo",
+  passesToggle: (count) => (count === 1 ? "Ver o ponto que passou" : `Ver os ${count} pontos que passaram`),
+  pass: {
+    https: "Conexão segura: o site abre em HTTPS",
+    "security-headers": "Proteções extras do servidor ativadas",
+    title: "A página tem um título próprio",
+    description: "A página tem uma descrição pro Google",
+    viewport: "Se ajusta à tela do celular",
+    "alt-images": "As imagens têm texto alternativo",
+    sitemap: "Tem um sitemap pro Google achar as páginas",
+    links: "Os links testados na home funcionam",
+    "fast-load": "Carrega rápido no celular",
+    "stable-layout": "Nada pula de lugar enquanto a página carrega",
+  },
+  newAnalysis: "Nova análise",
+  reportCta: "Quer ajuda pra resolver o que apareceu aqui?",
+  printButton: "Imprimir ou salvar PDF",
+  printFooter: (host) => `Diagnóstico gerado em ${host}`,
+  backToReport: "Voltar ao relatório",
+  nextStepButton: "Ver como corrigir →",
+  nextStepButtonClean: "Falar sobre o site →",
+  cleanHeadline: "O site passou nas checagens que fizemos.",
+  cleanBody: "Uma análise automática não vê tudo. Se quiser uma segunda opinião sobre o site, é só escrever.",
+  nextStepKicker: "Próximo passo",
+  nextStepHeadline: "O relatório mostra o problema. Agora, veja o que pode ser feito.",
+  nextStepBody: "Nem todo problema tem o mesmo impacto. Estes são os que vale corrigir primeiro.",
+  recommendationsHeading: "O que pode ser feito",
+  contactHeading: "Quer que a gente cuide disso?",
+  nameLabel: "Nome",
+  namePlaceholder: "Seu nome",
+  emailLabel: "E-mail",
+  emailPlaceholder: "voce@email.com",
+  messageLabel: "Mensagem",
+  messagePlaceholder: "Conte um pouco sobre o que precisa",
+  sendButton: "Enviar",
+  sending: "Enviando…",
+  sent: "Enviado",
+  sendSuccess: "Recebido. Volto pra você em breve.",
+  sendSuccessDetail: (email) => `A resposta vai pra ${email}.`,
+  contactError: {
+    offline: "Você parece estar sem conexão. Sua mensagem não foi enviada: confere a internet e tenta de novo.",
+    timeout: "O envio demorou demais e foi interrompido. Sua mensagem não foi enviada, pode tentar de novo.",
+    rejected: "Não conseguimos enviar sua mensagem. Confere se o e-mail está certo e tenta de novo.",
+    "not-configured": "O formulário de contato está indisponível no momento. Tenta de novo mais tarde.",
+    unknown: "Não foi possível enviar sua mensagem. Tenta de novo em instantes.",
+  },
+  reportHeading: (domain) => `Relatório de ${domain}`,
+  reportFooter: (domain) => `lsdias.dev · relatório referente a ${domain}`,
+  platformDetected: (platformName) => `Feito em ${platformName}`,
+  madeByLabel: "Veja meu portfólio",
+  opensNewTab: "abre em nova aba",
+  analysisError: {
+    "missing-url": () => "Informe o endereço de um site pra analisar.",
+    "invalid-url": () => "Esse endereço não parece válido. Confere se está escrito certo, tipo seusite.com.br.",
+    "blocked-url": () => "Só dá pra analisar sites públicos na internet, não endereços internos ou locais.",
+    "rate-limited": (seconds) =>
+      seconds
+        ? `Você fez muitas análises em pouco tempo. Tenta de novo em ${formatWait(seconds, "pt-BR")}.`
+        : "Você fez muitas análises em pouco tempo. Tenta de novo mais tarde.",
+    "analysis-failed": () =>
+      "Não conseguimos acessar esse site. Ele pode estar fora do ar, bloqueando ferramentas de análise, ou o endereço pode estar errado.",
+    "site-blocked": () =>
+      "Esse site recusa ferramentas automáticas de análise, então não deu pra medir nada daqui. Isso não quer dizer que ele tenha problema.",
+    "site-unreachable": () =>
+      "Não conseguimos chegar até esse site. Confere se o endereço está certo e se ele está no ar.",
+    "quota-exceeded": () => "Atingimos o limite diário da ferramenta de análise. Tenta de novo amanhã.",
+    timeout: () => "O site demorou demais pra responder e desistimos de esperar. Tenta de novo em instantes.",
+    offline: () => "Você parece estar sem conexão. Confere sua internet e tenta de novo.",
+    unknown: () => "Não conseguimos concluir a análise. Tenta de novo em instantes.",
+    "not-cached": () => "O relatório desse link não está mais guardado. Rode o diagnóstico pra ver o resultado de agora.",
+  },
+  issue: {
+    "no-https": () => ({
+      title: "O site não é servido em HTTPS.",
+      description: "Navegadores marcam a conexão como não segura, e isso afasta visitante e cliente.",
+    }),
+    "no-https-redirect": () => ({
+      title: "O site tem HTTPS, mas não leva o visitante até ele.",
+      description: "Quem digita o endereço sem o https:// continua na versão não segura, e o navegador mostra o aviso de conexão não segura.",
+    }),
+    "invalid-certificate": () => ({
+      title: "O certificado de segurança do site não é confiável.",
+      description: "Ele pode estar vencido, ser autoassinado ou estar incompleto. Dependendo do navegador ou do app, o visitante vê um alerta de segurança ou nem consegue entrar.",
+    }),
+    "no-hsts": () => ({
+      title: "O site não usa HSTS.",
+      description: "Sem esse cabeçalho, o navegador não força HTTPS automaticamente nas próximas visitas, deixando uma brecha na primeira conexão.",
+    }),
+    "no-csp": () => ({
+      title: "Falta o cabeçalho Content-Security-Policy.",
+      description: "Esse cabeçalho ajuda a bloquear scripts maliciosos injetados na página. Sem ele, o site fica mais exposto a esse tipo de ataque.",
+    }),
+    "no-clickjacking-protection": () => ({
+      title: "O site não tem proteção contra clickjacking.",
+      description: "Sem essa proteção, outro site pode embutir o seu numa camada invisível e enganar o visitante a clicar em algo sem perceber.",
+    }),
+    "no-title": () => ({
+      title: "A página não tem título.",
+      description: "A aba do navegador e o resultado no Google mostram só o endereço, sem dizer o que o site oferece.",
+    }),
+    "generic-title": (params) => ({
+      title: `O título da home é só "${params?.title}".`,
+      description: "É esse título que aparece no Google, e um termo genérico não dá motivo pra alguém escolher esse resultado.",
+    }),
+    "no-description": () => ({
+      title: "Falta a meta description.",
+      description: "Sem ela, o Google escolhe sozinho o trecho que aparece embaixo do link nos resultados de busca.",
+    }),
+    "no-viewport": () => ({
+      title: "Falta a meta tag de viewport.",
+      description: "Em celular, a página pode aparecer minúscula ou exigir zoom pra ler.",
+    }),
+    "missing-alt": (params) => ({
+      title: params
+        ? `${params.missing} de ${params.sampled} imagens sem texto alternativo.`
+        : "Há imagens sem texto alternativo.",
+      description: "Quem usa leitor de tela não sabe o que essas imagens mostram.",
+    }),
+    "no-sitemap": () => ({
+      title: "Não encontramos um sitemap.xml.",
+      description: "Ajuda o Google a achar todas as páginas do site, principalmente as mais novas.",
+    }),
+    "low-performance": (params) => ({
+      title: `A página tirou ${params?.score} de 100 no teste de velocidade do Google.`,
+      description: "Tempo de sobra pra alguém desistir de esperar a página carregar.",
+    }),
+    "slow-load-impact": (params) => ({
+      title: `O site demora ${String(params?.seconds).replace(".", ",")}s pra carregar.`,
+      description: `Nessa faixa, a chance de o visitante desistir antes da página carregar é pelo menos ${params?.bounceIncreasePercent}% maior.`,
+    }),
+    "layout-shift": (params) => ({
+      title: `O site tem instabilidade visual no carregamento (CLS de ${String(params?.value).replace(".", ",")}).`,
+      description: "Elementos da página se deslocam depois de carregados, o que pode fazer a pessoa clicar no lugar errado sem querer.",
+    }),
+    "color-contrast": () => ({
+      title: "Encontramos texto com contraste insuficiente.",
+      description: "Algum texto do site é difícil de ler por causa do contraste de cor entre o texto e o fundo.",
+    }),
+    "slow-server-response": (params) => ({
+      title: `O servidor demora ${params?.ms}ms pra começar a responder.`,
+      description: "É o tempo até o primeiro byte da resposta chegar, antes do navegador ter qualquer HTML pra processar.",
+    }),
+    "heading-order": () => ({
+      title: "Os títulos da página (H1, H2, H3...) não seguem uma ordem lógica.",
+      description: "Pular níveis de título atrapalha quem usa leitor de tela a entender a estrutura da página.",
+    }),
+    "missing-form-labels": () => ({
+      title: "Encontramos campo de formulário sem rótulo (label) associado.",
+      description: "Sem um rótulo, quem usa leitor de tela não sabe o que preencher em cada campo.",
+    }),
+    "broken-links": (params) => ({
+      title: `${params?.broken} de ${params?.checked} links testados na home estão quebrados.`,
+      description: "Um link quebrado é um beco sem saída pra quem clicou, e um sinal ruim pro Google sobre a manutenção do site.",
+    }),
+  },
+  impactClause: {
+    "no-https": "a insegurança da conexão",
+    "invalid-certificate": "o problema no certificado de segurança",
+    // Only codes that can be critical need a clause.
+    "no-title": "a falta de um título que identifique o site nas buscas",
+    "no-viewport": "a experiência ruim pra quem acessa pelo celular",
+    "missing-alt": "as imagens sem descrição pra quem usa leitor de tela",
+    "low-performance": "a lentidão geral do carregamento",
+    "slow-load-impact": "o tempo de carregamento alto",
+    "layout-shift": "a instabilidade visual durante o carregamento",
+    "slow-server-response": "o tempo de resposta lento do servidor",
+    "broken-links": "os links quebrados na home",
+  },
+  synthesizeImpact: (clauses) => {
+    const joined = clauses.length > 1 ? `${clauses[0]} e ${clauses[1]}` : clauses[0];
+    const verb = clauses.length > 1 ? "são" : "é";
+    return `${joined.charAt(0).toUpperCase()}${joined.slice(1)} ${verb} o que mais pesa contra o site agora, vale resolver antes do resto.`;
+  },
+  recommendation: {
+    "no-https": "Ativar um certificado HTTPS válido e configurar o servidor pra redirecionar automaticamente o tráfego de HTTP pra HTTPS.",
+    "invalid-certificate": "Renovar ou reinstalar o certificado e conferir se o servidor envia a cadeia completa, com o certificado intermediário.",
+    "no-https-redirect": "Configurar o servidor pra redirecionar todo acesso por http:// pro mesmo endereço em https://.",
+    "no-hsts": "Adicionar o cabeçalho HSTS pra garantir que o navegador sempre use HTTPS nas próximas visitas.",
+    "no-csp": "Configurar um cabeçalho Content-Security-Policy adequado ao site, restringindo de onde scripts podem ser carregados.",
+    "no-clickjacking-protection": "Configurar proteção contra clickjacking e revisar os cabeçalhos de segurança.",
+    "no-title": "Definir um título único pra cada página, descrevendo o que ela oferece.",
+    "generic-title": "Reescrever o título da página com algo específico sobre o negócio, em vez de um termo genérico.",
+    "no-description": "Criar uma meta description alinhada ao conteúdo da página e às buscas relevantes.",
+    "no-viewport": "Adicionar a meta tag de viewport pra que a página se adapte corretamente a telas de celular.",
+    "missing-alt": "Escrever uma descrição curta pra cada imagem que transmite informação, e usar alt=\"\" nas que são só decorativas.",
+    "no-sitemap": "Gerar e publicar um sitemap.xml listando as páginas do site.",
+    "low-performance": "Revisar o que mais pesa no carregamento, geralmente imagens grandes, scripts não usados ou fontes carregadas sem necessidade.",
+    "slow-load-impact": "Priorizar o carregamento do conteúdo principal da página antes de qualquer coisa secundária.",
+    "layout-shift": "Reservar o espaço de imagens, anúncios e blocos que carregam depois, pra eles não empurrarem o resto da página.",
+    "color-contrast": "Ajustar as cores de texto e fundo pra aumentar o contraste nos trechos identificados.",
+    "slow-server-response": "Investigar o que está lento no backend (banco de dados, processamento, hospedagem) ou considerar cache/CDN pra servir a resposta mais rápido.",
+    "heading-order": "Reorganizar os títulos da página pra seguir uma hierarquia lógica (H1 seguido de H2, H2 seguido de H3, sem pular níveis).",
+    "missing-form-labels": "Associar um <label> a cada campo de formulário, ou usar aria-label quando um rótulo visível não for possível.",
+    "broken-links": "Corrigir ou remover os links quebrados encontrados, atualizando o destino ou apontando pra uma página que ainda existe.",
+  },
+};

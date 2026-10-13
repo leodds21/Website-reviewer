@@ -1,16 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { HomeScreen } from "./components/HomeScreen";
-import { ReportScreen } from "./components/ReportScreen";
-import { NextStepScreen } from "./components/NextStepScreen";
-import { useAnalysis } from "./hooks/useAnalysis";
-import { useStageFocus } from "./hooks/useStageFocus";
-import { backToReport, useReportLink } from "./hooks/useReportLink";
+import { HomeScreen } from "../components/HomeScreen";
+import { ReportScreen } from "../components/ReportScreen";
+import { NextStepScreen } from "../components/NextStepScreen";
+import { useAnalysis } from "../hooks/useAnalysis";
+import { useStageFocus } from "../hooks/useStageFocus";
+import { backToReport, useReportLink } from "../hooks/useReportLink";
 import { topIssues } from "@/lib/issues";
-import { useLanguage } from "./i18n/LanguageContext";
+import { useLanguage } from "../i18n/LanguageContext";
 
-export default function Home() {
+// The interactive part of every page: form, progress, report and next step.
+export function Scanner() {
   const [url, setUrl] = useState("");
   const [manualReview, setManualReview] = useState(false);
   const { stage, setStage, completedSteps, report, error, unfinished, startAnalysis } = useAnalysis();
