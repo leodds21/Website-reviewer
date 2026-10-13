@@ -73,7 +73,7 @@ test.describe("report", () => {
     await analyze(page, "exemplo.com.br");
 
     // The finished plan stays up for a moment before the report replaces it.
-    await expect(page.getByRole("status")).toHaveText("7 / 7 concluídas");
+    await expect(page.getByRole("region", { name: /plano da varredura/i }).getByRole("status")).toHaveText("7 / 7 concluídas");
     await expect(page.getByRole("heading", { level: 1, name: "Relatório de exemplo.com.br" })).toBeAttached();
     await expect(page).toHaveTitle("56 · exemplo.com.br | lsdias.dev, diagnóstico de site");
     const summary = page.getByRole("complementary", { name: "Nota geral" });
@@ -309,7 +309,7 @@ test.describe("report", () => {
     });
     await page.goto("/pt-BR?url=exemplo.com.br");
 
-    await expect(page.getByText("O relatório desse link não está mais guardado.", { exact: false })).toBeVisible();
+    await expect(page.getByText("Este endereço veio de um link antigo.", { exact: false })).toBeVisible();
     await expect(page.getByLabel("Endereço do site")).toHaveValue("exemplo.com.br");
     await expect(page).toHaveURL(/\/pt-BR$/);
     expect(analyses).toBe(0);
@@ -464,5 +464,85 @@ test.describe("reduced motion", () => {
     await page.getByRole("button", { name: /Voltar ao relatório/ }).click();
     await page.getByRole("button", { name: "Nova análise" }).click();
     await expect(page.getByLabel("Endereço do site")).toBeVisible();
+  });
+});
+
+test.describe("review fixes", () => {
+  test.describe("in another time zone than the server", () => {
+    test.use({ timezoneId: "Asia/Tokyo" });
+
+    test("hydrates a shared report without throwing the server's HTML away", async ({ page }) => {
+      const errors: string[] = [];
+      page.on("console", (message) => {
+        if (message.type() === "error") errors.push(message.text());
+      });
+      page.on("pageerror", (error) => errors.push(error.message));
+      const report = withId(REPORT_WITH_FINDINGS);
+      await seedSharedReport(report);
+
+      await page.goto(`/pt-BR/report/${report.id}`);
+      await expect(page.getByText(/05\/10\/2026, 21:00/)).toBeVisible();
+
+      // Production React reports a mismatch as minified errors #418/#423/#425.
+      expect(errors.filter((text) => /hydrat|react\.dev\/errors\/4(18|23|25)/i.test(text))).toEqual([]);
+    });
+  });
+
+  test("never shows a newer report for an older analysis's history entry", async ({ page }) => {
+    const newer = withId({ ...CLEAN_REPORT });
+    await seedSharedReport(newer);
+    await mockLiveAnalysis(page);
+    await analyze(page, "exemplo.com.br");
+    await sendAnalysisEvent(page, "partial", IN_PROGRESS_REPORT);
+    await expect(page.getByText("Calculando a nota geral")).toBeVisible();
+
+    // A new analysis before the first one finished, which then completes.
+    await page.getByRole("button", { name: "Nova análise" }).click();
+    await page.getByLabel("Endereço do site").fill("tudocerto.com.br");
+    await page.getByRole("button", { name: /Rodar diagnóstico/ }).click();
+    await sendAnalysisEvent(page, "done", newer);
+    await expect(page).toHaveURL(new RegExp(`/pt-BR/report/${newer.id}$`));
+
+    await page.goBack();
+    await page.goBack();
+    await expect(page.getByLabel("Endereço do site")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Relatório de tudocerto.com.br" })).toHaveCount(0);
+  });
+
+  test("comes back to the report when the next step is reloaded", async ({ page }) => {
+    const report = withId(REPORT_WITH_FINDINGS);
+    await seedSharedReport(report);
+    await mockAnalysis(page, report);
+    await analyze(page, "exemplo.com.br");
+    await page.getByRole("button", { name: "Ver como corrigir →" }).first().click();
+    await expect(page.getByLabel("E-mail")).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByRole("heading", { level: 2, name: "Críticos" })).toBeVisible();
+    await page.getByRole("button", { name: "Ver como corrigir →" }).first().click();
+    await page.getByRole("button", { name: /Voltar ao relatório/ }).click();
+    await expect(page.getByRole("heading", { level: 2, name: "Críticos" })).toBeVisible();
+  });
+
+  test("drops the older-link note once the address is edited", async ({ page }) => {
+    await page.goto("/pt-BR?url=exemplo.com.br");
+    const note = page.getByText("Este endereço veio de um link antigo.", { exact: false });
+    await expect(note).toBeVisible();
+
+    await page.getByLabel("Endereço do site").fill("outro.com.br");
+    await expect(note).toHaveCount(0);
+  });
+
+  test("stops saying Google is measuring once its measurement failed", async ({ page }) => {
+    await mockLiveAnalysis(page);
+    await analyze(page, "exemplo.com.br");
+    await sendAnalysisEvent(page, "partial", IN_PROGRESS_REPORT);
+    await closeAnalysis(page);
+
+    const summary = page.getByRole("complementary", { name: "Nota geral" });
+    await expect(summary.getByText("Não deu para calcular a nota geral")).toBeVisible();
+    await expect(summary.getByRole("listitem").filter({ hasText: "Performance" })).toContainText("A medição do Google não terminou");
+    await expect(summary.getByText("Calculando a nota geral")).toHaveCount(0);
+    await expect(page.getByText(/^Provisório/)).toHaveCount(0);
   });
 });
