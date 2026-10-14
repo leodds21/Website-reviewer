@@ -13,7 +13,9 @@ Um único app Next.js (App Router, TypeScript). Cada idioma tem o próprio layou
 | `app/_shared/Scanner.tsx` | A ilha cliente: formulário, progresso, relatório e próximo passo, com `<Activity>` e `<ViewTransition>` |
 | `app/hooks/useAnalysis.ts` | Inicia uma análise e lê o stream de eventos |
 | `app/hooks/useReportLink.ts` | Mantém cada tela no histórico e o relatório no próprio endereço |
-| `app/components/` | Um componente por tela ou seção do relatório |
+| `app/components/` | Um componente por tela ou seção do relatório; `ReportPrintCover` é a primeira página do PDF, `LogoMark` o símbolo LD |
+| `app/_shared/BatchPage.tsx`, `lib/batch*.ts` | Página de lote: limpeza da lista, execução, CSV |
+| `app/_shared/ogFonts.ts`, `ogMark.tsx` | Fontes e símbolo da marca para as imagens de prévia |
 | `app/i18n/` | Um dicionário por idioma, as funções que os usam, constantes de idioma |
 | `app/api/analyze/route.ts` | Validação, cache, trava, limite, streaming |
 | `lib/runAnalysis.ts` | Roda as checagens em paralelo e emite as etapas e o relatório parcial |
@@ -21,7 +23,7 @@ Um único app Next.js (App Router, TypeScript). Cada idioma tem o próprio layou
 | `lib/analysisEvents.ts` | Os tipos de evento do stream, compartilhados por servidor e cliente |
 | `lib/inflight.ts` | Trava e progresso compartilhado para análises iguais simultâneas |
 | `lib/reportStore.ts`, `lib/reportId.ts` | Relatórios compartilhados e seus IDs |
-| `lib/checks/` | Um arquivo por checagem; os parsers de HTML dividem uma busca da página |
+| `lib/checks/` | Um arquivo por checagem; os parsers de HTML dividem uma busca da página e os cabeçalhos dela |
 | `lib/safeFetch.ts` | O único jeito de o servidor buscar um site analisado (proteção SSRF) |
 | `lib/score.ts` | Notas, incluindo categorias ainda sendo medidas |
 | `lib/issues.ts`, `lib/passes.ts` | Achados, a ordem deles, e o que está certo |
@@ -49,12 +51,12 @@ sequenceDiagram
             R-->>B: step / partial / done, repassados
         end
     else primeira requisição
-        R->>R: limite por IP
         R->>C: SET trava NX PX 75000
+        R->>R: limite por IP (não com token de lote)
         par checagens em paralelo
             R->>S: HTTPS (http:// primeiro) + cabeçalhos
-            R->>S: HTML da página (meta tags, alt, plataforma, links)
-            R->>S: sitemap.xml, robots.txt
+            R->>S: HTML + cabeçalhos da página (meta tags, alt, indexação, prévia, dados estruturados, idioma, conteúdo misto, ícone, plataforma, links)
+            R->>S: sitemap.xml, robots.txt (regras), favicon.ico
             R->>G: execução do Lighthouse (celular)
         end
         R-->>B: event: step (um por checagem concluída)
@@ -71,12 +73,13 @@ Os tempos limite são 8 s para as checagens próprias, 3 s por link e 50 s para 
 
 ## API
 
-`GET /api/analyze?url=<endereço>`
+`GET /api/analyze?url=<endereço>`, opcionalmente com `Authorization: Bearer <BATCH_TOKEN>`
 
 | Resposta | Quando |
 |---|---|
 | `200` `text/event-stream` | A análise, ou o relatório em cache |
 | `400` `{ code }` | `missing-url`, `invalid-url`, `blocked-url` |
+| `401` `{ code: "unauthorized" }` | Um token de lote que não confere com `BATCH_TOKEN`, ou qualquer token quando ele não está definido |
 | `429` `{ code: "rate-limited", retryAfterSeconds }` | Limite por IP atingido; também envia `Retry-After` |
 
 Eventos (`lib/analysisEvents.ts`):
@@ -102,7 +105,7 @@ O relatório parcial sai quando `https`, `page`, `sitemapRobots` e `brokenLinks`
 
 | Chave | Guarda | TTL |
 |---|---|---|
-| `analysis:v2:<origem><caminho>` | `{ report }`, com o ID de compartilhamento | 6 h, ou 5 min quando uma checagem falhou |
+| `analysis:v3:<origem><caminho>` | `{ report }`, com o ID de compartilhamento | 6 h, ou 5 min quando uma checagem falhou |
 | `inflight:<origem><caminho>` | O ID da execução líder (a trava) | 75 s |
 | `inflight:<runId>:state` | `{ steps, partial?, final?, failed?, aborted? }` | 120 s |
 | `report:<id>` | `StoredReport` (versão, id, targetUrl, domínio, relatório, datas) | `REPORT_TTL_DAYS`, padrão 30 dias |
@@ -110,7 +113,7 @@ O relatório parcial sai quando `https`, `page`, `sitemapRobots` e `brokenLinks`
 
 A chave do cache ignora query e hash, que costumam ser parâmetros de rastreamento. `http://` e `https://`, `www.` e barra final continuam chaves separadas porque são entradas diferentes.
 
-**Coalescing.** A primeira requisição pega a trava com `SET NX PX` e publica um retrato a cada etapa. Requisições que encontram a trava acompanham esses retratos e não gastam o limite por IP, já que não custam cota do PageSpeed. A trava sempre expira. Soltar é comparar-e-apagar, então um líder atrasado não solta a trava de um mais novo. Se quem lidera sai, a execução fica marcada como abortada; um seguidor confere o cache e depois roda a análise ele mesmo, uma vez, passando pelo limite. Se o Redis falha, a requisição roda sem coalescing. Sem Redis, a mesma lógica roda em memória, por instância, com as entradas expiradas apagadas a cada escrita.
+**Coalescing.** A primeira requisição pega a trava com `SET NX PX`, depois passa pelo limite por IP, e publica um retrato a cada etapa. Requisições que encontram a trava, ou perdem a corrida por ela, acompanham esses retratos e não gastam o limite, já que não custam cota do PageSpeed. Um líder acima do limite solta a trava na hora, e quem estava acompanhando assume. A trava sempre expira. Soltar é comparar-e-apagar, então um líder atrasado não solta a trava de um mais novo. Se quem lidera sai, a execução fica marcada como abortada; um seguidor confere o cache e depois roda a análise ele mesmo, uma vez, passando pelo limite. Se o Redis falha, a requisição roda sem coalescing. Sem Redis, a mesma lógica roda em memória, por instância, com as entradas expiradas apagadas a cada escrita.
 
 **Falhas.** O cliente tenta de novo uma chamada ao Redis duas vezes (não as cinco padrão do Upstash), para uma queda não empurrar a requisição além do `maxDuration`. Os erros do Redis vão para o log sem o comando que carregam, que incluiria IPs de visitantes, URLs analisadas e relatórios.
 
@@ -119,6 +122,14 @@ A chave do cache ignora query e hash, que costumam ser parâmetros de rastreamen
 O líder guarda o relatório final com um ID de 10 caracteres base62 (`crypto.getRandomValues`, cerca de 59 bits) e o põe no cache com esse ID, então um acerto de cache dá o mesmo link. Se salvar falha, o relatório vai sem link, e não com um link que só aquele servidor abriria. O cliente muda o endereço para `/<idioma>/report/<id>` com `pushState`/`replaceState` nativos; o Next mantém a árvore atual nessas entradas, então voltar e avançar nunca buscam de novo. O próximo passo é uma entrada de histórico com o mesmo endereço, não uma rota. Cada entrada guarda também a análise a que pertence, então voltar e avançar nunca mostram o relatório de uma análise no lugar de outra; recarregar no próximo passo volta ao relatório.
 
 `/<idioma>/report/[id]` lê o armazenamento no servidor e renderiza o mesmo `Scanner` no estágio de relatório. Ele importa as telas do relatório direto; a home carrega sob demanda e começa a buscá-las quando uma análise começa. IDs desconhecidos ou expirados mostram uma página de relatório expirado com link para uma nova análise. Um erro do armazenamento mostra uma página de erro por idioma com botão para tentar de novo, porque o relatório pode ainda existir. As páginas de relatório são `noindex`, com canonical, hreflang e imagem de prévia (domínio, nota geral, categorias, data).
+
+## Lote
+
+`/<idioma>/batch` roda uma lista de até 25 URLs, de duas em duas, pelo mesmo endpoint e o mesmo leitor de stream da página inicial. Ela envia `BATCH_TOKEN` como bearer token, que só pula o limite por IP; validação, proteção contra SSRF, cache, travas e relatórios compartilhados funcionam como sempre. O servidor compara os tokens por digests SHA-256 com `timingSafeEqual`. A página guarda o código no `sessionStorage`, monta o CSV no navegador (`;` em português, para o Excel) e é `noindex`.
+
+## Impressão
+
+Imprimir um relatório gera um PDF: uma capa escura (`ReportPrintCover`, na página nomeada `cover`, de borda a borda) e depois páginas claras, com os botões de abrir e fechar escondidos e todas as seções abertas. O rodapé das páginas usa caixas de margem do `@page` (Chrome 131+; os outros navegadores deixam de fora). As páginas não têm margem lateral e o conteúdo se recua sozinho (`.print-inset`): o Chrome diagrama o documento com a largura da primeira página, então margens laterais diferentes na capa empurrariam o conteúdo para fora.
 
 ## Idiomas e CSP
 
@@ -131,7 +142,7 @@ O `proxy.ts` dá a toda página uma CSP com nonce por requisição; o `next.conf
 Cada categoria é a média simples das medições que puderam ser feitas (`lib/score.ts`):
 
 - Performance: nota de performance do Google
-- SEO: nota de SEO do Google, título (100/0), descrição (100/0), proporção de links funcionando
+- SEO: nota de SEO do Google, título (100/0), descrição (100/0), proporção de links funcionando e indexação: 0 quando `noindex` ou o robots.txt barram o Google, fora da média nos outros casos, então nunca aumenta uma nota
 - Acessibilidade: nota de acessibilidade do Google, viewport (100/0), proporção de imagens com texto alternativo
 - Segurança: 0 sem HTTPS confiável; senão, HTTPS (100, ou 50 sem o redirecionamento do `http://`) em média com a nota de boas práticas do Google
 
@@ -152,4 +163,5 @@ Uma checagem que falha deixa a categoria "medida em parte" ou "não medida", com
 - Nenhum banco além do Redis: sem histórico de análises, e relatórios compartilhados expiram.
 - **Cache Components / Partial Prerendering: não ativado.** Uma CSP com nonce exige toda página renderizada por requisição, e o Next documenta o PPR como incompatível com nonce. O prerender estático das páginas fica descartado pelo mesmo motivo.
 - **React Compiler: não ativado.** Medido com `reactCompiler` e `babel-plugin-react-compiler`: o JS inicial subiu de 152,2 para 160,1 KB com gzip e o build de cerca de 12,5 para 13,1 s. O app re-renderiza pouco, então não havia ganho que compensasse.
+- **Página de lote fora do robots.txt:** só `noindex`. Um `Disallow` anunciaria o caminho e impediria o Google de ver o `noindex`.
 - **Lighthouse fora do CI:** as notas variam entre execuções. O CI confere o tamanho do JS inicial (`npm run check:bundle`).
