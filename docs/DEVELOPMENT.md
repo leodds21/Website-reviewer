@@ -16,7 +16,8 @@ Every variable is optional:
 
 - without `PAGESPEED_API_KEY`, Google's parts show as "not measured";
 - without Upstash, the cache, rate limit, locks and shared reports live in memory, per server process;
-- `REPORT_TTL_DAYS` sets how long shared report links last (default 30).
+- `REPORT_TTL_DAYS` sets how long shared report links last (default 30);
+- `BATCH_TOKEN` turns on the batch page; without it, every access code is refused.
 
 [`.env.example`](../.env.example) lists them all.
 
@@ -27,6 +28,7 @@ Every variable is optional:
 | `/` | Redirects to the visitor's language (`?lang=`, cookie, `Accept-Language`) |
 | `/pt-BR`, `/en` | Home: form, progress, report, next step |
 | `/pt-BR/report/<id>`, `/en/report/<id>` | A shared report, rendered on the server; expired ids show an expired page |
+| `/pt-BR/batch`, `/en/batch` | Batch analysis with `BATCH_TOKEN`; `noindex` and not linked |
 | `/api/analyze?url=` | The analysis stream |
 
 The files for each language are thin wrappers over `app/_shared/`. A change there applies to both.
@@ -69,7 +71,9 @@ The budgets in `scripts/check-bundle.mjs` are the measured sizes plus about 5%. 
 ## Adding a check
 
 1. Add `lib/checks/<name>.ts` and its test.
-2. Add its result to `lib/checkResults.ts`, its key to `CheckKey` in `lib/checkFailure.ts`, and run it from `lib/runAnalysis.ts` (plus `TASK_STEPS` there and `lib/scanSteps.ts`). If it's one of our own checks, add it to `OWN_TASKS` so the partial report waits for it.
+2. Add its result to `lib/checkResults.ts`.
+   - A parser over the page already fetched runs in the `page` branch of `lib/runAnalysis.ts`; the response headers come with the HTML.
+   - A check with its own request also needs a key in `CheckKey` (`lib/checkFailure.ts`), a task in `lib/runAnalysis.ts`, `TASK_STEPS` there and `lib/scanSteps.ts`, and `OWN_TASKS` if the partial report should wait for it.
 3. If it costs points: a measurement in `lib/score.ts`, a finding in `lib/issues.ts`, and the link in `COMPONENT_ISSUES`. If it can pass: `lib/passes.ts`.
 4. Add the copy to both dictionaries.
 
@@ -80,4 +84,6 @@ The budgets in `scripts/check-bundle.mjs` are the measured sizes plus about 5%. 
 - **Shared reports locally:** run an analysis, then open the `/pt-BR/report/<id>` address it moves to. Without Redis the report lives in that server process's memory, so restarting `npm run dev` expires it.
 - **Redis without Upstash:** `node e2e/fakeUpstash.mjs 3299`, then start the app with `UPSTASH_REDIS_REST_URL=http://localhost:3299` and `UPSTASH_REDIS_REST_TOKEN=local`. The fake stores only what the shared reports, the cache and the locks use.
 - **Coalescing:** start two `curl -N` requests for the same uncached URL a second apart. Both end with the same `checkedAt`, from one run.
+- **Batch:** set `BATCH_TOKEN` in `.env.local` and open `/pt-BR/batch`, or `curl -N -H "Authorization: Bearer <token>" "http://localhost:3000/api/analyze?url=example.com"`.
+- **Print:** Ctrl+P on a report. The page footer needs Chrome 131+.
 - **Languages:** `/pt-BR` and `/en` directly, or `/` with a different `Accept-Language` or `?lang=en`. The choice is stored in the `isdias-lang` cookie.
