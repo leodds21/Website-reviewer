@@ -30,6 +30,10 @@ O HTML das páginas não é guardado. Os IDs de relatório são 10 caracteres ba
 
 O Vercel Speed Insights mede a velocidade das páginas (Core Web Vitals) sem cookies. O ID do relatório e a query string saem da URL antes do envio. Quando uma checagem falha, o log do servidor pode incluir a URL analisada. Os erros do Redis vão para o log sem o comando que carregam, para IPs e relatórios não durarem nos logs mais que o próprio prazo. O navegador só recebe códigos de erro.
 
+## Acesso ao lote
+
+`/pt-BR/batch` e `/en/batch` rodam uma lista de análises com o código de acesso de `BATCH_TOKEN`. O código só libera o limite por IP: a validação da URL, a proteção contra SSRF, o cache e as travas continuam iguais. Um código errado recebe `401`. O servidor compara os códigos em tempo constante e nunca os registra no log, e sem `BATCH_TOKEN` recusa qualquer código. O navegador guarda o código no `sessionStorage`, só naquela aba.
+
 ## Alertas conhecidos
 
 O `npm audit` aponta uma cadeia só de desenvolvimento na configuração do ESLint (`eslint-config-next` → `fast-glob` → `micromatch` → `braces`). Ela roda só no `npm run lint` e não faz parte do app publicado. O Dependabot procura uma correção toda semana.
