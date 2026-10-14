@@ -135,6 +135,25 @@ export type Dictionary = {
   synthesizeImpact: (clauses: string[]) => string;
   // Describes the fix only; never promises a result.
   recommendation: Record<IssueCode, string>;
+  batch: {
+    title: string;
+    intro: string;
+    urlsLabel: string;
+    tokenLabel: string;
+    tokenHint: string;
+    run: string;
+    running: string;
+    stop: string;
+    overLimit: (count: number) => string;
+    progress: (done: number, total: number) => string;
+    status: Record<BatchStatus, string>;
+    columns: Record<"site" | "status" | "overall" | "critical" | "topIssue" | "report", string>;
+    openReport: string;
+    download: string;
+    fileName: string;
+  };
 };
+
+export type BatchStatus = "queued" | "running" | "done" | "failed" | "skipped";
 
 export type CategoryKey = keyof Dictionary["categories"];
