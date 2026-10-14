@@ -97,6 +97,12 @@ export type Dictionary = {
   pass: Record<PassCode, string>;
   newAnalysis: string;
   reportCta: string;
+  reportCtaBody: string;
+  // Mono label above the analyzed domain, and on the print cover.
+  reportEyebrow: string;
+  reportSections: Record<"priority" | "findings" | "passes", string>;
+  coverAnalyzedOn: string;
+  coverReportLink: string;
   printButton: string;
   printFooter: (host: string) => string;
   backToReport: string;

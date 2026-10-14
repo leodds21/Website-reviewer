@@ -3,6 +3,7 @@ import { DICTIONARIES } from "../i18n/dictionaries";
 import { INTL_LOCALE, type Locale } from "../i18n/locale";
 import { OG_SIZE, homeOgImage } from "./homeOgImage";
 import { OG_FONT, ogFonts } from "./ogFonts";
+import { OgMark } from "./ogMark";
 import { getStoredReport } from "@/lib/reportStore";
 import type { Severity } from "@/lib/score";
 
@@ -31,7 +32,8 @@ export async function reportOgImage(locale: Locale, id: string) {
   return new ImageResponse(
     (
       <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", padding: "64px 72px", background: COLOR.bg, fontFamily: OG_FONT.body }}>
-        <div style={{ display: "flex", alignItems: "baseline", fontFamily: OG_FONT.heading, fontSize: 30, fontWeight: 600 }}>
+        <div style={{ display: "flex", alignItems: "center", fontFamily: OG_FONT.heading, fontSize: 30, fontWeight: 600 }}>
+          <OgMark height={32} />
           <span style={{ color: COLOR.text }}>lsdias</span>
           <span style={{ color: COLOR.link }}>.dev</span>
           <span style={{ color: COLOR.subtle, fontFamily: OG_FONT.mono, fontSize: 20, fontWeight: 500, marginLeft: 12 }}>/ scanner</span>
