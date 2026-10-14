@@ -278,4 +278,12 @@ describe("runPageSpeed", () => {
     // null = not applicable (no images): unknown, not a pass or a fail.
     expect(result.imagesHaveAlt).toBeUndefined();
   });
+
+  it("reads the viewport from Lighthouse 13's viewport-insight", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      fakeJsonResponse(200, { lighthouseResult: { categories: {}, audits: { "viewport-insight": { score: 0 } } } }),
+    );
+
+    expect((await runPageSpeed("example.com")).hasViewport).toBe(false);
+  });
 });
