@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { deriveIssues, rankIssues, topIssues, type Issue } from "./issues";
-import { COMPONENT_ISSUES, aggregateScore, issueScoreImpact } from "./score";
+import { COMPONENT_ISSUES, aggregateScore, issueScoreImpact, type ScoreComponentKey } from "./score";
 import { SCORE_SCENARIOS } from "./scoreScenarios";
 
 describe("deriveIssues", () => {
@@ -473,15 +473,15 @@ describe("rankIssues and topIssues", () => {
     expect(rankIssues(issues, noScore)).toEqual(rankIssues(issues, noScore));
   });
 
-  it("orders by severity alone for a report cached before scores kept their measurements", () => {
-    const cachedScore = { ...aggregateScore(SCORE_SCENARIOS.average.input) };
-    for (const key of ["performance", "seo", "accessibility", "security"] as const) {
-      const category = cachedScore[key];
-      if (category.score !== null) cachedScore[key] = { score: category.score, severity: category.severity, partial: category.partial };
-    }
+  it("ignores a measurement from a newer server that this bundle doesn't know", () => {
+    const score = aggregateScore(SCORE_SCENARIOS.average.input);
     const issues = deriveIssues(SCORE_SCENARIOS.average.input);
-    const bySeverity = [...issues].sort((a, b) => ["critico", "atencao", "sugestao"].indexOf(a.severity) - ["critico", "atencao", "sugestao"].indexOf(b.severity));
-    expect(rankIssues(issues, cachedScore)).toEqual(bySeverity);
+    const seo = score.seo;
+    if (seo.score === null) throw new Error("expected a scored SEO category");
+    const unknown = { key: "future-check" as ScoreComponentKey, value: 0, lost: 40 };
+    const newer = { ...score, seo: { ...seo, components: [unknown, ...seo.components] } };
+
+    expect(rankIssues(issues, newer)).toEqual(rankIssues(issues, score));
   });
 
   it("doesn't reorder the array it was given", () => {

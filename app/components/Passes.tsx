@@ -6,8 +6,10 @@ import { useLanguage } from "@/app/i18n/LanguageContext";
 import type { Pass } from "@/lib/passes";
 
 // Collapsed, unless there are no findings and this is the whole report.
-export function Passes({ passes, open }: { passes: Pass[]; open: boolean }) {
+export function Passes({ passes: all, open }: { passes: Pass[]; open: boolean }) {
   const { t } = useLanguage();
+  // A newer server can send a pass this bundle can't word.
+  const passes = all.filter((pass) => t.pass[pass.code]);
   if (passes.length === 0) return null;
 
   return (

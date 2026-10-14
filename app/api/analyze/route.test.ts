@@ -570,6 +570,37 @@ describe("GET /api/analyze, identical analyses at the same time", () => {
     limitSpy.mockRestore();
   });
 
+  it("charges only the request that gets the lock when two arrive together", async () => {
+    const pagespeed = deferred<typeof HAPPY.pagespeed>();
+    vi.mocked(runPageSpeed).mockReset().mockReturnValueOnce(pagespeed.promise);
+    const limitSpy = vi.spyOn(rateLimit, "checkRateLimit");
+
+    const [first, second] = await Promise.all([
+      GET(requestFor("route-test-race.example", "route-test-race-a.ip")),
+      GET(requestFor("route-test-race.example", "route-test-race-b.ip")),
+    ]);
+    pagespeed.resolve(HAPPY.pagespeed);
+    await Promise.all([readSseEvents(first), readSseEvents(second)]);
+
+    expect(limitSpy).toHaveBeenCalledTimes(1);
+    limitSpy.mockRestore();
+  });
+
+  it("frees the URL when the request holding the lock is rate limited", async () => {
+    const limitSpy = vi.spyOn(rateLimit, "checkRateLimit").mockResolvedValueOnce({ limited: true, retryAfterSeconds: 60 });
+
+    const limited = await GET(requestFor("route-test-limited-leader.example", "route-test-limited-leader-a.ip"));
+    expect(limited.status).toBe(429);
+
+    vi.mocked(runPageSpeed).mockClear();
+    const next = await GET(requestFor("route-test-limited-leader.example", "route-test-limited-leader-b.ip"));
+    const events = await readSseEvents(next);
+
+    expect(events.at(-1)?.event).toBe("done");
+    expect(runPageSpeed).toHaveBeenCalledTimes(1);
+    limitSpy.mockRestore();
+  });
+
   it("takes over when the leading visitor leaves before the end", async () => {
     vi.mocked(runPageSpeed)
       .mockReset()
