@@ -28,7 +28,7 @@ Out of scope: problems the scanner reports about other sites, denial of service 
 
 No page HTML is stored. Report ids are 10 random base62 characters (about 59 bits) and are validated before any lookup. They can't be guessed, but anyone with the link can open the report, so a link should be shared like the report itself. Report pages and their preview images show only what the report shows, and they're marked `noindex`.
 
-Vercel Speed Insights measures page speed (Core Web Vitals) without cookies. Report ids and the query string are removed from the URL before it's sent. When a check fails, the server log can include the analyzed URL. The browser only ever receives error codes.
+Vercel Speed Insights measures page speed (Core Web Vitals) without cookies. Report ids and the query string are removed from the URL before it's sent. When a check fails, the server log can include the analyzed URL. Redis errors are logged without the command they carry, so IPs and reports don't outlive their TTL in the logs. The browser only ever receives error codes.
 
 ## Known advisories
 
