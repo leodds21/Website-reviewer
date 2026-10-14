@@ -224,6 +224,7 @@ export const ptBR: Dictionary = {
     "site-unreachable": () =>
       "Não conseguimos chegar até esse site. Confere se o endereço está certo e se ele está no ar.",
     "quota-exceeded": () => "Atingimos o limite diário da ferramenta de análise. Tenta de novo amanhã.",
+    unauthorized: () => "O código de acesso não confere.",
     timeout: () => "O site demorou demais pra responder e desistimos de esperar. Tenta de novo em instantes.",
     offline: () => "Você parece estar sem conexão. Confere sua internet e tenta de novo.",
     unknown: () => "Não conseguimos concluir a análise. Tenta de novo em instantes.",

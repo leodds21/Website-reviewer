@@ -219,6 +219,7 @@ export const en: Dictionary = {
       "This site refuses automated analysis tools, so we couldn't measure anything from here. That doesn't mean something is wrong with it.",
     "site-unreachable": () => "We couldn't reach this site. Check that the address is right and that the site is up.",
     "quota-exceeded": () => "We've hit the analysis tool's daily limit. Try again tomorrow.",
+    unauthorized: () => "The access code doesn't match.",
     timeout: () => "The site took too long to respond and we stopped waiting. Try again in a moment.",
     offline: () => "You appear to be offline. Check your connection and try again.",
     unknown: () => "We couldn't finish the analysis. Try again in a moment.",
