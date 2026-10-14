@@ -19,11 +19,12 @@ Eu avaliava sites de possíveis clientes à mão, em várias ferramentas, e trad
 
 ## Destaques
 
-- **Checagens próprias, mais as do Google.** HTTPS, cabeçalhos de segurança, metadados, texto alternativo, sitemap/robots.txt e links quebrados são implementados aqui; o PageSpeed Insights acrescenta as notas e auditorias do Lighthouse.
+- **Checagens próprias, mais as do Google.** HTTPS, cabeçalhos de segurança, metadados, indexação (`noindex`, regras do robots.txt), prévia em redes sociais, dados estruturados, idioma da página, conteúdo misto, favicon, texto alternativo, sitemap e links quebrados são implementados aqui; o PageSpeed Insights acrescenta as notas e auditorias do Lighthouse.
 - **Um relatório que se completa enquanto roda.** Cinco tarefas rodam juntas, cada uma com seu tempo limite. O relatório abre assim que as checagens próprias terminam (cerca de 3 s), por Server-Sent Events, e a medição do Google completa depois.
 - **Falha parcial é normal.** Um tempo esgotado ou um firewall afeta só a própria categoria, que diz por que ficou incompleta.
 - **Nota explicável e determinística.** Cada categoria é a média simples de medições com nome, e o relatório mostra quanto cada uma custou. Sem IA.
-- **Relatórios compartilháveis.** Cada relatório ganha um link próprio (`/pt-BR/report/<id>`) com imagem de prévia, guardado por 30 dias.
+- **Relatórios compartilháveis.** Cada relatório ganha um link próprio (`/pt-BR/report/<id>`) com imagem de prévia, guardado por 30 dias, e vira um PDF com capa na impressão.
+- **Análise em lote.** Com um código de acesso, uma lista de até 25 sites roda de dois em dois e sai em CSV.
 - **Uma execução por URL.** Análises iguais ao mesmo tempo dividem uma única chamada ao PageSpeed, com uma trava no Redis.
 - **URLs tratadas como entrada não confiável.** Redes privadas bloqueadas, cada redirecionamento conferido de novo, o endereço checado outra vez na conexão (DNS rebinding), tamanho de resposta limitado.
 
@@ -31,13 +32,13 @@ Eu avaliava sites de possíveis clientes à mão, em várias ferramentas, e trad
 
 | Área | Checagens próprias | Google PageSpeed Insights (celular) |
 |---|---|---|
-| Segurança | HTTPS, redirecionamento do `http://`, certificado; HSTS, CSP, proteção contra clickjacking | Nota de boas práticas |
-| SEO | Título, meta description, `sitemap.xml`, `robots.txt`, links quebrados (até 10) | Nota de SEO |
-| Acessibilidade | Viewport, texto alternativo (até 20 imagens) | Nota de acessibilidade, contraste, ordem dos títulos, rótulos de formulário |
+| Segurança | HTTPS, redirecionamento do `http://`, certificado; HSTS, CSP, proteção contra clickjacking; recursos carregados por `http://` | Nota de boas práticas |
+| SEO | Título, meta description, `noindex` (meta tag ou cabeçalho), regras do robots.txt para o Googlebot, prévia Open Graph, dados estruturados, favicon, `sitemap.xml`, links quebrados (até 10) | Nota de SEO |
+| Acessibilidade | Viewport, idioma da página, texto alternativo (até 20 imagens) | Nota de acessibilidade, contraste, ordem dos títulos, rótulos de formulário |
 | Performance | | Nota de performance, LCP, CLS, TTFB |
 | Contexto | Plataforma do site (WordPress, Wix, Squarespace, Shopify) | |
 
-Quando um site bloqueia o scanner mas não o Google, as auditorias do Lighthouse substituem as checagens de título, descrição, viewport e texto alternativo.
+Quando um site bloqueia o scanner mas não o Google, as auditorias do Lighthouse substituem as checagens de título, descrição, viewport, texto alternativo, indexação, idioma e conteúdo misto.
 
 ## Como funciona
 
@@ -51,9 +52,9 @@ flowchart LR
     W --> R
     I -- não --> L[Limite por IP<br/>+ trava]
     L --> H[HTTPS + cabeçalhos]
-    L --> P[HTML da página<br/>meta · alt · plataforma]
+    L --> P[HTML da página<br/>meta · alt · indexação · prévia]
     P --> K[Links quebrados]
-    L --> S[sitemap / robots]
+    L --> S[sitemap · robots · favicon]
     L --> G[PageSpeed]
     H & P & K & S --> PR[Relatório parcial]
     PR & G --> SC[Nota<br/>médias das medições]
@@ -61,11 +62,11 @@ flowchart LR
     F --> R[Relatório + link]
 ```
 
-A página é buscada uma vez e compartilhada por quatro checagens, então a análise leva mais ou menos o tempo da checagem mais lenta (em geral o PageSpeed). Quando as checagens próprias terminam, sai um relatório parcial, com as categorias que esperam o Google marcadas assim. Cada falha é classificada (bloqueio, tempo esgotado, inacessível, cota…) e ligada às categorias que dependem dela. Nota, achados e acertos são funções puras sobre um único objeto de resultados.
+A página é buscada uma vez e compartilhada pelos parsers de HTML e pela checagem de links, então a análise leva mais ou menos o tempo da checagem mais lenta (em geral o PageSpeed). Quando as checagens próprias terminam, sai um relatório parcial, com as categorias que esperam o Google marcadas assim. Cada falha é classificada (bloqueio, tempo esgotado, inacessível, cota…) e ligada às categorias que dependem dela. Nota, achados e acertos são funções puras sobre um único objeto de resultados.
 
 ## Nota
 
-Cada categoria é a média simples das suas medições de 0 a 100: uma nota do Google, uma checagem sim/não (100 ou 0) ou uma proporção, como a de links funcionando. A nota geral é a média das categorias que puderam ser medidas. Cada medição custa `(100 − valor) ÷ N` pontos, arredondados para somar exatamente a nota. Os achados são crítico, atenção ou sugestão, e sugestões nunca tiram pontos. "Corrija primeiro" ordena por gravidade e depois por pontos perdidos. Detalhes em [Arquitetura](docs/ARCHITECTURE.pt-BR.md#nota-e-achados).
+Cada categoria é a média simples das suas medições de 0 a 100: uma nota do Google, uma checagem sim/não (100 ou 0) ou uma proporção, como a de links funcionando. A nota geral é a média das categorias que puderam ser medidas. Cada medição custa `(100 − valor) ÷ N` pontos, arredondados para somar exatamente a nota. Os achados são crítico, atenção ou sugestão, e sugestões nunca tiram pontos. Uma página bloqueada para o Google soma um 0 ao SEO; uma liberada não soma nada, então nunca aumenta uma nota. "Corrija primeiro" ordena por gravidade e depois por pontos perdidos. Detalhes em [Arquitetura](docs/ARCHITECTURE.pt-BR.md#nota-e-achados).
 
 ## Stack
 
@@ -89,7 +90,7 @@ Next.js 16 (App Router, uma rota por idioma), React 19 (`<Activity>`, `<ViewTran
 
 ## Segurança e privacidade
 
-Erros chegam ao navegador só como códigos, conteúdo dos sites analisados nunca é renderizado como HTML, e a página roda sob uma CSP com nonce por requisição. A URL analisada vai para o Google PageSpeed; relatórios e a URL analisada ficam no Upstash por 30 dias, para os links de relatório funcionarem, e IPs por até 1 hora; mensagens de contato passam pelo Formspree. Sem analytics nem cookies de rastreamento; o único cookie guarda o idioma. O Vercel Speed Insights mede a velocidade das páginas, sem cookies e sem os IDs de relatório nem as URLs analisadas. Para relatar uma vulnerabilidade, veja [SECURITY.pt-BR.md](SECURITY.pt-BR.md).
+Erros chegam ao navegador só como códigos, conteúdo dos sites analisados nunca é renderizado como HTML, e a página roda sob uma CSP com nonce por requisição. A URL analisada vai para o Google PageSpeed; relatórios e a URL analisada ficam no Upstash por 30 dias, para os links de relatório funcionarem, e IPs por até 1 hora; mensagens de contato passam pelo Formspree. Sem analytics nem cookies de rastreamento; o único cookie guarda o idioma. O Vercel Speed Insights mede a velocidade das páginas, sem cookies e sem os IDs de relatório nem as URLs analisadas. A análise em lote exige um código de acesso (`BATCH_TOKEN`), que só libera o limite por IP. Para relatar uma vulnerabilidade, veja [SECURITY.pt-BR.md](SECURITY.pt-BR.md).
 
 ## Como rodar
 

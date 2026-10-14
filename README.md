@@ -19,11 +19,12 @@ I used to check prospective clients' sites by hand in several tools and translat
 
 ## Highlights
 
-- **Own checks plus Google's.** HTTPS, security headers, metadata, alt text, sitemap/robots.txt and broken links are implemented here; PageSpeed Insights adds Lighthouse scores and audits.
+- **Own checks plus Google's.** HTTPS, security headers, metadata, indexing (`noindex`, robots.txt rules), social preview, structured data, page language, mixed content, favicon, alt text, sitemap and broken links are implemented here; PageSpeed Insights adds Lighthouse scores and audits.
 - **A report that fills in as it runs.** Five tasks run in parallel with their own timeouts. The report opens as soon as the scanner's own checks finish (about 3 s), streamed over Server-Sent Events, and Google's measurement completes it later.
 - **Partial failure is normal.** A timeout or a firewall only affects its own category, which says why it is incomplete.
 - **Explainable, deterministic scoring.** Each category is a plain average of named measurements, and the report shows what each one cost. No AI involved.
-- **Shareable reports.** Every report gets its own link (`/en/report/<id>`) with a preview image, kept for 30 days.
+- **Shareable reports.** Every report gets its own link (`/en/report/<id>`) with a preview image, kept for 30 days, and prints to a PDF with a cover.
+- **Batch mode.** With an access code, a list of up to 25 sites runs two at a time and exports to CSV.
 - **One run per URL.** Identical analyses at the same time share one PageSpeed run through a Redis lock.
 - **URLs treated as untrusted input.** Private networks blocked, every redirect rechecked, the address checked again at connection time (DNS rebinding), response size capped.
 
@@ -31,13 +32,13 @@ I used to check prospective clients' sites by hand in several tools and translat
 
 | Area | Own checks | Google PageSpeed Insights (mobile) |
 |---|---|---|
-| Security | HTTPS, `http://` redirect, certificate; HSTS, CSP, clickjacking protection | Best-practices score |
-| SEO | Title, meta description, `sitemap.xml`, `robots.txt`, broken links (up to 10) | SEO score |
-| Accessibility | Viewport, image alt text (up to 20 images) | Accessibility score, contrast, heading order, form labels |
+| Security | HTTPS, `http://` redirect, certificate; HSTS, CSP, clickjacking protection; resources loaded over `http://` | Best-practices score |
+| SEO | Title, meta description, `noindex` (meta tag or header), robots.txt rules for Googlebot, Open Graph preview, structured data, favicon, `sitemap.xml`, broken links (up to 10) | SEO score |
+| Accessibility | Viewport, page language, image alt text (up to 20 images) | Accessibility score, contrast, heading order, form labels |
 | Performance | | Performance score, LCP, CLS, TTFB |
 | Context | Site platform (WordPress, Wix, Squarespace, Shopify) | |
 
-When a site blocks the scanner but not Google, Lighthouse's audits stand in for the title, description, viewport and alt-text checks.
+When a site blocks the scanner but not Google, Lighthouse's audits stand in for the title, description, viewport, alt-text, indexing, language and mixed-content checks.
 
 ## How it works
 
@@ -51,9 +52,9 @@ flowchart LR
     W --> R
     I -- no --> L[Per-IP rate limit<br/>+ lock]
     L --> H[HTTPS + headers]
-    L --> P[Page HTML<br/>meta · alt · platform]
+    L --> P[Page HTML<br/>meta · alt · indexing · preview]
     P --> K[Broken links]
-    L --> S[sitemap / robots]
+    L --> S[sitemap · robots · favicon]
     L --> G[PageSpeed]
     H & P & K & S --> PR[Partial report]
     PR & G --> SC[Score<br/>averages of measurements]
@@ -61,11 +62,11 @@ flowchart LR
     F --> R[Report + share link]
 ```
 
-The page is fetched once and shared by four checks, so a scan takes about as long as its slowest check (usually PageSpeed). Once the scanner's own checks are in, a partial report is streamed, with the categories that wait on Google marked as such. Each failure is classified (blocked, timeout, unreachable, quota…) and attached to the categories that depend on it. Scoring, findings and passes are pure functions over one typed result object.
+The page is fetched once and shared by the HTML parsers and the link check, so a scan takes about as long as its slowest check (usually PageSpeed). Once the scanner's own checks are in, a partial report is streamed, with the categories that wait on Google marked as such. Each failure is classified (blocked, timeout, unreachable, quota…) and attached to the categories that depend on it. Scoring, findings and passes are pure functions over one typed result object.
 
 ## Scoring
 
-Each category is the plain average of its 0–100 measurements: a Google score, a yes/no check (100 or 0) or a share such as working links. The overall score averages the categories that could be measured. Each measurement costs `(100 − value) ÷ N` points, rounded so the costs add up to the score. Findings are critical, attention or suggestion, and suggestions never cost points. "Fix these first" ranks by severity, then points lost. Details in [Architecture](docs/ARCHITECTURE.md#scoring-and-findings).
+Each category is the plain average of its 0–100 measurements: a Google score, a yes/no check (100 or 0) or a share such as working links. The overall score averages the categories that could be measured. Each measurement costs `(100 − value) ÷ N` points, rounded so the costs add up to the score. Findings are critical, attention or suggestion, and suggestions never cost points. A page blocked from Google adds a 0 to SEO; an indexable one adds nothing, so it never raises a score. "Fix these first" ranks by severity, then points lost. Details in [Architecture](docs/ARCHITECTURE.md#scoring-and-findings).
 
 ## Stack
 
@@ -89,7 +90,7 @@ Next.js 16 (App Router, one route per language), React 19 (`<Activity>`, `<ViewT
 
 ## Security and privacy
 
-Errors reach the browser only as codes, content from analyzed sites is never rendered as HTML, and the page runs under a CSP with a per-request nonce. The analyzed URL goes to Google PageSpeed; reports and the analyzed URL are kept in Upstash for 30 days so report links work, and IPs for up to 1 hour; contact messages go through Formspree. No analytics or tracking cookies; the only cookie stores the language. Vercel Speed Insights measures page speed, without cookies and with report ids and analyzed URLs stripped. See [SECURITY.md](SECURITY.md) to report a vulnerability.
+Errors reach the browser only as codes, content from analyzed sites is never rendered as HTML, and the page runs under a CSP with a per-request nonce. The analyzed URL goes to Google PageSpeed; reports and the analyzed URL are kept in Upstash for 30 days so report links work, and IPs for up to 1 hour; contact messages go through Formspree. No analytics or tracking cookies; the only cookie stores the language. Vercel Speed Insights measures page speed, without cookies and with report ids and analyzed URLs stripped. Batch mode needs an access code (`BATCH_TOKEN`), which only lifts the per-IP limit. See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
 ## Getting started
 

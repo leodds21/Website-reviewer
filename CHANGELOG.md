@@ -2,6 +2,29 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions: [Semantic Versioning](https://semver.org/). Earlier history is in the Git log.
 
+## [0.3.0] - 2026-10-14
+
+### Added
+
+- Checks for `noindex` (meta tag and `X-Robots-Tag`), robots.txt rules for Googlebot, Open Graph preview, structured data, page language, mixed content and favicon. A page blocked from Google counts as 0 in SEO; other scores don't change
+- Batch analysis at `/<locale>/batch` with an access code (`BATCH_TOKEN`): up to 25 sites, two at a time, CSV export
+- Printing a report gives a PDF with a branded cover, page footer and page numbers
+- The lsdias.dev LD symbol in the header, report, favicon and preview images; preview images use the brand fonts
+
+### Changed
+
+- Report redesign: an opening with the domain, numbered parts, "Fix these first" highlighted, spacing on one scale, a branded closing
+- The cache moved to `analysis:v3:`, so the new checks show up right away
+- Dependabot groups Next and React updates
+
+### Fixed
+
+- Minified HTML (attributes without quotes) was misread: example.com was flagged as missing a viewport
+- Lighthouse 13 renamed the viewport audit, so its fallback never fired
+- A request that lost the race for an analysis lock was charged against the rate limit
+- A page open during a deploy no longer breaks on codes from the newer server
+- The printed report started with a blank page and printed the screen's toggles
+
 ## [0.2.1] - 2026-10-13
 
 ### Fixed
