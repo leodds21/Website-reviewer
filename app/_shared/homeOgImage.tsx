@@ -2,6 +2,7 @@ import { ImageResponse } from "next/og";
 
 import type { Locale } from "../i18n/locale";
 import { OG_FONT, ogFonts } from "./ogFonts";
+import { OgMark } from "./ogMark";
 
 export const OG_SIZE = { width: 1200, height: 630 };
 
@@ -36,7 +37,8 @@ export async function homeOgImage(locale: Locale) {
           fontFamily: OG_FONT.body,
         }}
       >
-        <div style={{ display: "flex", alignItems: "baseline", fontFamily: OG_FONT.heading, fontSize: 36, fontWeight: 600, marginBottom: 28 }}>
+        <div style={{ display: "flex", alignItems: "center", fontFamily: OG_FONT.heading, fontSize: 36, fontWeight: 600, marginBottom: 28 }}>
+          <OgMark height={38} />
           <span style={{ color: "#edf4ff" }}>lsdias</span>
           <span style={{ color: "#7fc4ff" }}>.dev</span>
           <span style={{ color: "#8193ae", fontFamily: OG_FONT.mono, fontSize: 24, fontWeight: 500, marginLeft: 14 }}>/ scanner</span>
