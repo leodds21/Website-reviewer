@@ -5,6 +5,12 @@ import { parseAltImages } from "./checks/altImages";
 import { checkSitemapRobots } from "./checks/sitemapRobots";
 import { detectTech, type TechPlatform } from "./checks/techDetect";
 import { checkBrokenLinks } from "./checks/brokenLinks";
+import { parseIndexing } from "./checks/indexing";
+import { parseSocialPreview } from "./checks/socialPreview";
+import { parseStructuredData } from "./checks/structuredData";
+import { parseHtmlLang } from "./checks/htmlLang";
+import { parseMixedContent } from "./checks/mixedContent";
+import { parseFavicon } from "./checks/favicon";
 import { runPageSpeed } from "./pagespeed";
 import { classifyCheckFailure, primaryReason, type CheckFailures, type CheckKey, type FailureReason } from "./checkFailure";
 import { fetchHtml } from "./fetchHtml";
@@ -100,7 +106,7 @@ export async function runAnalysis(
     }
   }
 
-  const pageFetch = withHttpFallback(async (url) => ({ url, html: await fetchHtml(url, signal) }));
+  const pageFetch = withHttpFallback(async (url) => ({ url, ...(await fetchHtml(url, signal)) }));
 
   const tasks = {
     https: httpsCheck,
@@ -121,9 +127,17 @@ export async function runAnalysis(
         console.error(`Check "${outcome.key}" failed for ${target}:`, outcome.error);
       }
     } else if (outcome.key === "page") {
-      results.metaTags = parseMetaTags(outcome.value.html);
-      results.altImages = parseAltImages(outcome.value.html);
-      platform = detectTech(outcome.value.html).platform;
+      const { html, headers, url } = outcome.value;
+      results.metaTags = parseMetaTags(html);
+      results.altImages = parseAltImages(html);
+      results.indexing = parseIndexing(html, headers.get("x-robots-tag"));
+      results.socialPreview = parseSocialPreview(html);
+      results.structuredData = parseStructuredData(html);
+      results.htmlLang = parseHtmlLang(html);
+      results.favicon = parseFavicon(html);
+      // An http:// page has nothing to mix: it's all insecure.
+      if (url.startsWith("https:")) results.mixedContent = parseMixedContent(html, headers.get("content-security-policy"));
+      platform = detectTech(html).platform;
     } else if (outcome.key === "https") {
       results.https = outcome.value;
       // Security headers only mean something over a secure connection.

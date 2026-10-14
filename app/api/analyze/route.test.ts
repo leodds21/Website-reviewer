@@ -3,7 +3,7 @@ import { checkHttps } from "@/lib/checks/https";
 import { checkSitemapRobots } from "@/lib/checks/sitemapRobots";
 import { runPageSpeed } from "@/lib/pagespeed";
 import { PageSpeedError } from "@/lib/pageSpeedError";
-import { fetchHtml } from "@/lib/fetchHtml";
+import { fetchHtml, type FetchedPage } from "@/lib/fetchHtml";
 import * as cache from "@/lib/cache";
 import * as rateLimit from "@/lib/rateLimit";
 import * as reportStore from "@/lib/reportStore";
@@ -24,6 +24,10 @@ const HAPPY_HTML = `<html><head>
   <meta name="description" content="d">
 </head><body><img src="a.png" alt="ok"></body></html>`;
 
+function pageOf(html: string, headers?: HeadersInit): FetchedPage {
+  return { html, headers: new Headers(headers) };
+}
+
 const HAPPY = {
   https: {
     passed: true,
@@ -31,13 +35,13 @@ const HAPPY = {
     redirectedFromHttp: false,
     headers: new Headers({ "strict-transport-security": "max-age=1", "content-security-policy": "default-src 'self'" }),
   },
-  sitemapRobots: { hasSitemap: true, hasRobotsTxt: true },
+  sitemapRobots: { hasSitemap: true, hasRobotsTxt: true, blocksGooglebot: null, hasFaviconIco: null },
   pagespeed: { scores: { performance: 90, accessibility: 95, "best-practices": 90, seo: 90 } },
 };
 
 beforeEach(() => {
   vi.mocked(checkHttps).mockResolvedValue(HAPPY.https);
-  vi.mocked(fetchHtml).mockResolvedValue(HAPPY_HTML);
+  vi.mocked(fetchHtml).mockResolvedValue(pageOf(HAPPY_HTML));
   vi.mocked(checkSitemapRobots).mockResolvedValue(HAPPY.sitemapRobots);
   vi.mocked(runPageSpeed).mockResolvedValue(HAPPY.pagespeed);
 });
@@ -162,7 +166,7 @@ describe("GET /api/analyze", () => {
 
   it("derives the platform from the same page fetch metaTags/altImages already use, no extra request", async () => {
     vi.mocked(fetchHtml).mockClear();
-    vi.mocked(fetchHtml).mockResolvedValueOnce('<html><head><meta name="generator" content="WordPress 6.4"></head></html>');
+    vi.mocked(fetchHtml).mockResolvedValueOnce(pageOf('<html><head><meta name="generator" content="WordPress 6.4"></head></html>'));
 
     const response = await GET(requestFor("route-test-wordpress.example", "route-test-wordpress.ip"));
     const events = await readSseEvents(response);
@@ -285,7 +289,7 @@ describe("GET /api/analyze", () => {
     // Nothing answers on https://, the plain-http version works.
     vi.mocked(fetchHtml).mockImplementation(async (url: string) => {
       if (url.startsWith("https://")) throw new TypeError("fetch failed");
-      return HAPPY_HTML;
+      return pageOf(HAPPY_HTML);
     });
     vi.mocked(checkSitemapRobots).mockImplementation(async (url: string) => {
       if (url.startsWith("https://")) throw new TypeError("fetch failed");
@@ -495,14 +499,14 @@ describe("GET /api/analyze, progressive report", () => {
   });
 
   it("skips the partial report when PageSpeed finishes before our own checks", async () => {
-    const page = deferred<string>();
+    const page = deferred<FetchedPage>();
     vi.mocked(fetchHtml).mockReset().mockReturnValueOnce(page.promise);
 
     const response = await GET(requestFor("route-test-pagespeed-first.example", "route-test-pagespeed-first.ip"));
     const names = (
       await readEvents(response, () => {
         // Every step but the page's has arrived, PageSpeed included: now release the page.
-        page.resolve(HAPPY_HTML);
+        page.resolve(pageOf(HAPPY_HTML));
       })
     ).map((event) => event.event);
 
@@ -624,5 +628,17 @@ describe("GET /api/analyze, identical analyses at the same time", () => {
     expect(events.at(-1)?.event).toBe("done");
     expect(runPageSpeed).toHaveBeenCalledTimes(2);
     errorSpy.mockRestore();
+  });
+});
+
+describe("GET /api/analyze, page signals", () => {
+  it("reads X-Robots-Tag from the page response and reports noindex", async () => {
+    vi.mocked(fetchHtml).mockResolvedValueOnce(pageOf(HAPPY_HTML, { "x-robots-tag": "noindex" }));
+
+    const events = await readSseEvents(await GET(requestFor("route-test-noindex.example", "route-test-noindex.ip")));
+    const report = events.at(-1)!.data as AnalyzeReport;
+
+    expect(report.issues).toContainEqual({ category: "seo", severity: "critico", code: "noindex", params: { source: "header" } });
+    expect(report.score.seo.score !== null && report.score.seo.components).toContainEqual({ key: "indexable", value: 0, lost: expect.any(Number) });
   });
 });

@@ -28,9 +28,9 @@ export const en: Dictionary = {
     steps: {
       https: { name: "https", description: "Secure connection and certificate" },
       securityHeaders: { name: "headers", description: "Server protections" },
-      metaTags: { name: "meta tags", description: "Title, description and viewport" },
-      altImages: { name: "images", description: "Alt text on a sample" },
-      sitemapRobots: { name: "sitemap", description: "sitemap.xml and robots.txt" },
+      metaTags: { name: "meta tags", description: "Title, description, indexing and preview" },
+      altImages: { name: "images", description: "Alt text and resources without HTTPS" },
+      sitemapRobots: { name: "sitemap", description: "sitemap.xml, robots.txt and favicon" },
       brokenLinks: { name: "links", description: "Homepage links that lead to errors" },
       pagespeed: { name: "pagespeed", description: "Speed and accessibility, measured by Google" },
     },
@@ -85,6 +85,7 @@ export const en: Dictionary = {
     title: (value) => (value === 100 ? "Page title present" : "Page title missing"),
     description: (value) => (value === 100 ? "Meta description present" : "Meta description missing"),
     links: (value, count) => (count === 0 ? "No home page links to check" : `Home page links working: ${Math.round(value)}%`),
+    indexable: (value) => (value === 0 ? "Page blocked from Google" : "Page open to Google"),
     "google-accessibility": (value) => `Google's accessibility score: ${value}`,
     viewport: (value) => (value === 100 ? "Phone screen fit present" : "Phone screen fit missing"),
     "alt-images": (value, count) => (count === 0 ? "No images on the page to check" : `Images with alternative text: ${Math.round(value)}%`),
@@ -141,6 +142,8 @@ export const en: Dictionary = {
   affectedHeading: {
     "missing-alt": (count) => (count === 1 ? "The affected image" : `The ${count} affected images`),
     "broken-links": (count) => (count === 1 ? "The broken link" : `The ${count} broken links`),
+    "no-social-preview": (count) => (count === 1 ? "The missing tag" : `The ${count} missing tags`),
+    "mixed-content": (count) => (count === 1 ? "The address without HTTPS" : `The ${count} addresses without HTTPS`),
   },
   imageWithoutSource: "(image with no address in the HTML)",
   moreAffected: (count) => `and ${count} more`,
@@ -158,6 +161,12 @@ export const en: Dictionary = {
     links: "The links tested on the home page work",
     "fast-load": "Loads fast on phones",
     "stable-layout": "Nothing jumps around while the page loads",
+    indexable: "Google can show the page in search",
+    "social-preview": "Shared links show a title, text and image",
+    "structured-data": "Has structured data that helps Google understand the content",
+    "html-lang": "The page tells screen readers its language",
+    "secure-resources": "Everything the page loads comes over HTTPS",
+    favicon: "Has its own icon in the browser tab",
   },
   newAnalysis: "New analysis",
   reportCta: "Want help fixing what showed up here?",
@@ -298,6 +307,45 @@ export const en: Dictionary = {
       title: `${params?.broken} of ${params?.checked} links tested on the homepage are broken.`,
       description: "A broken link is a dead end for whoever clicked it, and a bad signal to Google about how well-maintained the site is.",
     }),
+    noindex: (params) => ({
+      title: "The page asks Google not to show it in search.",
+      description: `${
+        params?.source === "header"
+          ? "The server sends an X-Robots-Tag header with noindex."
+          : params?.source === "meta"
+            ? "The HTML has a robots meta tag with noindex."
+            : "Google's test says the page is blocked."
+      } As long as that stays, the site won't appear on Google. If this is a test or preview address, it may be on purpose.`,
+    }),
+    "robots-blocked": () => ({
+      title: "robots.txt stops Google from reading this page.",
+      description: "Without reading the page, Google shows it poorly in search or not at all. If this is a test or preview address, it may be on purpose.",
+    }),
+    "no-social-preview": () => ({
+      title: "There's no preview for when the link is shared.",
+      description: "On WhatsApp, LinkedIn or Facebook, the link may show up without an image, or with a title and text the network picks.",
+    }),
+    "no-structured-data": () => ({
+      title: "The page has no structured data.",
+      description: "It's markup that tells Google what the business is, where it is and when it's open, and it can earn a richer search result.",
+    }),
+    "no-html-lang": () => ({
+      title: "The page doesn't say what language it's in.",
+      description: "Screen readers may read the text with another language's pronunciation, and the browser's translator has nothing to go on.",
+    }),
+    "mixed-content": (params) => ({
+      title:
+        params?.count === undefined
+          ? "The page loads files without HTTPS."
+          : params.count === 1
+            ? "The page loads 1 file without HTTPS."
+            : `The page loads ${params.count} files without HTTPS.`,
+      description: "Browsers block or flag as not secure anything served over http://, so images, scripts or forms may not work.",
+    }),
+    "no-favicon": () => ({
+      title: "The site has no icon of its own.",
+      description: "The browser's generic icon shows in the tab, in bookmarks and, on phones, next to the Google result.",
+    }),
   },
   impactClause: {
     "no-https": "the insecure connection",
@@ -310,6 +358,8 @@ export const en: Dictionary = {
     "layout-shift": "the visual instability while loading",
     "slow-server-response": "the slow server response time",
     "broken-links": "the broken links on the homepage",
+    noindex: "the block that keeps the site off Google",
+    "robots-blocked": "the robots.txt rule that stops Google from reading the page",
   },
   synthesizeImpact: (clauses) => {
     const joined = clauses.length > 1 ? `${clauses[0]} and ${clauses[1]}` : clauses[0];
@@ -337,5 +387,12 @@ export const en: Dictionary = {
     "heading-order": "Reorganize the page's headings to follow a logical hierarchy (H1 followed by H2, H2 followed by H3, without skipping levels).",
     "missing-form-labels": "Associate a <label> with each form field, or use aria-label when a visible label isn't possible.",
     "broken-links": "Fix or remove the broken links found, updating the destination or pointing to a page that still exists.",
+    noindex: "Remove noindex from the robots meta tag and the X-Robots-Tag header, unless the page really should stay off Google.",
+    "robots-blocked": "Review the Disallow rules in robots.txt so Googlebot can read this page.",
+    "no-social-preview": "Add the og:title, og:description and og:image tags, with a 1200 × 630 pixel image.",
+    "no-structured-data": "Describe the business in schema.org JSON-LD, for example with LocalBusiness or Organization.",
+    "no-html-lang": "Add the lang attribute to the <html> tag, for example lang=\"en\".",
+    "mixed-content": "Change http:// to https:// in the addresses found, or host those files on the site itself.",
+    "no-favicon": "Create a square icon and declare it with <link rel=\"icon\"> in the <head>, or publish a /favicon.ico.",
   },
 };
