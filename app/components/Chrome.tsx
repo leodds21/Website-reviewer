@@ -1,6 +1,12 @@
+import { LogoMark } from "./LogoMark";
+
 export function Brand() {
   return (
-    <a href="https://www.lsdias.dev" className="inline-flex min-h-11 items-center font-heading text-lg font-semibold whitespace-nowrap text-[var(--color-text)] no-underline">
+    <a
+      href="https://www.lsdias.dev"
+      className="inline-flex min-h-11 items-center gap-2.5 font-heading text-lg font-semibold whitespace-nowrap text-[var(--color-text)] no-underline"
+    >
+      <LogoMark size={20} />
       <span>
         lsdias<span className="text-[var(--color-link)]">.dev</span>{" "}
         <span className="font-mono text-xs font-normal text-[var(--color-subtle)]">/ scanner</span>
@@ -9,9 +15,9 @@ export function Brand() {
   );
 }
 
-export function AppHeader({ children }: { children?: React.ReactNode }) {
+export function AppHeader({ children, className = "" }: { children?: React.ReactNode; className?: string }) {
   return (
-    <header className="border-b border-[var(--color-line)]">
+    <header className={`border-b border-[var(--color-line)] ${className}`}>
       <div className="mx-auto flex w-full max-w-[1360px] flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-3 sm:px-10">
         {children}
       </div>
