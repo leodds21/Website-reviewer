@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PageSpeedError, runPageSpeed } from "./pagespeed";
+import { runPageSpeed } from "./pagespeed";
+import { PageSpeedError } from "./pageSpeedError";
 
 function fakeJsonResponse(status: number, body: unknown): Response {
   return {

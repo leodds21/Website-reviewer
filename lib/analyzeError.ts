@@ -12,7 +12,7 @@ export type AnalyzeErrorCode =
   | "timeout"
   | "offline"
   | "unknown"
-  // A report link whose report expired from the cache.
+  // Client-only: an older ?url= link filled the field (shown as a note, not an error).
   | "not-cached";
 
 export type AnalyzeError = { code: AnalyzeErrorCode; retryAfterSeconds?: number };

@@ -27,7 +27,6 @@
 
 @theme inline {
   --font-heading: var(--font-space-grotesk), sans-serif;
-  --font-body: var(--font-manrope), sans-serif;
   --font-mono: var(--font-jetbrains-mono), monospace;
 }
 
