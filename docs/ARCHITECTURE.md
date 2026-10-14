@@ -13,7 +13,9 @@ One Next.js app (App Router, TypeScript). Each language has its own root layout;
 | `app/_shared/Scanner.tsx` | The client island: form, progress, report and next step, with `<Activity>` and `<ViewTransition>` |
 | `app/hooks/useAnalysis.ts` | Starts an analysis and reads the event stream |
 | `app/hooks/useReportLink.ts` | Keeps each screen in browser history and the report at its own address |
-| `app/components/` | One component per screen or report section |
+| `app/components/` | One component per screen or report section; `ReportPrintCover` is the PDF's first page, `LogoMark` the LD symbol |
+| `app/_shared/BatchPage.tsx`, `lib/batch*.ts` | Batch page: list cleanup, runner, CSV |
+| `app/_shared/ogFonts.ts`, `ogMark.tsx` | Brand fonts and symbol for the preview images |
 | `app/i18n/` | One dictionary per language, the helpers that use them, locale constants |
 | `app/api/analyze/route.ts` | Validation, cache, lock, rate limit, streaming |
 | `lib/runAnalysis.ts` | Runs the checks concurrently and emits steps and the partial report |
@@ -21,7 +23,7 @@ One Next.js app (App Router, TypeScript). Each language has its own root layout;
 | `lib/analysisEvents.ts` | The stream's event types, shared by server and client |
 | `lib/inflight.ts` | Lock and progress sharing for identical concurrent analyses |
 | `lib/reportStore.ts`, `lib/reportId.ts` | Shared reports and their ids |
-| `lib/checks/` | One file per check; HTML parsers share one page fetch |
+| `lib/checks/` | One file per check; HTML parsers share one page fetch and its headers |
 | `lib/safeFetch.ts` | The only way the server fetches an analyzed site (SSRF guard) |
 | `lib/score.ts` | Scores, including categories still being measured |
 | `lib/issues.ts`, `lib/passes.ts` | Findings, their ranking, and what passed |
@@ -49,12 +51,12 @@ sequenceDiagram
             R-->>B: step / partial / done, relayed
         end
     else first request
-        R->>R: rate limit per IP
         R->>C: SET lock NX PX 75000
+        R->>R: rate limit per IP (not with a batch token)
         par checks run concurrently
             R->>S: HTTPS (http:// first) + headers
-            R->>S: page HTML (meta tags, alt text, platform, links)
-            R->>S: sitemap.xml, robots.txt
+            R->>S: page HTML + headers (meta tags, alt text, indexing, preview, schema, language, mixed content, icon, platform, links)
+            R->>S: sitemap.xml, robots.txt (rules), favicon.ico
             R->>G: Lighthouse run (mobile)
         end
         R-->>B: event: step (one per finished check)
@@ -71,12 +73,13 @@ Timeouts are 8 s for the site's own checks, 3 s per link and 50 s for PageSpeed.
 
 ## API
 
-`GET /api/analyze?url=<address>`
+`GET /api/analyze?url=<address>`, optionally with `Authorization: Bearer <BATCH_TOKEN>`
 
 | Response | When |
 |---|---|
 | `200` `text/event-stream` | The analysis, or the cached report |
 | `400` `{ code }` | `missing-url`, `invalid-url`, `blocked-url` |
+| `401` `{ code: "unauthorized" }` | A batch token that doesn't match `BATCH_TOKEN`, or any token when it's unset |
 | `429` `{ code: "rate-limited", retryAfterSeconds }` | Per-IP limit reached; also sends `Retry-After` |
 
 Events (`lib/analysisEvents.ts`):
@@ -102,7 +105,7 @@ The partial report goes out once `https`, `page`, `sitemapRobots` and `brokenLin
 
 | Key | Holds | TTL |
 |---|---|---|
-| `analysis:v2:<origin><path>` | `{ report }`, with its share id | 6 h, or 5 min when a check failed |
+| `analysis:v3:<origin><path>` | `{ report }`, with its share id | 6 h, or 5 min when a check failed |
 | `inflight:<origin><path>` | The leading run's id (the lock) | 75 s |
 | `inflight:<runId>:state` | `{ steps, partial?, final?, failed?, aborted? }` | 120 s |
 | `report:<id>` | `StoredReport` (version, id, targetUrl, domain, report, dates) | `REPORT_TTL_DAYS`, default 30 days |
@@ -110,7 +113,7 @@ The partial report goes out once `https`, `page`, `sitemapRobots` and `brokenLin
 
 The cache key ignores query and hash, which are usually tracking parameters. `http://` and `https://`, `www.` and a trailing slash stay separate keys because they are different inputs.
 
-**Coalescing.** The first request takes the lock with `SET NX PX` and publishes a snapshot on each step. Requests that find the lock follow those snapshots and aren't charged against the rate limit, since they cost no PageSpeed quota. The lock always expires. Releasing it is compare-and-delete, so a late leader can't free a newer one's lock. If the leader's visitor leaves, the run is marked aborted; a follower checks the cache, then runs the analysis itself once, through the rate limit. If Redis fails, the request runs uncoalesced. Without Redis, the same logic runs in memory per instance, with expired entries swept on write.
+**Coalescing.** The first request takes the lock with `SET NX PX`, is then charged against the rate limit, and publishes a snapshot on each step. Requests that find the lock, or lose the race for it, follow those snapshots and aren't charged, since they cost no PageSpeed quota. A leader over the limit releases the lock at once, and anyone following takes over. The lock always expires. Releasing it is compare-and-delete, so a late leader can't free a newer one's lock. If the leader's visitor leaves, the run is marked aborted; a follower checks the cache, then runs the analysis itself once, through the rate limit. If Redis fails, the request runs uncoalesced. Without Redis, the same logic runs in memory per instance, with expired entries swept on write.
 
 **Failures.** The client retries a Redis call twice (not Upstash's default five), so an outage can't push a request past `maxDuration`. Redis errors are logged without the command they carry, which would include visitor IPs, analyzed URLs and reports.
 
@@ -119,6 +122,14 @@ The cache key ignores query and hash, which are usually tracking parameters. `ht
 The leader stores the final report under a 10-character base62 id (`crypto.getRandomValues`, about 59 bits) and caches it with that id, so a cache hit gives the same link. If the save fails, the report is sent without a link rather than with one only that server could open. The client moves the address to `/<locale>/report/<id>` with native `pushState`/`replaceState`; Next keeps the current tree for those entries, so back and forward never refetch. The next step is a history entry with the same address, not a route. Each entry also carries the analysis it belongs to, so back and forward never show one analysis's report for another; a reload on the next step comes back to the report.
 
 `/<locale>/report/[id]` reads the store on the server and renders the same `Scanner` in report stage. It imports the report screens directly; the home page loads them on demand and starts fetching them when an analysis starts. Unknown or expired ids show an expired page with a link to a new analysis. A storage error shows a per-locale error page with a retry button instead, since the report may still exist. Report pages are `noindex`, with canonical, hreflang and a preview image (domain, overall score, categories, date).
+
+## Batch
+
+`/<locale>/batch` runs a list of up to 25 URLs, two at a time, through the same endpoint and stream parser as the home page. It sends `BATCH_TOKEN` as a bearer token, which only skips the per-IP limit; validation, the SSRF guard, the cache, the locks and shared reports work as usual. The server compares tokens through SHA-256 digests with `timingSafeEqual`. The page keeps the code in `sessionStorage`, builds the CSV in the browser (`;` in Portuguese, for Excel), and is `noindex`.
+
+## Print
+
+Printing a report gives a PDF: a dark cover (`ReportPrintCover`, on the named page `cover`, edge to edge), then light pages with the screen's toggles hidden and every section open. The page footer uses `@page` margin boxes (Chrome 131+; other browsers leave them out). Pages have no side margins and the content insets itself (`.print-inset`): Chrome lays the document out at the first page's width, so different side margins on the cover would push content past the edge.
 
 ## Languages and CSP
 
@@ -131,7 +142,7 @@ The leader stores the final report under a 10-character base62 id (`crypto.getRa
 Each category is the plain average of the measurements that could be taken (`lib/score.ts`):
 
 - Performance: Google's performance score
-- SEO: Google's SEO score, title (100/0), description (100/0), share of working links
+- SEO: Google's SEO score, title (100/0), description (100/0), share of working links, and indexable: 0 when `noindex` or robots.txt keeps Google out, left out otherwise, so it never raises a score
 - Accessibility: Google's accessibility score, viewport (100/0), share of images with alt text
 - Security: 0 without trusted HTTPS; otherwise HTTPS (100, or 50 without the `http://` redirect) averaged with Google's best-practices score
 
@@ -152,4 +163,5 @@ One failed check leaves its category "partly measured" or "not measured", with t
 - No database beyond Redis: no scan history, and shared reports expire.
 - **Cache Components / Partial Prerendering: not enabled.** A nonce CSP needs every page rendered per request, and Next documents PPR as incompatible with nonces. Static prerendering of the pages is ruled out for the same reason.
 - **React Compiler: not enabled.** Measured with `reactCompiler` and `babel-plugin-react-compiler`: initial JS grew from 152.2 to 160.1 KB gzip and the build from about 12.5 to 13.1 s. The app re-renders little, so there was nothing to gain for that cost.
+- **Batch page not in robots.txt:** `noindex` only. A `Disallow` would advertise the path and keep Google from seeing the `noindex`.
 - **Lighthouse is not in CI:** its scores vary between runs. CI checks initial JS size instead (`npm run check:bundle`).
