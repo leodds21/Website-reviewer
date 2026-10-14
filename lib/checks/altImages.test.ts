@@ -58,4 +58,9 @@ describe("parseAltImages — how affected images are described", () => {
     expect(described.length).toBeLessThanOrEqual(201);
     expect(described.endsWith("…")).toBe(true);
   });
+
+  it("records the real src, unquoted or next to a data-src", () => {
+    expect(parseAltImages("<img src=/a.png>").missingAltSrcs).toEqual(["/a.png"]);
+    expect(parseAltImages('<img data-src="/lazy.png" src="/b.png">').missingAltSrcs).toEqual(["/b.png"]);
+  });
 });

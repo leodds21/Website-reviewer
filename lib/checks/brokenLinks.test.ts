@@ -61,6 +61,18 @@ describe("checkBrokenLinks", () => {
     expect(requestedUrl.toString()).toBe("https://example.com/contato");
   });
 
+  it("reads unquoted hrefs and ignores data-href and commented-out links", async () => {
+    vi.mocked(fetch).mockResolvedValue(fakeResponse(200));
+
+    const result = await checkBrokenLinks(
+      '<a href=/contato>Contato</a><a data-href="/x">X</a><!-- <a href="/velho">V</a> -->',
+      "https://example.com/",
+    );
+
+    expect(result.checkedCount).toBe(1);
+    expect((vi.mocked(fetch).mock.calls[0][0] as URL).toString()).toBe("https://example.com/contato");
+  });
+
   it("skips mailto:, tel:, javascript: and bare #fragment links", async () => {
     vi.mocked(fetch).mockResolvedValue(fakeResponse(200));
 

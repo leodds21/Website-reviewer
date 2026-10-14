@@ -1,3 +1,5 @@
+import { attribute, openingTags, withoutComments } from "./html";
+
 export type MetaTagsCheckResult = {
   hasViewport: boolean;
   hasTitle: boolean;
@@ -7,18 +9,19 @@ export type MetaTagsCheckResult = {
 };
 
 export function parseMetaTags(html: string): MetaTagsCheckResult {
-  const hasViewport = /<meta[^>]+name=["']viewport["'][^>]*>/i.test(html);
+  const markup = withoutComments(html);
+  // Minified pages often drop the quotes: <meta name=viewport content=...>.
+  const metas = openingTags(markup, "meta");
+  const named = (name: string) => metas.find((tag) => attribute(tag, "name")?.toLowerCase() === name);
 
-  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  const titleMatch = markup.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
   const title = titleMatch ? titleMatch[1].trim() : null;
 
-  // Two steps because content= can come before name=.
-  const descriptionTagMatch = html.match(/<meta\b[^>]*\bname=["']description["'][^>]*>/i);
-  const descriptionContentMatch = descriptionTagMatch?.[0].match(/\bcontent=["']([^"']*)["']/i);
-  const description = descriptionContentMatch ? descriptionContentMatch[1].trim() : null;
+  const descriptionTag = named("description");
+  const description = (descriptionTag && attribute(descriptionTag, "content")) || null;
 
   return {
-    hasViewport,
+    hasViewport: Boolean(named("viewport")),
     hasTitle: Boolean(title),
     title,
     hasDescription: Boolean(description),
