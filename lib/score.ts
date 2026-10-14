@@ -28,10 +28,9 @@ export type ScoreComponent = {
   count?: number;
 };
 
-// Reports cached before `components` existed don't have it. `pending` marks a
-// provisional score: some of its sources are still running.
+// `pending` marks a provisional score: some of its sources are still running.
 export type CategoryScore =
-  | { score: number; severity: ScoredSeverity; partial: boolean; pending?: true; components?: ScoreComponent[] }
+  | { score: number; severity: ScoredSeverity; partial: boolean; pending?: true; components: ScoreComponent[] }
   | { score: null; severity: "indisponivel"; reason: FailureReason }
   | { score: null; severity: "pendente" };
 
@@ -214,7 +213,8 @@ export const COMPONENT_ISSUES: Record<ScoreComponentKey, IssueCode[]> = {
 /** Overall-score points a finding accounts for. Used only to order findings. */
 export function issueScoreImpact(issue: Issue, score: AggregatedScore): number {
   const category = score[issue.category];
-  const component = category.score === null ? undefined : category.components?.find((c) => COMPONENT_ISSUES[c.key].includes(issue.code));
+  // `?.`: a newer server can send a measurement this bundle doesn't know.
+  const component = category.score === null ? undefined : category.components.find((c) => COMPONENT_ISSUES[c.key]?.includes(issue.code));
   if (!component) return 0;
   const scoredCategories = [score.performance, score.seo, score.accessibility, score.security].filter((c) => c.score !== null).length;
   return component.lost / scoredCategories;

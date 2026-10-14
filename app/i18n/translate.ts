@@ -1,5 +1,6 @@
 import type { Issue, IssueCode } from "@/lib/issues";
 import type { AnalyzeError } from "@/lib/analyzeError";
+import type { ScoreComponent } from "@/lib/score";
 import type { Dictionary, IssueParams } from "./types";
 
 // Helpers take the dictionary, not the locale, so a page only ships its own language.
@@ -11,7 +12,11 @@ export function translateIssue(t: Dictionary, code: IssueCode, params: IssuePara
 }
 
 export function translateRecommendation(t: Dictionary, code: IssueCode): string {
-  return t.recommendation[code];
+  return t.recommendation[code] ?? "";
+}
+
+export function translateScoreComponent(t: Dictionary, { key, value, count }: ScoreComponent): string {
+  return t.scoreComponent[key]?.(value, count) ?? key;
 }
 
 export function translateAnalysisError(t: Dictionary, error: AnalyzeError): string {

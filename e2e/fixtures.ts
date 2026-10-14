@@ -71,10 +71,18 @@ export const CLEAN_REPORT: AnalyzeReport = {
   score: {
     overall: 97,
     overallSeverity: "ok",
-    performance: { score: 95, severity: "ok", partial: false },
-    seo: { score: 100, severity: "ok", partial: false },
-    accessibility: { score: 96, severity: "ok", partial: false },
-    security: { score: 98, severity: "ok", partial: false },
+    performance: { score: 95, severity: "ok", partial: false, components: [{ key: "google-performance", value: 95, lost: 5 }] },
+    seo: { score: 100, severity: "ok", partial: false, components: [{ key: "google-seo", value: 100, lost: 0 }] },
+    accessibility: { score: 96, severity: "ok", partial: false, components: [{ key: "google-accessibility", value: 96, lost: 4 }] },
+    security: {
+      score: 98,
+      severity: "ok",
+      partial: false,
+      components: [
+        { key: "https", value: 100, lost: 0 },
+        { key: "google-best-practices", value: 96, lost: 2 },
+      ],
+    },
   },
   issues: [],
   passed: [
@@ -94,9 +102,10 @@ export const PARTIAL_REPORT: AnalyzeReport = {
     performance: { score: null, severity: "indisponivel", reason: "blocked" },
     seo: { score: null, severity: "indisponivel", reason: "timeout" },
     accessibility: { score: null, severity: "indisponivel", reason: "blocked" },
-    security: { score: 92, severity: "ok", partial: true },
+    security: { score: 92, severity: "ok", partial: true, components: [{ key: "google-best-practices", value: 92, lost: 8 }] },
   },
   issues: [],
+  passed: [],
 };
 
 const STEPS = SCAN_STEPS;
@@ -139,7 +148,17 @@ export const IN_PROGRESS_REPORT: AnalyzeReport = {
     overall: 0,
     overallSeverity: "pendente",
     performance: { score: null, severity: "pendente" },
-    seo: { score: 67, severity: "atencao", partial: false, pending: true },
+    seo: {
+      score: 67,
+      severity: "atencao",
+      partial: false,
+      pending: true,
+      components: [
+        { key: "title", value: 100, lost: 0 },
+        { key: "description", value: 0, lost: 33 },
+        { key: "links", value: 100, lost: 0 },
+      ],
+    },
   },
 };
 

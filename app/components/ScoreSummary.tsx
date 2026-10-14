@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ToggleSummary } from "./Chrome";
 import { SEVERITY_TEXT, SeverityMark } from "./SeverityMark";
 import { useLanguage } from "@/app/i18n/LanguageContext";
+import { translateScoreComponent } from "@/app/i18n/translate";
 import type { CategoryKey } from "@/app/i18n/types";
 import type { AnalyzeReport } from "@/lib/report";
 import type { IssueSeverity } from "@/lib/issues";
@@ -68,7 +69,7 @@ function ScoreBreakdown({ score, components }: { score: number; components: Scor
         ? t.scoreFromGoogle(only.value)
         : only.key === "https" && only.value === 0
           ? t.securityWithoutHttps
-          : `${t.scoreSingleMeasurement} ${t.scoreComponent[only.key](only.value, only.count)}.`;
+          : `${t.scoreSingleMeasurement} ${translateScoreComponent(t, only)}.`;
     return <p className="pb-1 text-xs leading-relaxed text-[var(--color-muted)]">{sentence}</p>;
   }
 
@@ -81,7 +82,7 @@ function ScoreBreakdown({ score, components }: { score: number; components: Scor
         {byLoss.map((component) => (
           <BreakdownLine
             key={component.key}
-            label={t.scoreComponent[component.key](component.value, component.count)}
+            label={translateScoreComponent(t, component)}
             value={component.lost > 0 ? `−${component.lost}` : "0"}
           />
         ))}
@@ -105,7 +106,7 @@ function CategoryRow({
 }) {
   const { t } = useLanguage();
   const severity = stopped && result.severity === "pendente" ? "indisponivel" : result.severity;
-  // "?? unknown" covers reports cached before reasons existed.
+  // "?? unknown" covers a reason from a newer server.
   const note =
     result.severity === "pendente"
       ? stopped
@@ -136,8 +137,7 @@ function CategoryRow({
         </span>
       </div>
       {note && <p className="mt-1 pl-[18px] text-xs leading-snug text-[var(--color-subtle)]">{note}</p>}
-      {/* Older cached reports have no measurements to break down. */}
-      {result.score !== null && result.components && (
+      {result.score !== null && (
         <details className="pl-[18px]">
           <ToggleSummary className="inline-flex min-h-10 text-xs">{t.scoreBreakdownToggle}</ToggleSummary>
           <ScoreBreakdown score={result.score} components={result.components} />
