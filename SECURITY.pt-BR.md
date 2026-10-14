@@ -28,7 +28,7 @@ Fora: problemas que o scanner aponta em outros sites, negação de serviço por 
 
 O HTML das páginas não é guardado. Os IDs de relatório são 10 caracteres base62 aleatórios (cerca de 59 bits) e são validados antes de qualquer leitura. Não dá para adivinhá-los, mas quem tem o link abre o relatório, então o link deve ser compartilhado como o próprio relatório. As páginas de relatório e suas imagens de prévia mostram só o que o relatório mostra, e são marcadas como `noindex`.
 
-O Vercel Speed Insights mede a velocidade das páginas (Core Web Vitals) sem cookies. O ID do relatório e a query string saem da URL antes do envio. Quando uma checagem falha, o log do servidor pode incluir a URL analisada. O navegador só recebe códigos de erro.
+O Vercel Speed Insights mede a velocidade das páginas (Core Web Vitals) sem cookies. O ID do relatório e a query string saem da URL antes do envio. Quando uma checagem falha, o log do servidor pode incluir a URL analisada. Os erros do Redis vão para o log sem o comando que carregam, para IPs e relatórios não durarem nos logs mais que o próprio prazo. O navegador só recebe códigos de erro.
 
 ## Alertas conhecidos
 
