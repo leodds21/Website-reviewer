@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { checkHttps } from "@/lib/checks/https";
 import { checkSitemapRobots } from "@/lib/checks/sitemapRobots";
-import { PageSpeedError, runPageSpeed } from "@/lib/pagespeed";
+import { runPageSpeed } from "@/lib/pagespeed";
+import { PageSpeedError } from "@/lib/pageSpeedError";
 import { fetchHtml } from "@/lib/fetchHtml";
 import * as cache from "@/lib/cache";
 import * as rateLimit from "@/lib/rateLimit";
@@ -14,11 +15,7 @@ import { GET } from "./route";
 // The checks have their own tests; this file covers the orchestration.
 vi.mock("@/lib/checks/https", () => ({ checkHttps: vi.fn() }));
 vi.mock("@/lib/checks/sitemapRobots", () => ({ checkSitemapRobots: vi.fn() }));
-// The real PageSpeedError, so the route's instanceof check runs.
-vi.mock("@/lib/pagespeed", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/pagespeed")>()),
-  runPageSpeed: vi.fn(),
-}));
+vi.mock("@/lib/pagespeed", () => ({ runPageSpeed: vi.fn() }));
 vi.mock("@/lib/fetchHtml", () => ({ fetchHtml: vi.fn() }));
 
 const HAPPY_HTML = `<html><head>
@@ -319,7 +316,7 @@ describe("GET /api/analyze", () => {
     expect(fetchHtml).toHaveBeenCalledTimes(1);
   });
 
-  it("doesn't count a cached report against the rate limit (reopening a report link)", async () => {
+  it("doesn't count a cached report against the rate limit", async () => {
     const domain = "route-test-cache-rl.example";
     await readSseEvents(await GET(requestFor(domain, "route-test-cache-rl.ip")));
 

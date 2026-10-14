@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import type { AnalyzeReport } from "@/lib/report";
 import type { AnalyzeError } from "@/lib/analyzeError";
+import { SCAN_STEPS } from "@/lib/scanSteps";
 
 // A site with something at every severity, including the two findings
 // that carry affected elements.
@@ -98,7 +99,7 @@ export const PARTIAL_REPORT: AnalyzeReport = {
   issues: [],
 };
 
-const STEPS = ["https", "securityHeaders", "metaTags", "altImages", "sitemapRobots", "brokenLinks", "pagespeed"];
+const STEPS = SCAN_STEPS;
 
 function sse(events: { event: string; data: unknown }[]): string {
   return events.map(({ event, data }) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`).join("");

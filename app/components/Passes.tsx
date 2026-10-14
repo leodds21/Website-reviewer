@@ -1,6 +1,6 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { CheckIcon } from "./Icons";
 import { ToggleSummary } from "./Chrome";
 import { useLanguage } from "@/app/i18n/LanguageContext";
 import type { Pass } from "@/lib/passes";
@@ -24,7 +24,7 @@ export function Passes({ passes, open }: { passes: Pass[]; open: boolean }) {
               className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-[var(--color-line)] px-5 py-3 last:border-b-0 sm:px-6"
             >
               <span className="flex items-baseline gap-2.5 text-[15px] text-[var(--color-body)]">
-                <Check size={14} strokeWidth={2.5} aria-hidden="true" className="shrink-0 translate-y-0.5 text-[var(--color-severity-ok)]" />
+                <CheckIcon size={14} strokeWidth={2.5} className="shrink-0 translate-y-0.5 text-[var(--color-severity-ok)]" />
                 {t.pass[pass.code]}
               </span>
               <span className="font-mono text-[11px] tracking-[0.14em] text-[var(--color-subtle)] uppercase">{t.categories[pass.category]}</span>

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { SCAN_STEPS } from "@/lib/scanSteps";
 import {
   CLEAN_REPORT,
   IN_PROGRESS_REPORT,
@@ -368,7 +369,7 @@ test.describe("errors", () => {
 });
 
 test.describe("progressive report", () => {
-  const OWN_STEPS = ["https", "securityHeaders", "metaTags", "altImages", "sitemapRobots", "brokenLinks"];
+  const OWN_STEPS = SCAN_STEPS.filter((step) => step !== "pagespeed");
 
   test("shows our own checks' report before Google's measurement, then completes it", async ({ page }) => {
     await mockLiveAnalysis(page);

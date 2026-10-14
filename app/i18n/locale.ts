@@ -7,7 +7,7 @@ export const DEFAULT_LOCALE: Locale = "pt-BR";
 export const LOCALE_COOKIE = "isdias-lang";
 
 export function isLocale(value: string | null | undefined): value is Locale {
-  return value === "pt-BR" || value === "en";
+  return (LOCALES as readonly (string | null | undefined)[]).includes(value);
 }
 
 // Also accepts "pt", the value older cookies and ?lang= links carry.

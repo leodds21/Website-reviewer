@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = 3210;
-export const FAKE_UPSTASH_PORT = 3299;
+const FAKE_UPSTASH_PORT = 3299;
 
 // The analysis endpoint is mocked per test (e2e/fixtures.ts).
 export default defineConfig({
