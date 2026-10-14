@@ -30,6 +30,10 @@ No page HTML is stored. Report ids are 10 random base62 characters (about 59 bit
 
 Vercel Speed Insights measures page speed (Core Web Vitals) without cookies. Report ids and the query string are removed from the URL before it's sent. When a check fails, the server log can include the analyzed URL. Redis errors are logged without the command they carry, so IPs and reports don't outlive their TTL in the logs. The browser only ever receives error codes.
 
+## Batch access
+
+`/pt-BR/batch` and `/en/batch` run a list of analyses with the access code in `BATCH_TOKEN`. The code only lifts the per-IP rate limit: URL validation, the SSRF guard, the cache and the locks stay the same. A wrong code gets `401`. The server compares codes in constant time and never logs them, and without `BATCH_TOKEN` it refuses every code. The browser keeps the code in `sessionStorage`, for that tab only.
+
 ## Known advisories
 
 `npm audit` reports one dev-only chain in the ESLint config (`eslint-config-next` → `fast-glob` → `micromatch` → `braces`). It only runs during `npm run lint` and isn't part of the deployed app. Dependabot checks for a fix weekly.
