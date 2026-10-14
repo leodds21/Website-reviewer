@@ -20,8 +20,13 @@ type PageSpeedApiResponse = {
       // Fallback for sites that block our fetch but let Google's through.
       "document-title"?: { score?: number | null };
       "meta-description"?: { score?: number | null };
+      // Lighthouse 13 renamed viewport to viewport-insight.
+      "viewport-insight"?: { score?: number | null };
       viewport?: { score?: number | null };
       "image-alt"?: { score?: number | null };
+      "is-crawlable"?: { score?: number | null };
+      "html-has-lang"?: { score?: number | null };
+      "is-on-https"?: { score?: number | null };
     };
   };
 };
@@ -49,6 +54,10 @@ export type PageSpeedResult = {
   hasDescription?: boolean;
   hasViewport?: boolean;
   imagesHaveAlt?: boolean;
+  isCrawlable?: boolean;
+  hasHtmlLang?: boolean;
+  // Fails for an http:// page too, so it only means mixed content when HTTPS works.
+  hasInsecureRequests?: boolean;
 };
 
 // All four categories in one call: the quota cost is the same.
@@ -115,7 +124,10 @@ export async function runPageSpeed(url: string, signal?: AbortSignal): Promise<P
     hasFormLabelIssues: fails(audits?.label?.score),
     hasTitle: passes(audits?.["document-title"]?.score),
     hasDescription: passes(audits?.["meta-description"]?.score),
-    hasViewport: passes(audits?.viewport?.score),
+    hasViewport: passes(audits?.["viewport-insight"]?.score ?? audits?.viewport?.score),
     imagesHaveAlt: passes(audits?.["image-alt"]?.score),
+    isCrawlable: passes(audits?.["is-crawlable"]?.score),
+    hasHtmlLang: passes(audits?.["html-has-lang"]?.score),
+    hasInsecureRequests: fails(audits?.["is-on-https"]?.score),
   };
 }

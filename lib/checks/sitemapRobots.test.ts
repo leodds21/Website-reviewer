@@ -5,10 +5,10 @@ import { checkSitemapRobots } from "./sitemapRobots";
 vi.mock("node:dns/promises", () => ({ lookup: vi.fn().mockResolvedValue([{ address: "93.184.216.34" }]) }));
 
 // A real stream, since readTextCapped reads the body incrementally.
-function fakeResponse(status: number, body = ""): Response {
+function fakeResponse(status: number, body = "", headers?: HeadersInit): Response {
   return {
     status,
-    headers: new Headers(),
+    headers: new Headers(headers),
     ok: status >= 200 && status < 300,
     body: new ReadableStream<Uint8Array>({
       start(controller) {
@@ -109,5 +109,56 @@ describe("checkSitemapRobots", () => {
 
     expect(result.hasSitemap).toBe(false);
     expect(result.hasRobotsTxt).toBe(false);
+  });
+
+  describe("robots.txt rules", () => {
+    async function blocks(robots: Response, url = "example.com/servicos"): Promise<boolean | null> {
+      vi.mocked(fetch).mockResolvedValueOnce(fakeResponse(404)).mockResolvedValueOnce(robots).mockResolvedValueOnce(fakeResponse(404));
+      return (await checkSitemapRobots(url)).blocksGooglebot;
+    }
+
+    it("tests the analyzed path against the rules", async () => {
+      expect(await blocks(fakeResponse(200, "User-agent: *\nDisallow: /servicos"))).toBe(true);
+      expect(await blocks(fakeResponse(200, "User-agent: *\nDisallow: /admin"))).toBe(false);
+    });
+
+    it("treats a missing robots.txt or an HTML page as no rules", async () => {
+      expect(await blocks(fakeResponse(404))).toBe(false);
+      expect(await blocks(fakeResponse(200, "<!doctype html><title>Not found</title>"))).toBe(false);
+    });
+
+    it("can't tell when robots.txt errors or is refused", async () => {
+      expect(await blocks(fakeResponse(503))).toBeNull();
+      expect(await blocks(fakeResponse(500))).toBeNull();
+      expect(await blocks(fakeResponse(403))).toBeNull();
+    });
+  });
+
+  describe("/favicon.ico", () => {
+    async function favicon(response: Response): Promise<boolean | null> {
+      vi.mocked(fetch).mockResolvedValueOnce(fakeResponse(404)).mockResolvedValueOnce(fakeResponse(404)).mockResolvedValueOnce(response);
+      return (await checkSitemapRobots("example.com")).hasFaviconIco;
+    }
+
+    it("finds an icon served as an image", async () => {
+      expect(await favicon(fakeResponse(200, "x", { "content-type": "image/x-icon" }))).toBe(true);
+      expect(await favicon(fakeResponse(200, "x", { "content-type": "application/octet-stream" }))).toBe(true);
+    });
+
+    it("doesn't take an HTML page or a 404 for an icon", async () => {
+      expect(await favicon(fakeResponse(200, "<html>", { "content-type": "text/html" }))).toBe(false);
+      expect(await favicon(fakeResponse(404))).toBe(false);
+    });
+  });
+
+  it("answers with what the favicon probe saw when only it got through", async () => {
+    vi.mocked(fetch)
+      .mockRejectedValueOnce(new Error("reset"))
+      .mockRejectedValueOnce(new Error("reset"))
+      .mockResolvedValueOnce(fakeResponse(200, "x", { "content-type": "image/png" }));
+
+    const result = await checkSitemapRobots("example.com");
+
+    expect(result).toEqual({ hasSitemap: null, hasRobotsTxt: null, blocksGooglebot: null, hasFaviconIco: true });
   });
 });

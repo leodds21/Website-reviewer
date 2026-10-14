@@ -48,7 +48,14 @@ export type IssueCode =
   | "slow-server-response"
   | "heading-order"
   | "missing-form-labels"
-  | "broken-links";
+  | "broken-links"
+  | "noindex"
+  | "robots-blocked"
+  | "no-social-preview"
+  | "no-structured-data"
+  | "no-html-lang"
+  | "mixed-content"
+  | "no-favicon";
 
 export type Issue = {
   category: IssueCategory;
@@ -88,6 +95,21 @@ export function deriveIssues(input: Partial<CheckResults>): Issue[] {
       issues.push({ category: "security", severity: "critico", code: "no-https" });
     } else if (input.https.noHttpRedirect) {
       issues.push({ category: "security", severity: "atencao", code: "no-https-redirect" });
+    }
+  }
+
+  // Mixed content only exists once the page itself is on https.
+  if (input.https?.passed) {
+    if (input.mixedContent && input.mixedContent.insecureCount > 0) {
+      issues.push({
+        category: "security",
+        severity: "atencao",
+        code: "mixed-content",
+        params: { count: input.mixedContent.insecureCount },
+        affected: input.mixedContent.insecureUrls,
+      });
+    } else if (!input.mixedContent && input.pagespeed?.hasInsecureRequests) {
+      issues.push({ category: "security", severity: "atencao", code: "mixed-content" });
     }
   }
 
@@ -137,6 +159,21 @@ export function deriveIssues(input: Partial<CheckResults>): Issue[] {
     }
   }
 
+  // Either one keeps the site out of Google, whatever else is right.
+  if (input.indexing?.metaNoindex || input.indexing?.headerNoindex) {
+    issues.push({ category: "seo", severity: "critico", code: "noindex", params: { source: input.indexing.metaNoindex ? "meta" : "header" } });
+  } else if (!input.indexing && input.pagespeed?.isCrawlable === false && !input.sitemapRobots?.blocksGooglebot) {
+    // Lighthouse doesn't say whether the page or robots.txt is the cause.
+    issues.push({ category: "seo", severity: "critico", code: "noindex" });
+  }
+  if (input.sitemapRobots?.blocksGooglebot) {
+    issues.push({ category: "seo", severity: "critico", code: "robots-blocked" });
+  }
+
+  if (input.htmlLang ? !input.htmlLang.lang : input.pagespeed?.hasHtmlLang === false) {
+    issues.push({ category: "accessibility", severity: "atencao", code: "no-html-lang" });
+  }
+
   if (input.altImages && input.altImages.missingAltCount > 0) {
     const ratio = input.altImages.missingAltCount / input.altImages.sampledCount;
     issues.push({
@@ -154,6 +191,19 @@ export function deriveIssues(input: Partial<CheckResults>): Issue[] {
   // null means the host was never reached, not that the sitemap is missing.
   if (input.sitemapRobots?.hasSitemap === false) {
     issues.push({ category: "seo", severity: "sugestao", code: "no-sitemap" });
+  }
+
+  if (input.socialPreview && input.socialPreview.missing.length > 0) {
+    issues.push({ category: "seo", severity: "sugestao", code: "no-social-preview", affected: input.socialPreview.missing });
+  }
+
+  if (input.structuredData && !input.structuredData.hasStructuredData) {
+    issues.push({ category: "seo", severity: "sugestao", code: "no-structured-data" });
+  }
+
+  // Both places browsers look for an icon came up empty.
+  if (input.favicon && !input.favicon.hasIconLink && input.sitemapRobots?.hasFaviconIco === false) {
+    issues.push({ category: "seo", severity: "sugestao", code: "no-favicon" });
   }
 
   if (input.brokenLinks && input.brokenLinks.brokenCount > 0) {
