@@ -6,7 +6,7 @@ import { normalizeUrl } from "@/lib/url";
 import { runAnalysis } from "@/lib/runAnalysis";
 import { saveReport } from "@/lib/reportStore";
 import { redisError } from "@/lib/kv";
-import { analysisInFlight, claimAnalysis, followAnalysis, type Leader, type Snapshot } from "@/lib/inflight";
+import { claimAnalysis, followAnalysis, type Leader, type Snapshot } from "@/lib/inflight";
 import { sseFrame, type AnalysisEvent } from "@/lib/analysisEvents";
 import type { AnalyzeReport } from "@/lib/report";
 
@@ -89,16 +89,18 @@ export async function GET(request: Request) {
   const ip = request.headers.get("x-forwarded-for")?.split(",").pop()?.trim() ?? "unknown";
 
   // Following an analysis already running costs no PageSpeed quota, so,
-  // like a cached report, it isn't charged against the rate limit.
-  let leader: Leader | null = null;
-  if (!(await analysisInFlight(cacheKey))) {
+  // like a cached report, it isn't charged. Claiming first means a request
+  // that loses the race to the lock isn't charged either.
+  const leader = await claimAnalysis(cacheKey);
+  if (leader) {
     const rateLimit = await checkRateLimit(ip);
     if (rateLimit.limited) {
+      // Anyone already following takes over.
+      await leader.finish({ steps: [], aborted: true });
       return errorResponse({ code: "rate-limited", retryAfterSeconds: rateLimit.retryAfterSeconds }, 429, {
         "Retry-After": String(rateLimit.retryAfterSeconds),
       });
     }
-    leader = await claimAnalysis(cacheKey);
   }
 
   const encoder = new TextEncoder();
@@ -202,12 +204,15 @@ export async function GET(request: Request) {
         // otherwise this request runs the analysis itself, once.
         const finished = await getCached<CachedAnalysis>(cacheKey);
         if (finished) return send({ event: "done", data: finished.report });
-        const rateLimit = await checkRateLimit(ip);
-        if (rateLimit.limited) {
-          return send({ event: "failed", data: { code: "rate-limited", retryAfterSeconds: rateLimit.retryAfterSeconds } });
-        }
         const takeover = await claimAnalysis(cacheKey);
-        if (takeover) return await lead(takeover);
+        if (takeover) {
+          const rateLimit = await checkRateLimit(ip);
+          if (rateLimit.limited) {
+            await takeover.finish({ steps: [], aborted: true });
+            return send({ event: "failed", data: { code: "rate-limited", retryAfterSeconds: rateLimit.retryAfterSeconds } });
+          }
+          return await lead(takeover);
+        }
         if ((await follow()) === "orphaned") send({ event: "failed", data: { code: "analysis-failed" } });
       } catch (error) {
         console.error(`Analysis of ${target} failed unexpectedly:`, error);

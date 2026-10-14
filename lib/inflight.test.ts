@@ -1,6 +1,6 @@
 import { getEventListeners } from "node:events";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { analysisInFlight, claimAnalysis, followAnalysis, setInflightStore, type Snapshot } from "./inflight";
+import { claimAnalysis, followAnalysis, setInflightStore, type Snapshot } from "./inflight";
 import type { AnalyzeReport } from "./report";
 
 const REPORT = { domain: "x.com" } as AnalyzeReport;
@@ -28,11 +28,9 @@ describe("claimAnalysis", () => {
 
     expect(leader).not.toBeNull();
     expect(await claimAnalysis("lead-once")).toBeNull();
-    expect(await analysisInFlight("lead-once")).toBe(true);
 
     await leader!.finish({ steps: [], final: REPORT });
 
-    expect(await analysisInFlight("lead-once")).toBe(false);
     expect(await claimAnalysis("lead-once")).not.toBeNull();
   });
 
@@ -53,7 +51,7 @@ describe("claimAnalysis", () => {
 
     await stale!.finish({ steps: [], final: REPORT });
 
-    expect(await analysisInFlight("stale-release")).toBe(true);
+    expect(await claimAnalysis("stale-release")).toBeNull();
   });
 
   it("runs uncoalesced instead of failing when the store is down", async () => {
@@ -61,7 +59,6 @@ describe("claimAnalysis", () => {
     setInflightStore({ claim: down, owner: down, read: down, write: down, release: down });
     vi.spyOn(console, "error").mockImplementation(() => {});
 
-    expect(await analysisInFlight("store-down")).toBe(false);
     const leader = await claimAnalysis("store-down");
     expect(leader).not.toBeNull();
     leader!.publish({ steps: ["https"] });
