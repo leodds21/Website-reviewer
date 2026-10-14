@@ -5,7 +5,7 @@ import { ToggleSummary } from "./Chrome";
 import { SEVERITY_TEXT, SeverityMark } from "./SeverityMark";
 import { useLanguage } from "@/app/i18n/LanguageContext";
 import { translateScoreComponent } from "@/app/i18n/translate";
-import type { CategoryKey } from "@/app/i18n/types";
+import type { CategoryKey, Dictionary } from "@/app/i18n/types";
 import type { AnalyzeReport } from "@/lib/report";
 import type { IssueSeverity } from "@/lib/issues";
 import type { CategoryScore, ScoreComponent, Severity } from "@/lib/score";
@@ -22,7 +22,7 @@ const SEGMENT_FILL: Record<Severity, string> = {
   pendente: "bg-[var(--color-line-strong)]",
 };
 
-function ScoreMeter({ score, severity }: { score: number; severity: Severity }) {
+export function ScoreMeter({ score, severity }: { score: number; severity: Severity }) {
   const [filled, setFilled] = useState(false);
   useEffect(() => {
     const id = requestAnimationFrame(() => setFilled(true));
@@ -147,6 +147,13 @@ function CategoryRow({
   );
 }
 
+export function overallLabel(t: Dictionary, severity: Severity): string {
+  if (severity === "pendente") return t.scoreLabelPending;
+  if (severity === "indisponivel") return t.scoreLabelUnavailable;
+  if (severity === "ok") return t.scoreLabelOk;
+  return severity === "critico" ? t.scoreLabelCritical : t.scoreLabelAttention;
+}
+
 export function ScoreSummary({ report, unfinished = false }: { report: AnalyzeReport; unfinished?: boolean }) {
   const { t } = useLanguage();
   const measuredScores = CATEGORY_KEYS.map((key) => report.score[key].score).filter((score): score is number => score !== null);
@@ -161,22 +168,14 @@ export function ScoreSummary({ report, unfinished = false }: { report: AnalyzeRe
   // A report where nothing could be measured, or whose Google measurement never came, has no overall score.
   const overallSeverity = pending && unfinished ? "indisponivel" : report.score.overallSeverity;
   const noScore = pending || overallSeverity === "indisponivel";
-  const label =
-    overallSeverity === "pendente"
-      ? t.scoreLabelPending
-      : overallSeverity === "indisponivel"
-        ? t.scoreLabelUnavailable
-        : overallSeverity === "ok"
-          ? t.scoreLabelOk
-          : overallSeverity === "critico"
-            ? t.scoreLabelCritical
-            : t.scoreLabelAttention;
+  const label = overallLabel(t, overallSeverity);
 
   return (
     <aside
       aria-label={t.overallScore}
-      className="@container flex flex-col gap-6 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] p-6 lg:sticky lg:top-6"
+      className="@container relative flex flex-col gap-7 overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] p-6 sm:p-7 lg:sticky lg:top-6 print:rounded-lg"
     >
+      <span aria-hidden="true" className="brand-rule absolute inset-x-0 top-0 h-[3px]" />
       <div className="flex flex-col gap-2.5">
         <span className="font-mono text-[11px] tracking-[0.18em] text-[var(--color-label)] uppercase">{t.overallScore}</span>
         <div className="flex items-baseline gap-2">

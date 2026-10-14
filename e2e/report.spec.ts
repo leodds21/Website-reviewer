@@ -150,7 +150,7 @@ test.describe("report", () => {
 
     // Attention: the fix is one tap away.
     const linksFinding = page.getByRole("listitem").filter({ has: page.getByRole("heading", { name: "2 de 8 links testados na home estão quebrados." }) });
-    await linksFinding.getByText("Como resolver").click();
+    await linksFinding.getByText("Como resolver", { exact: true }).click();
     await expect(linksFinding.getByText("Os 2 links quebrados")).toBeVisible();
     await expect(linksFinding.getByText("https://exemplo.com.br/contato.php")).toBeVisible();
     await expect(linksFinding.getByRole("link")).toHaveCount(0);
@@ -280,6 +280,28 @@ test.describe("report", () => {
     await expect(page.getByRole("heading", { name: "Este relatório expirou." })).toBeVisible();
     await page.getByRole("link", { name: "Fazer uma nova análise" }).click();
     await expect(page.getByLabel("Endereço do site")).toBeVisible();
+  });
+
+  test("prints with a cover and without the screen's toggles", async ({ page }) => {
+    await mockAnalysis(page, withId(REPORT_WITH_FINDINGS));
+    await analyze(page, "exemplo.com.br");
+    const cover = page.locator(".report-cover");
+    await expect(cover).toBeHidden();
+
+    await page.evaluate(() => window.dispatchEvent(new Event("beforeprint")));
+    await page.emulateMedia({ media: "print" });
+    await expect(cover).toBeVisible();
+    await expect(cover).toContainText("exemplo.com.br");
+    await expect(cover).toContainText("56");
+    await expect(cover).toContainText(/Relatório online: scan\.lsdias\.dev\/pt-BR\/report\/\w+/);
+    await expect(page.getByText("Entenda esta nota").first()).toBeHidden();
+    await expect(page.getByRole("button", { name: /Ver detalhes/ }).first()).toBeHidden();
+    // The toggle doesn't print, so its label goes with the text.
+    await expect(page.getByText("Como resolver:").first()).toBeVisible();
+
+    await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+    await page.emulateMedia({ media: "screen" });
+    await expect(cover).toBeHidden();
   });
 
   test("prints a clean copy, with every section open and no buttons", async ({ page }) => {
@@ -482,7 +504,8 @@ test.describe("review fixes", () => {
       await seedSharedReport(report);
 
       await page.goto(`/pt-BR/report/${report.id}`);
-      await expect(page.getByText(/05\/10\/2026, 21:00/)).toBeVisible();
+      // The footer's copy; the opening and the print cover show it too.
+      await expect(page.locator("footer").getByText(/05\/10\/2026, 21:00/)).toBeVisible();
 
       // Production React reports a mismatch as minified errors #418/#423/#425.
       expect(errors.filter((text) => /hydrat|react\.dev\/errors\/4(18|23|25)/i.test(text))).toEqual([]);
@@ -495,7 +518,7 @@ test.describe("review fixes", () => {
     await mockLiveAnalysis(page);
     await analyze(page, "exemplo.com.br");
     await sendAnalysisEvent(page, "partial", IN_PROGRESS_REPORT);
-    await expect(page.getByText("Calculando a nota geral")).toBeVisible();
+    await expect(page.getByRole("complementary", { name: "Nota geral" }).getByText("Calculando a nota geral")).toBeVisible();
 
     // A new analysis before the first one finished, which then completes.
     await page.getByRole("button", { name: "Nova análise" }).click();

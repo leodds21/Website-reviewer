@@ -13,17 +13,17 @@ export function Passes({ passes: all, open }: { passes: Pass[]; open: boolean })
   if (passes.length === 0) return null;
 
   return (
-    <section aria-labelledby="passes-heading" className="flex flex-col gap-3.5">
-      <h2 id="passes-heading" className="text-2xl tracking-[-0.015em]">
+    <section aria-labelledby="passes-heading" className="flex flex-col gap-4">
+      <h2 id="passes-heading" className="text-[28px] tracking-[-0.02em]">
         {t.passesHeading}
       </h2>
-      <details open={open} className="rounded-lg border border-[var(--color-line)]">
-        <ToggleSummary className="flex min-h-12 px-5 text-sm font-semibold sm:px-6">{t.passesToggle(passes.length)}</ToggleSummary>
-        <ul className="border-t border-[var(--color-line)]">
+      <details open={open} className="rounded-xl border border-[var(--color-line)]">
+        <ToggleSummary className="flex min-h-14 px-5 text-sm font-semibold sm:px-7">{t.passesToggle(passes.length)}</ToggleSummary>
+        <ul className="border-t border-[var(--color-line)] print:border-t-0">
           {passes.map((pass) => (
             <li
               key={pass.code}
-              className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-[var(--color-line)] px-5 py-3 last:border-b-0 sm:px-6"
+              className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-[var(--color-line)] px-5 py-3.5 last:border-b-0 sm:px-7"
             >
               <span className="flex items-baseline gap-2.5 text-[15px] text-[var(--color-body)]">
                 <CheckIcon size={14} strokeWidth={2.5} className="shrink-0 translate-y-0.5 text-[var(--color-severity-ok)]" />

@@ -1,7 +1,28 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="6" fill="#0b0d12"/>
-  <rect x="5" y="12" width="4" height="8" fill="#2b6fe8"/>
-  <rect x="11" y="12" width="4" height="8" fill="#2b6fe8"/>
-  <rect x="17" y="12" width="4" height="8" fill="#2b6fe8"/>
-  <rect x="23" y="12" width="4" height="8" fill="#2a3650"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">
+  <defs>
+    <linearGradient id="ld-face" x1="60" y1="30" x2="180" y2="210" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6BCFFA"/>
+      <stop offset=".46" stop-color="#2E8BFF"/>
+      <stop offset="1" stop-color="#0B4FF5"/>
+    </linearGradient>
+    <radialGradient id="ld-plate" cx="50%" cy="34%" r="78%">
+      <stop offset="0" stop-color="#0E1626"/>
+      <stop offset=".55" stop-color="#080D18"/>
+      <stop offset="1" stop-color="#04070D"/>
+    </radialGradient>
+    <filter id="ld-halo" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="6"/>
+    </filter>
+  </defs>
+  <rect width="240" height="240" rx="54" fill="url(#ld-plate)"/>
+  <g transform="translate(38.3 53.5) scale(.675)">
+    <g fill="#2E8BFF" opacity=".45" filter="url(#ld-halo)">
+      <path d="M18 4H41V132H124L111 155H18Z"/>
+      <path d="M77 25H140A84 84 0 0 1 140 193H109L122 171H140A62 62 0 0 0 140 47H77Z"/>
+    </g>
+    <g fill="url(#ld-face)">
+      <path d="M18 4H41V132H124L111 155H18Z"/>
+      <path d="M77 25H140A84 84 0 0 1 140 193H109L122 171H140A62 62 0 0 0 140 47H77Z"/>
+    </g>
+  </g>
 </svg>

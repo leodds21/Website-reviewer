@@ -51,9 +51,13 @@ function HowToFix({ issue, recommendation }: { issue: Issue; recommendation: str
   const { t } = useLanguage();
   return (
     <details>
-      <ToggleSummary className="inline-flex min-h-11 text-[13px] font-semibold">{t.howToFix}</ToggleSummary>
-      <div className="flex flex-col gap-3 pb-2">
-        <p className="text-sm leading-relaxed text-[var(--color-body)]">{recommendation}</p>
+      <ToggleSummary className="-mb-2 inline-flex min-h-11 text-[13px] font-semibold">{t.howToFix}</ToggleSummary>
+      <div className="flex flex-col gap-3 pt-3">
+        <p className="text-sm leading-relaxed text-[var(--color-body)]">
+          {/* The toggle doesn't print, so the label goes with the text. */}
+          <strong className="hidden font-semibold text-[var(--color-text)] print:inline">{t.howToFix}: </strong>
+          {recommendation}
+        </p>
         <AffectedItems issue={issue} />
       </div>
     </details>
@@ -67,7 +71,7 @@ function CriticalFinding({ issue }: { issue: Issue }) {
     <li
       id={`finding-${issue.code}`}
       tabIndex={-1}
-      className="flex scroll-mt-6 flex-col gap-3.5 rounded-lg border border-[var(--color-severity-critico)]/25 bg-[var(--color-severity-critico)]/[0.04] p-5 sm:p-6"
+      className="flex scroll-mt-6 flex-col gap-3.5 rounded-xl border border-[var(--color-severity-critico)]/25 bg-[var(--color-severity-critico)]/[0.04] p-5 sm:p-7"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h3 className="text-xl tracking-[-0.01em]">{title}</h3>
@@ -91,7 +95,7 @@ function FindingRow({ issue }: { issue: Issue }) {
     <li
       id={`finding-${issue.code}`}
       tabIndex={-1}
-      className="flex scroll-mt-6 flex-col gap-1 border-b border-[var(--color-line)] px-5 pt-4 pb-2 last:border-b-0 sm:px-6"
+      className="flex scroll-mt-6 flex-col gap-1.5 border-b border-[var(--color-line)] px-5 py-5 last:border-b-0 sm:px-7"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h3 className="text-base font-semibold">{title}</h3>
@@ -108,8 +112,8 @@ function GroupHeading({ id, severity, count }: { id: string; severity: IssueSeve
   const counts: Record<IssueSeverity, number> = { critico: 0, atencao: 0, sugestao: 0 };
   counts[severity] = count;
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-      <h2 id={id} className="text-2xl tracking-[-0.015em]">
+    <div className="print-keep-with-next flex flex-wrap items-baseline gap-x-3 gap-y-1">
+      <h2 id={id} className="text-[28px] tracking-[-0.02em]">
         {t.findingGroups[severity]}
       </h2>
       <span className="flex items-center gap-2 font-mono text-xs text-[var(--color-subtle)]">
@@ -135,12 +139,12 @@ export function Findings({ issues, score }: { issues: Issue[]; score: Aggregated
   );
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-12">
       {groups.map(({ severity, items }) => {
         const headingId = `findings-${severity}`;
         if (severity === "critico") {
           return (
-            <section key={severity} aria-labelledby={headingId} className="flex flex-col gap-3.5">
+            <section key={severity} aria-labelledby={headingId} className="flex flex-col gap-4">
               <GroupHeading id={headingId} severity={severity} count={items.length} />
               <ul className="flex flex-col gap-3">
                 {items.map((issue) => (
@@ -152,9 +156,9 @@ export function Findings({ issues, score }: { issues: Issue[]; score: Aggregated
         }
         if (severity === "atencao") {
           return (
-            <section key={severity} aria-labelledby={headingId} className="flex flex-col gap-3.5">
+            <section key={severity} aria-labelledby={headingId} className="flex flex-col gap-4">
               <GroupHeading id={headingId} severity={severity} count={items.length} />
-              <ul className="rounded-lg border border-[var(--color-line)]">
+              <ul className="rounded-xl border border-[var(--color-line)]">
                 {items.map((issue) => (
                   <FindingRow key={issue.code} issue={issue} />
                 ))}
@@ -163,11 +167,11 @@ export function Findings({ issues, score }: { issues: Issue[]; score: Aggregated
           );
         }
         return (
-          <section key={severity} aria-labelledby={headingId} className="flex flex-col gap-3.5">
+          <section key={severity} aria-labelledby={headingId} className="flex flex-col gap-4">
             <GroupHeading id={headingId} severity={severity} count={items.length} />
-            <details className="rounded-lg border border-dashed border-[var(--color-line-strong)]">
-              <ToggleSummary className="flex min-h-12 px-5 text-sm font-semibold sm:px-6">{t.showOptional(items.length)}</ToggleSummary>
-              <ul className="border-t border-dashed border-[var(--color-line-strong)]">
+            <details className="rounded-xl border border-dashed border-[var(--color-line-strong)]">
+              <ToggleSummary className="flex min-h-14 px-5 text-sm font-semibold sm:px-7">{t.showOptional(items.length)}</ToggleSummary>
+              <ul className="border-t border-dashed border-[var(--color-line-strong)] print:border-t-0">
                 {items.map((issue) => (
                   <FindingRow key={issue.code} issue={issue} />
                 ))}
