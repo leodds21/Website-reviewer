@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { checkHttps } from "@/lib/checks/https";
 import { checkSitemapRobots } from "@/lib/checks/sitemapRobots";
 import { runPageSpeed } from "@/lib/pagespeed";
@@ -640,5 +640,60 @@ describe("GET /api/analyze, page signals", () => {
 
     expect(report.issues).toContainEqual({ category: "seo", severity: "critico", code: "noindex", params: { source: "header" } });
     expect(report.score.seo.score !== null && report.score.seo.components).toContainEqual({ key: "indexable", value: 0, lost: expect.any(Number) });
+  });
+});
+
+describe("GET /api/analyze, batch token", () => {
+  const TOKEN = "batch-secret-for-tests";
+
+  function batchRequest(url: string, ip: string, token: string): Request {
+    return new Request(`http://localhost/api/analyze?url=${encodeURIComponent(url)}`, {
+      headers: { "x-forwarded-for": ip, authorization: `Bearer ${token}` },
+    });
+  }
+
+  beforeEach(() => {
+    vi.stubEnv("BATCH_TOKEN", TOKEN);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("isn't charged against the rate limit with the right token", async () => {
+    const limitSpy = vi.spyOn(rateLimit, "checkRateLimit");
+
+    const events = await readSseEvents(await GET(batchRequest("route-test-batch-ok.example", "route-test-batch-ok.ip", TOKEN)));
+
+    expect(events.at(-1)?.event).toBe("done");
+    expect(limitSpy).not.toHaveBeenCalled();
+    limitSpy.mockRestore();
+  });
+
+  it("refuses a wrong token before doing anything", async () => {
+    vi.mocked(runPageSpeed).mockClear();
+
+    const response = await GET(batchRequest("route-test-batch-wrong.example", "route-test-batch-wrong.ip", "guess"));
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ code: "unauthorized" });
+    expect(runPageSpeed).not.toHaveBeenCalled();
+  });
+
+  it("refuses every token when BATCH_TOKEN isn't set", async () => {
+    vi.stubEnv("BATCH_TOKEN", "");
+
+    const response = await GET(batchRequest("route-test-batch-off.example", "route-test-batch-off.ip", ""));
+
+    expect(response.status).toBe(401);
+  });
+
+  it("charges a request without a token as before", async () => {
+    const limitSpy = vi.spyOn(rateLimit, "checkRateLimit");
+
+    await readSseEvents(await GET(requestFor("route-test-batch-none.example", "route-test-batch-none.ip")));
+
+    expect(limitSpy).toHaveBeenCalledTimes(1);
+    limitSpy.mockRestore();
   });
 });

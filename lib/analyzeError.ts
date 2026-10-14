@@ -4,6 +4,8 @@ export type AnalyzeErrorCode =
   | "invalid-url"
   | "blocked-url"
   | "rate-limited"
+  // A batch token that doesn't match BATCH_TOKEN.
+  | "unauthorized"
   // Google's PageSpeed quota, not our per-IP limit.
   | "quota-exceeded"
   | "analysis-failed"

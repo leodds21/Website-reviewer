@@ -1,6 +1,7 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getCached, setCached, FULL_TTL_MS, PARTIAL_TTL_MS } from "@/lib/cache";
-import { checkRateLimit } from "@/lib/rateLimit";
+import { checkRateLimit, type RateLimitResult } from "@/lib/rateLimit";
 import { isBlockedHost } from "@/lib/safeFetch";
 import { normalizeUrl } from "@/lib/url";
 import { runAnalysis } from "@/lib/runAnalysis";
@@ -46,6 +47,23 @@ async function shareable(report: AnalyzeReport, target: string): Promise<Analyze
   }
 }
 
+const digest = (value: string) => createHash("sha256").update(value).digest();
+
+/**
+ * The batch page sends BATCH_TOKEN as a bearer token; it only lifts the
+ * per-IP rate limit. A token that's present but wrong is refused outright,
+ * and with BATCH_TOKEN unset every token is wrong.
+ */
+function batchAccess(request: Request): "none" | "valid" | "invalid" {
+  const header = request.headers.get("authorization");
+  if (header === null) return "none";
+  const expected = process.env.BATCH_TOKEN;
+  const given = header.match(/^Bearer\s+(\S+)$/i)?.[1];
+  if (!expected || !given) return "invalid";
+  // Equal-length digests, so the comparison takes the same time for any input.
+  return timingSafeEqual(digest(given), digest(expected)) ? "valid" : "invalid";
+}
+
 type ParsedTargetUrl = { ok: true; url: URL } | { ok: false; reason: "invalid" | "blocked" };
 
 // "Invalid" and "blocked" get different messages in the UI.
@@ -65,6 +83,9 @@ export async function GET(request: Request) {
   const deadline = Date.now() + (maxDuration - 5) * 1000;
   const { searchParams } = new URL(request.url);
   const rawUrl = (searchParams.get("url") ?? "").trim();
+
+  const access = batchAccess(request);
+  if (access === "invalid") return errorResponse({ code: "unauthorized" }, 401);
 
   if (!rawUrl) {
     return errorResponse({ code: "missing-url" }, 400);
@@ -87,13 +108,14 @@ export async function GET(request: Request) {
 
   // The rightmost entry is the one Vercel appends; the rest can be spoofed.
   const ip = request.headers.get("x-forwarded-for")?.split(",").pop()?.trim() ?? "unknown";
+  const rateLimited = (): Promise<RateLimitResult> => (access === "valid" ? Promise.resolve({ limited: false }) : checkRateLimit(ip));
 
   // Following an analysis already running costs no PageSpeed quota, so,
   // like a cached report, it isn't charged. Claiming first means a request
   // that loses the race to the lock isn't charged either.
   const leader = await claimAnalysis(cacheKey);
   if (leader) {
-    const rateLimit = await checkRateLimit(ip);
+    const rateLimit = await rateLimited();
     if (rateLimit.limited) {
       // Anyone already following takes over.
       await leader.finish({ steps: [], aborted: true });
@@ -206,7 +228,7 @@ export async function GET(request: Request) {
         if (finished) return send({ event: "done", data: finished.report });
         const takeover = await claimAnalysis(cacheKey);
         if (takeover) {
-          const rateLimit = await checkRateLimit(ip);
+          const rateLimit = await rateLimited();
           if (rateLimit.limited) {
             await takeover.finish({ steps: [], aborted: true });
             return send({ event: "failed", data: { code: "rate-limited", retryAfterSeconds: rateLimit.retryAfterSeconds } });
