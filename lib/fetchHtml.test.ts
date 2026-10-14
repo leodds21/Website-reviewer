@@ -4,10 +4,10 @@ import { fetchHtml } from "./fetchHtml";
 vi.mock("node:dns/promises", () => ({ lookup: vi.fn().mockResolvedValue([{ address: "93.184.216.34" }]) }));
 
 // A real stream, since readTextCapped reads the body incrementally.
-function fakeHtmlResponse(html: string): Response {
+function fakeHtmlResponse(html: string, headers?: HeadersInit): Response {
   return {
     status: 200,
-    headers: new Headers(),
+    headers: new Headers(headers),
     url: "https://example.com/",
     ok: true,
     body: new ReadableStream<Uint8Array>({
@@ -28,12 +28,13 @@ describe("fetchHtml", () => {
     vi.unstubAllGlobals();
   });
 
-  it("returns the fetched HTML", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(fakeHtmlResponse("<title>Example</title>"));
+  it("returns the fetched HTML with the response headers", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(fakeHtmlResponse("<title>Example</title>", { "x-robots-tag": "noindex" }));
 
-    const html = await fetchHtml("example.com");
+    const { html, headers } = await fetchHtml("example.com");
 
     expect(html).toBe("<title>Example</title>");
+    expect(headers.get("x-robots-tag")).toBe("noindex");
   });
 
   it("defaults to https when no scheme is given", async () => {

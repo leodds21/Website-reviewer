@@ -79,7 +79,7 @@ export async function GET(request: Request) {
   const domain = targetUrl.hostname;
   const target = targetUrl.toString();
   // Per path; query and hash left out (they're usually tracking params).
-  const cacheKey = `analysis:v2:${targetUrl.origin}${targetUrl.pathname}`;
+  const cacheKey = `analysis:v3:${targetUrl.origin}${targetUrl.pathname}`;
 
   // Cached reports cost nothing, so they don't count against the rate limit.
   const cached = await getCached<CachedAnalysis>(cacheKey);

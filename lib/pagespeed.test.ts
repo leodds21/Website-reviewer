@@ -286,4 +286,21 @@ describe("runPageSpeed", () => {
 
     expect((await runPageSpeed("example.com")).hasViewport).toBe(false);
   });
+
+  it("reads the indexing, language and insecure-request audits", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      fakeJsonResponse(200, {
+        lighthouseResult: {
+          categories: { seo: { score: 0.6 } },
+          audits: { "is-crawlable": { score: 0 }, "html-has-lang": { score: 1 }, "is-on-https": { score: 0 } },
+        },
+      }),
+    );
+
+    const result = await runPageSpeed("example.com");
+
+    expect(result.isCrawlable).toBe(false);
+    expect(result.hasHtmlLang).toBe(true);
+    expect(result.hasInsecureRequests).toBe(true);
+  });
 });

@@ -1,5 +1,6 @@
 import type { CheckResults } from "./checkResults";
 import type { IssueCategory } from "./issues";
+import { isIndexable } from "./score";
 
 export type PassCode =
   | "https"
@@ -11,7 +12,13 @@ export type PassCode =
   | "sitemap"
   | "links"
   | "fast-load"
-  | "stable-layout";
+  | "stable-layout"
+  | "indexable"
+  | "social-preview"
+  | "structured-data"
+  | "html-lang"
+  | "secure-resources"
+  | "favicon";
 
 export type Pass = { category: IssueCategory; code: PassCode };
 
@@ -24,18 +31,24 @@ export function derivePasses(input: Partial<CheckResults>): Pass[] {
   const passes: Pass[] = [];
   const add = (category: IssueCategory, code: PassCode) => passes.push({ category, code });
 
-  const { https, securityHeaders, metaTags, altImages, sitemapRobots, brokenLinks, pagespeed } = input;
+  const { https, securityHeaders, metaTags, altImages, sitemapRobots, brokenLinks, pagespeed, socialPreview, structuredData, htmlLang, mixedContent, favicon } = input;
 
   if (https?.passed && !https.noHttpRedirect) add("security", "https");
   if (https?.passed && securityHeaders?.hasHsts && securityHeaders.hasCsp && securityHeaders.hasClickjackingProtection) {
     add("security", "security-headers");
   }
+  if (https?.passed && mixedContent && mixedContent.resourceCount > 0 && mixedContent.insecureCount === 0) add("security", "secure-resources");
 
   // Lighthouse stands in when our fetch didn't get the HTML.
   const genericTitle = metaTags?.title === "Home" || metaTags?.title === "Início";
   if (metaTags ? metaTags.hasTitle && !genericTitle : pagespeed?.hasTitle === true) add("seo", "title");
   if (metaTags ? metaTags.hasDescription : pagespeed?.hasDescription === true) add("seo", "description");
   if (metaTags ? metaTags.hasViewport : pagespeed?.hasViewport === true) add("accessibility", "viewport");
+  if (htmlLang ? htmlLang.lang : pagespeed?.hasHtmlLang === true) add("accessibility", "html-lang");
+  if (isIndexable(input)) add("seo", "indexable");
+  if (socialPreview?.missing.length === 0) add("seo", "social-preview");
+  if (structuredData?.hasStructuredData) add("seo", "structured-data");
+  if (favicon?.hasIconLink || sitemapRobots?.hasFaviconIco) add("seo", "favicon");
 
   if (altImages ? altImages.sampledCount > 0 && altImages.missingAltCount === 0 : pagespeed?.imagesHaveAlt === true) {
     add("accessibility", "alt-images");

@@ -13,6 +13,7 @@ export type ScoreComponentKey =
   | "title"
   | "description"
   | "links"
+  | "indexable"
   | "google-accessibility"
   | "viewport"
   | "alt-images"
@@ -65,6 +66,18 @@ function brokenLinksScore(result: BrokenLinksCheckResult): number {
   return ((result.checkedCount - result.brokenCount) / result.checkedCount) * 100;
 }
 
+/**
+ * Can Google index the page? false when it's told not to, true only when
+ * both the page and robots.txt were read; null when unknown. Lighthouse's
+ * audit stands in when our fetch was refused.
+ */
+export function isIndexable(input: Partial<CheckResults>): boolean | null {
+  const { indexing, sitemapRobots, pagespeed } = input;
+  if (indexing?.metaNoindex || indexing?.headerNoindex || sitemapRobots?.blocksGooglebot) return false;
+  if (!indexing) return pagespeed?.isCrawlable === false ? false : null;
+  return sitemapRobots?.blocksGooglebot === false ? true : null;
+}
+
 // Unknown contributes nothing rather than counting as a failure.
 function booleanSignal(value: boolean | null | undefined): number | null {
   if (value === null || value === undefined) return null;
@@ -81,7 +94,7 @@ const HTTPS_WITHOUT_REDIRECT_SCORE = 50;
 
 const CATEGORY_SOURCES = {
   performance: ["pagespeed"],
-  seo: ["pagespeed", "page", "brokenLinks"],
+  seo: ["pagespeed", "page", "brokenLinks", "sitemapRobots"],
   accessibility: ["pagespeed", "page"],
   security: ["https", "pagespeed"],
 } satisfies Record<string, CheckKey[]>;
@@ -125,7 +138,7 @@ function finalize(measurements: Measurement[], sources: CheckKey[], failures: Ch
 
 /**
  * Only checks with critico/atencao findings feed the score; suggestions
- * (sitemap, hardening headers) never lower it, and robots.txt isn't scored.
+ * (sitemap, hardening headers) never lower it.
  * A check that failed contributes nothing, never a made-up 0 or 100.
  * `pending` lists checks still running; the overall score waits for all of them.
  */
@@ -149,6 +162,9 @@ export function aggregateScore(
       { key: "title", value: booleanSignal(input.metaTags ? input.metaTags.hasTitle : lighthouse?.hasTitle) },
       { key: "description", value: booleanSignal(input.metaTags ? input.metaTags.hasDescription : lighthouse?.hasDescription) },
       { key: "links", value: input.brokenLinks ? brokenLinksScore(input.brokenLinks) : null, count: input.brokenLinks?.checkedCount },
+      // Only a block counts: an indexable page is the norm, so it doesn't
+      // pull every other SEO score toward 100.
+      { key: "indexable", value: isIndexable(input) === false ? 0 : null },
     ],
     CATEGORY_SOURCES.seo,
     failures,
@@ -203,11 +219,12 @@ export const COMPONENT_ISSUES: Record<ScoreComponentKey, IssueCode[]> = {
   title: ["no-title"],
   description: ["no-description"],
   links: ["broken-links"],
-  "google-accessibility": ["color-contrast", "missing-form-labels"],
+  indexable: ["noindex", "robots-blocked"],
+  "google-accessibility": ["color-contrast", "missing-form-labels", "no-html-lang"],
   viewport: ["no-viewport"],
   "alt-images": ["missing-alt"],
   https: ["no-https", "invalid-certificate", "no-https-redirect"],
-  "google-best-practices": [],
+  "google-best-practices": ["mixed-content"],
 };
 
 /** Overall-score points a finding accounts for. Used only to order findings. */

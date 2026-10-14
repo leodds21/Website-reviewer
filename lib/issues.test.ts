@@ -36,7 +36,7 @@ describe("deriveIssues", () => {
       https: { passed: true, finalUrl: "https://x.com", redirectedFromHttp: false },
       metaTags: { hasViewport: true, hasTitle: true, title: "Papelaria Central", hasDescription: true, description: "Y" },
       altImages: { sampledCount: 10, missingAltCount: 0, missingAltSrcs: [] },
-      sitemapRobots: { hasSitemap: true, hasRobotsTxt: true },
+      sitemapRobots: { hasSitemap: true, hasRobotsTxt: true, blocksGooglebot: null, hasFaviconIco: null },
     });
 
     expect(cleanSite).toEqual([]);
@@ -48,7 +48,7 @@ describe("deriveIssues", () => {
       https: { passed: false, finalUrl: "http://x.com", redirectedFromHttp: false },
       metaTags: { hasViewport: false, hasTitle: true, title: "Home", hasDescription: false, description: null },
       altImages: { sampledCount: 12, missingAltCount: 8, missingAltSrcs: [] },
-      sitemapRobots: { hasSitemap: false, hasRobotsTxt: true },
+      sitemapRobots: { hasSitemap: false, hasRobotsTxt: true, blocksGooglebot: null, hasFaviconIco: null },
     });
 
     expect(messySite).toContainEqual({ category: "security", severity: "critico", code: "no-https" });
@@ -139,7 +139,7 @@ describe("deriveIssues — slow-load-impact", () => {
     https: { passed: true, finalUrl: "https://x.com", redirectedFromHttp: false },
     metaTags: { hasViewport: true, hasTitle: true, title: "X", hasDescription: true, description: "Y" },
     altImages: { sampledCount: 10, missingAltCount: 0, missingAltSrcs: [] },
-    sitemapRobots: { hasSitemap: true, hasRobotsTxt: true },
+    sitemapRobots: { hasSitemap: true, hasRobotsTxt: true, blocksGooglebot: null, hasFaviconIco: null },
   };
 
   it("doesn't fire when lcpSeconds is unavailable", () => {
@@ -202,7 +202,7 @@ describe("deriveIssues — layout-shift (CLS)", () => {
     https: { passed: true, finalUrl: "https://x.com", redirectedFromHttp: false },
     metaTags: { hasViewport: true, hasTitle: true, title: "X", hasDescription: true, description: "Y" },
     altImages: { sampledCount: 10, missingAltCount: 0, missingAltSrcs: [] },
-    sitemapRobots: { hasSitemap: true, hasRobotsTxt: true },
+    sitemapRobots: { hasSitemap: true, hasRobotsTxt: true, blocksGooglebot: null, hasFaviconIco: null },
   };
 
   it("doesn't fire when clsValue is unavailable", () => {
@@ -386,7 +386,7 @@ describe("deriveIssues — severity taxonomy", () => {
   });
 
   it("lists a missing sitemap as a suggestion", () => {
-    const issues = deriveIssues({ sitemapRobots: { hasSitemap: false, hasRobotsTxt: true } });
+    const issues = deriveIssues({ sitemapRobots: { hasSitemap: false, hasRobotsTxt: true, blocksGooglebot: null, hasFaviconIco: null } });
 
     expect(issues).toEqual([{ category: "seo", severity: "sugestao", code: "no-sitemap" }]);
   });
@@ -542,5 +542,58 @@ describe("deriveIssues — affected elements", () => {
     const issues = deriveIssues({ pagespeed: { scores: { accessibility: 80 }, imagesHaveAlt: false } });
 
     expect(issues.find((issue) => issue.code === "missing-alt")?.affected).toBeUndefined();
+  });
+});
+
+describe("deriveIssues, page signals", () => {
+  const codes = (input: Parameters<typeof deriveIssues>[0]) => deriveIssues(input).map((issue) => issue.code);
+  const https = { passed: true, finalUrl: "https://x.com/", redirectedFromHttp: true };
+  const robots = { hasSitemap: true, hasRobotsTxt: true, blocksGooglebot: false, hasFaviconIco: true };
+
+  it("flags noindex as critical, saying where it came from", () => {
+    const [meta] = deriveIssues({ indexing: { metaNoindex: true, headerNoindex: true } });
+    expect(meta).toMatchObject({ code: "noindex", severity: "critico", category: "seo", params: { source: "meta" } });
+    expect(deriveIssues({ indexing: { metaNoindex: false, headerNoindex: true } })[0].params).toEqual({ source: "header" });
+  });
+
+  it("flags a robots.txt block as critical", () => {
+    expect(deriveIssues({ sitemapRobots: { ...robots, blocksGooglebot: true } })).toEqual([{ category: "seo", severity: "critico", code: "robots-blocked" }]);
+  });
+
+  it("falls back to Lighthouse for noindex only when robots.txt doesn't already explain it", () => {
+    expect(codes({ pagespeed: { scores: {}, isCrawlable: false } })).toEqual(["noindex"]);
+    expect(codes({ pagespeed: { scores: {}, isCrawlable: false }, sitemapRobots: { ...robots, blocksGooglebot: true } })).toEqual(["robots-blocked"]);
+    expect(codes({ indexing: { metaNoindex: false, headerNoindex: false }, pagespeed: { scores: {}, isCrawlable: false } })).toEqual([]);
+  });
+
+  it("suggests the social preview tags that are missing", () => {
+    const [issue] = deriveIssues({ socialPreview: { missing: ["og:image"] } });
+    expect(issue).toEqual({ category: "seo", severity: "sugestao", code: "no-social-preview", affected: ["og:image"] });
+  });
+
+  it("suggests structured data and a favicon only when they're confirmed missing", () => {
+    expect(codes({ structuredData: { hasStructuredData: false } })).toEqual(["no-structured-data"]);
+    expect(codes({ favicon: { hasIconLink: false }, sitemapRobots: { ...robots, hasFaviconIco: false } })).toEqual(["no-favicon"]);
+    expect(codes({ favicon: { hasIconLink: false }, sitemapRobots: { ...robots, hasFaviconIco: null } })).toEqual([]);
+  });
+
+  it("flags a missing page language for accessibility, from our parse or Lighthouse's", () => {
+    expect(deriveIssues({ htmlLang: { lang: null } })[0]).toMatchObject({ code: "no-html-lang", severity: "atencao", category: "accessibility" });
+    expect(codes({ pagespeed: { scores: {}, hasHtmlLang: false } })).toEqual(["no-html-lang"]);
+    expect(codes({ htmlLang: { lang: "en" }, pagespeed: { scores: {}, hasHtmlLang: false } })).toEqual([]);
+  });
+
+  it("flags mixed content with its count and sample, only over working HTTPS", () => {
+    const mixedContent = { resourceCount: 5, insecureCount: 3, insecureUrls: ["http://a.example/x.png"] };
+    expect(deriveIssues({ https, mixedContent })[0]).toMatchObject({
+      code: "mixed-content",
+      severity: "atencao",
+      category: "security",
+      params: { count: 3 },
+      affected: ["http://a.example/x.png"],
+    });
+    expect(codes({ mixedContent })).toEqual([]);
+    expect(codes({ https, pagespeed: { scores: {}, hasInsecureRequests: true } })).toEqual(["mixed-content"]);
+    expect(codes({ https: { ...https, passed: false }, pagespeed: { scores: {}, hasInsecureRequests: true } })).not.toContain("mixed-content");
   });
 });

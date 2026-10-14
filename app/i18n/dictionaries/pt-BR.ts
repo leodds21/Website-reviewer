@@ -29,9 +29,9 @@ export const ptBR: Dictionary = {
     steps: {
       https: { name: "https", description: "Conexão segura e certificado" },
       securityHeaders: { name: "cabeçalhos", description: "Proteções do servidor" },
-      metaTags: { name: "meta tags", description: "Título, descrição e viewport" },
-      altImages: { name: "imagens", description: "Texto alternativo numa amostra" },
-      sitemapRobots: { name: "sitemap", description: "sitemap.xml e robots.txt" },
+      metaTags: { name: "meta tags", description: "Título, descrição, indexação e prévia" },
+      altImages: { name: "imagens", description: "Texto alternativo e recursos sem HTTPS" },
+      sitemapRobots: { name: "sitemap", description: "sitemap.xml, robots.txt e favicon" },
       brokenLinks: { name: "links", description: "Links da home que levam a erro" },
       pagespeed: { name: "pagespeed", description: "Velocidade e acessibilidade, medidas pelo Google" },
     },
@@ -86,6 +86,7 @@ export const ptBR: Dictionary = {
     title: (value) => (value === 100 ? "Título da página presente" : "Título da página ausente"),
     description: (value) => (value === 100 ? "Meta description presente" : "Meta description ausente"),
     links: (value, count) => (count === 0 ? "Nenhum link na home para checar" : `Links da home funcionando: ${Math.round(value)}%`),
+    indexable: (value) => (value === 0 ? "Página bloqueada para o Google" : "Página liberada para o Google"),
     "google-accessibility": (value) => `Avaliação de acessibilidade do Google: ${value}`,
     viewport: (value) => (value === 100 ? "Ajuste para celular presente" : "Ajuste para celular ausente"),
     "alt-images": (value, count) =>
@@ -145,6 +146,8 @@ export const ptBR: Dictionary = {
   affectedHeading: {
     "missing-alt": (count) => (count === 1 ? "A imagem afetada" : `As ${count} imagens afetadas`),
     "broken-links": (count) => (count === 1 ? "O link quebrado" : `Os ${count} links quebrados`),
+    "no-social-preview": (count) => (count === 1 ? "A tag que falta" : `As ${count} tags que faltam`),
+    "mixed-content": (count) => (count === 1 ? "O endereço sem HTTPS" : `Os ${count} endereços sem HTTPS`),
   },
   imageWithoutSource: "(imagem sem endereço no HTML)",
   moreAffected: (count) => `e mais ${count}`,
@@ -162,6 +165,12 @@ export const ptBR: Dictionary = {
     links: "Os links testados na home funcionam",
     "fast-load": "Carrega rápido no celular",
     "stable-layout": "Nada pula de lugar enquanto a página carrega",
+    indexable: "O Google pode mostrar a página nas buscas",
+    "social-preview": "Links compartilhados mostram título, texto e imagem",
+    "structured-data": "Tem dados estruturados pro Google entender o conteúdo",
+    "html-lang": "A página informa o idioma pro leitor de tela",
+    "secure-resources": "Tudo que a página carrega vem por HTTPS",
+    favicon: "Tem um ícone próprio na aba do navegador",
   },
   newAnalysis: "Nova análise",
   reportCta: "Quer ajuda pra resolver o que apareceu aqui?",
@@ -303,6 +312,45 @@ export const ptBR: Dictionary = {
       title: `${params?.broken} de ${params?.checked} links testados na home estão quebrados.`,
       description: "Um link quebrado é um beco sem saída pra quem clicou, e um sinal ruim pro Google sobre a manutenção do site.",
     }),
+    noindex: (params) => ({
+      title: "A página pede pro Google não mostrá-la nas buscas.",
+      description: `${
+        params?.source === "header"
+          ? "O servidor envia o cabeçalho X-Robots-Tag com noindex."
+          : params?.source === "meta"
+            ? "O HTML tem uma meta tag robots com noindex."
+            : "O teste do Google indica que a página está bloqueada."
+      } Enquanto isso continuar, o site não aparece no Google. Se este endereço é de teste ou de prévia, pode ser de propósito.`,
+    }),
+    "robots-blocked": () => ({
+      title: "O robots.txt impede o Google de ler esta página.",
+      description: "Sem poder ler a página, o Google mostra ela mal nas buscas ou nem mostra. Se este endereço é de teste ou de prévia, pode ser de propósito.",
+    }),
+    "no-social-preview": () => ({
+      title: "Falta a prévia pra quando o link é compartilhado.",
+      description: "No WhatsApp, no LinkedIn ou no Facebook, o link pode aparecer sem imagem, ou com título e texto escolhidos pela rede.",
+    }),
+    "no-structured-data": () => ({
+      title: "A página não tem dados estruturados.",
+      description: "São marcações que dizem ao Google o que é a empresa, onde fica e quando abre, e podem render um resultado mais completo na busca.",
+    }),
+    "no-html-lang": () => ({
+      title: "A página não informa em que idioma está.",
+      description: "O leitor de tela pode ler o texto com a pronúncia de outro idioma, e o tradutor do navegador fica sem referência.",
+    }),
+    "mixed-content": (params) => ({
+      title:
+        params?.count === undefined
+          ? "A página carrega arquivos sem HTTPS."
+          : params.count === 1
+            ? "A página carrega 1 arquivo sem HTTPS."
+            : `A página carrega ${params.count} arquivos sem HTTPS.`,
+      description: "O navegador bloqueia ou marca como não seguro o que vem por http://, então imagens, scripts ou formulários podem não funcionar.",
+    }),
+    "no-favicon": () => ({
+      title: "O site não tem ícone próprio.",
+      description: "Fica o ícone genérico do navegador na aba, nos favoritos e, no celular, ao lado do resultado no Google.",
+    }),
   },
   impactClause: {
     "no-https": "a insegurança da conexão",
@@ -316,6 +364,8 @@ export const ptBR: Dictionary = {
     "layout-shift": "a instabilidade visual durante o carregamento",
     "slow-server-response": "o tempo de resposta lento do servidor",
     "broken-links": "os links quebrados na home",
+    noindex: "o bloqueio que tira o site do Google",
+    "robots-blocked": "o robots.txt que impede o Google de ler a página",
   },
   synthesizeImpact: (clauses) => {
     const joined = clauses.length > 1 ? `${clauses[0]} e ${clauses[1]}` : clauses[0];
@@ -343,5 +393,12 @@ export const ptBR: Dictionary = {
     "heading-order": "Reorganizar os títulos da página pra seguir uma hierarquia lógica (H1 seguido de H2, H2 seguido de H3, sem pular níveis).",
     "missing-form-labels": "Associar um <label> a cada campo de formulário, ou usar aria-label quando um rótulo visível não for possível.",
     "broken-links": "Corrigir ou remover os links quebrados encontrados, atualizando o destino ou apontando pra uma página que ainda existe.",
+    noindex: "Tirar o noindex da meta tag robots e do cabeçalho X-Robots-Tag, a não ser que a página deva mesmo ficar fora do Google.",
+    "robots-blocked": "Revisar as regras Disallow do robots.txt pra liberar esta página ao Googlebot.",
+    "no-social-preview": "Adicionar as tags og:title, og:description e og:image, com uma imagem de 1200 × 630 pixels.",
+    "no-structured-data": "Descrever a empresa em JSON-LD do schema.org, por exemplo com LocalBusiness ou Organization.",
+    "no-html-lang": "Adicionar o atributo lang na tag <html>, por exemplo lang=\"pt-BR\".",
+    "mixed-content": "Trocar http:// por https:// nos endereços encontrados, ou hospedar esses arquivos no próprio site.",
+    "no-favicon": "Criar um ícone quadrado e declará-lo com <link rel=\"icon\"> no <head>, ou publicar um /favicon.ico.",
   },
 };

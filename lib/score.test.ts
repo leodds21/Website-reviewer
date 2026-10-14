@@ -33,7 +33,7 @@ describe("aggregateScore", () => {
       https: { passed: true, finalUrl: "https://x.com", redirectedFromHttp: false },
       metaTags: { hasViewport: true, hasTitle: true, title: "X", hasDescription: true, description: "Y" },
       altImages: { sampledCount: 10, missingAltCount: 0, missingAltSrcs: [] },
-      sitemapRobots: { hasSitemap: true, hasRobotsTxt: true },
+      sitemapRobots: { hasSitemap: true, hasRobotsTxt: true, blocksGooglebot: null, hasFaviconIco: null },
     });
 
     expect(strongSite.security.score).toBe(96); // média(100, 92)
@@ -56,7 +56,7 @@ describe("aggregateScore", () => {
       https: { passed: false, finalUrl: "http://x.com", redirectedFromHttp: false },
       metaTags: { hasViewport: true, hasTitle: true, title: "X", hasDescription: true, description: "Y" },
       altImages: { sampledCount: 10, missingAltCount: 0, missingAltSrcs: [] },
-      sitemapRobots: { hasSitemap: true, hasRobotsTxt: true },
+      sitemapRobots: { hasSitemap: true, hasRobotsTxt: true, blocksGooglebot: null, hasFaviconIco: null },
     });
 
     expect(noHttps.security.score).toBe(0);
@@ -88,7 +88,7 @@ describe("aggregateScore", () => {
       https: { passed: true, finalUrl: "https://x.com", redirectedFromHttp: false },
       metaTags: { hasViewport: true, hasTitle: false, title: null, hasDescription: false, description: null },
       altImages: { sampledCount: 10, missingAltCount: 3, missingAltSrcs: ["a.png", "b.png", "c.png"] },
-      sitemapRobots: { hasSitemap: false, hasRobotsTxt: true },
+      sitemapRobots: { hasSitemap: false, hasRobotsTxt: true, blocksGooglebot: null, hasFaviconIco: null },
     });
 
     expect(weakSeo.seo.score).toBe(13); // média(40, 0, 0): no title, no description
@@ -101,14 +101,14 @@ describe("aggregateScore", () => {
     // problem at all; neither may cost points.
     const undetermined = aggregateScore({
       pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 60 } },
-      sitemapRobots: { hasSitemap: null, hasRobotsTxt: null },
+      sitemapRobots: { hasSitemap: null, hasRobotsTxt: null, blocksGooglebot: null, hasFaviconIco: null },
     });
 
     expect(undetermined.seo.score).toBe(60);
 
     const confirmedMissing = aggregateScore({
       pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 60 } },
-      sitemapRobots: { hasSitemap: false, hasRobotsTxt: false },
+      sitemapRobots: { hasSitemap: false, hasRobotsTxt: false, blocksGooglebot: null, hasFaviconIco: null },
     });
 
     expect(confirmedMissing.seo.score).toBe(60);
@@ -226,7 +226,7 @@ describe("aggregateScore", () => {
   it("lets seo score from Lighthouse alone when our own page fetch didn't run", () => {
     const result = aggregateScore({
       pagespeed: { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 60 } },
-      sitemapRobots: { hasSitemap: true, hasRobotsTxt: true },
+      sitemapRobots: { hasSitemap: true, hasRobotsTxt: true, blocksGooglebot: null, hasFaviconIco: null },
     });
 
     expect(result.seo.score).toBe(60);
@@ -339,5 +339,35 @@ describe("aggregateScore while checks are still running", () => {
     const { input, failures } = SCORE_SCENARIOS.average;
 
     expect(aggregateScore(input, failures, [])).toEqual(aggregateScore(input, failures));
+  });
+});
+
+describe("indexable", () => {
+  const pagespeed = { scores: { performance: 90, accessibility: 90, "best-practices": 90, seo: 90 } };
+  const indexing = { metaNoindex: false, headerNoindex: false };
+  const robots = (blocksGooglebot: boolean | null) => ({ hasSitemap: true, hasRobotsTxt: true, blocksGooglebot, hasFaviconIco: null });
+
+  it("leaves SEO alone when the page is open to Google", () => {
+    const score = aggregateScore({ pagespeed, indexing, sitemapRobots: robots(false) });
+
+    expect(score.seo.score).toBe(90);
+    expect(score.seo.score !== null && score.seo.components.map((c) => c.key)).not.toContain("indexable");
+  });
+
+  it("counts as 0 in SEO when the page or robots.txt keeps Google out", () => {
+    for (const input of [
+      { pagespeed, indexing: { metaNoindex: true, headerNoindex: false }, sitemapRobots: robots(false) },
+      { pagespeed, indexing: { metaNoindex: false, headerNoindex: true }, sitemapRobots: robots(null) },
+      { pagespeed, indexing, sitemapRobots: robots(true) },
+    ]) {
+      const score = aggregateScore(input);
+      expect(score.seo).toMatchObject({ score: 45, components: expect.arrayContaining([{ key: "indexable", value: 0, lost: 50 }]) });
+    }
+  });
+
+  it("uses Lighthouse's crawlability audit when our fetch of the page was refused", () => {
+    const score = aggregateScore({ pagespeed: { ...pagespeed, isCrawlable: false } }, { page: "blocked" });
+
+    expect(score.seo.score).toBe(45);
   });
 });

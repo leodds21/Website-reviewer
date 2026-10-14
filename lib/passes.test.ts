@@ -11,7 +11,7 @@ describe("derivePasses", () => {
         securityHeaders: { hasHsts: true, hasCsp: true, hasClickjackingProtection: true },
         metaTags: { hasViewport: true, hasTitle: true, title: "Escritório X", hasDescription: true, description: "Y" },
         altImages: { sampledCount: 6, missingAltCount: 0, missingAltSrcs: [] },
-        sitemapRobots: { hasSitemap: true, hasRobotsTxt: true },
+        sitemapRobots: { hasSitemap: true, hasRobotsTxt: true, blocksGooglebot: null, hasFaviconIco: null },
         brokenLinks: { checkedCount: 8, brokenCount: 0, brokenUrls: [] },
         pagespeed: { scores: { performance: 95 }, lcpSeconds: 1.8, clsValue: 0.02 },
       }),
@@ -54,5 +54,45 @@ describe("derivePasses", () => {
   it("holds speed and stability to Google's 'good' line, not just 'not poor'", () => {
     expect(codes({ pagespeed: { scores: {}, lcpSeconds: 3.1, clsValue: 0.15 } })).toEqual([]);
     expect(codes({ pagespeed: { scores: {}, lcpSeconds: 2.5, clsValue: 0.1 } })).toEqual(["fast-load", "stable-layout"]);
+  });
+});
+
+describe("derivePasses, page signals", () => {
+  const https = { passed: true, finalUrl: "https://x.com/", redirectedFromHttp: true };
+
+  it("lists the newer checks a well-kept page passes", () => {
+    expect(
+      codes({
+        indexing: { metaNoindex: false, headerNoindex: false },
+        sitemapRobots: { hasSitemap: null, hasRobotsTxt: true, blocksGooglebot: false, hasFaviconIco: false },
+        socialPreview: { missing: [] },
+        structuredData: { hasStructuredData: true },
+        htmlLang: { lang: "pt-BR" },
+        favicon: { hasIconLink: true },
+      }),
+    ).toEqual(["html-lang", "indexable", "social-preview", "structured-data", "favicon"]);
+  });
+
+  it("only calls a page indexable once robots.txt was read too", () => {
+    const indexing = { metaNoindex: false, headerNoindex: false };
+    expect(codes({ indexing })).toEqual([]);
+    expect(codes({ indexing, sitemapRobots: { hasSitemap: null, hasRobotsTxt: null, blocksGooglebot: null, hasFaviconIco: null } })).toEqual([]);
+  });
+
+  it("calls the resources secure only over HTTPS and when there were some", () => {
+    const clean = { resourceCount: 4, insecureCount: 0, insecureUrls: [] };
+    expect(codes({ https, mixedContent: clean })).toContain("secure-resources");
+    expect(codes({ https, mixedContent: { ...clean, resourceCount: 0 } })).not.toContain("secure-resources");
+    expect(codes({ mixedContent: clean })).not.toContain("secure-resources");
+  });
+
+  it("finds the favicon at /favicon.ico when the page doesn't link one", () => {
+    expect(codes({ favicon: { hasIconLink: false }, sitemapRobots: { hasSitemap: null, hasRobotsTxt: null, blocksGooglebot: null, hasFaviconIco: true } })).toEqual([
+      "favicon",
+    ]);
+  });
+
+  it("falls back to Lighthouse for the page language", () => {
+    expect(codes({ pagespeed: { scores: {}, hasHtmlLang: true } })).toEqual(["html-lang"]);
   });
 });
