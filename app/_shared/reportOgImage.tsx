@@ -2,6 +2,7 @@ import { ImageResponse } from "next/og";
 import { DICTIONARIES } from "../i18n/dictionaries";
 import { INTL_LOCALE, type Locale } from "../i18n/locale";
 import { OG_SIZE, homeOgImage } from "./homeOgImage";
+import { OG_FONT, ogFonts } from "./ogFonts";
 import { getStoredReport } from "@/lib/reportStore";
 import type { Severity } from "@/lib/score";
 
@@ -29,26 +30,30 @@ export async function reportOgImage(locale: Locale, id: string) {
 
   return new ImageResponse(
     (
-      <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", padding: "64px 72px", background: COLOR.bg, fontFamily: "sans-serif" }}>
-        <div style={{ display: "flex", alignItems: "baseline", fontSize: 30, fontWeight: 600 }}>
+      <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", padding: "64px 72px", background: COLOR.bg, fontFamily: OG_FONT.body }}>
+        <div style={{ display: "flex", alignItems: "baseline", fontFamily: OG_FONT.heading, fontSize: 30, fontWeight: 600 }}>
           <span style={{ color: COLOR.text }}>lsdias</span>
           <span style={{ color: COLOR.link }}>.dev</span>
-          <span style={{ color: COLOR.subtle, fontSize: 22, fontWeight: 400, marginLeft: 12 }}>/ scanner</span>
-          <span style={{ color: COLOR.subtle, fontSize: 22, marginLeft: "auto" }}>{date}</span>
+          <span style={{ color: COLOR.subtle, fontFamily: OG_FONT.mono, fontSize: 20, fontWeight: 500, marginLeft: 12 }}>/ scanner</span>
+          <span style={{ color: COLOR.subtle, fontFamily: OG_FONT.mono, fontSize: 20, fontWeight: 500, marginLeft: "auto" }}>{date}</span>
         </div>
 
         <div style={{ display: "flex", alignItems: "flex-end", gap: 48, marginTop: 56 }}>
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <span style={{ color: COLOR.subtle, fontSize: 22, letterSpacing: 4, textTransform: "uppercase" }}>{t.overallScore}</span>
+            <span style={{ color: COLOR.subtle, fontFamily: OG_FONT.mono, fontSize: 20, fontWeight: 500, letterSpacing: 4, textTransform: "uppercase" }}>
+              {t.overallScore}
+            </span>
             <div style={{ display: "flex", alignItems: "baseline" }}>
-              <span style={{ color: SEVERITY_COLOR[report.score.overallSeverity], fontSize: 168, fontWeight: 600, lineHeight: 1 }}>
+              <span style={{ color: SEVERITY_COLOR[report.score.overallSeverity], fontFamily: OG_FONT.heading, fontSize: 168, fontWeight: 600, lineHeight: 1, letterSpacing: -6 }}>
                 {measured ? report.score.overall : "–"}
               </span>
-              <span style={{ color: COLOR.subtle, fontSize: 36, marginLeft: 12 }}>/100</span>
+              <span style={{ color: COLOR.subtle, fontFamily: OG_FONT.mono, fontSize: 32, fontWeight: 500, marginLeft: 12 }}>/100</span>
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", marginBottom: 24, maxWidth: 640 }}>
-            <span style={{ color: COLOR.text, fontSize: 52, fontWeight: 600, lineHeight: 1.1, wordBreak: "break-all" }}>{report.domain}</span>
+            <span style={{ color: COLOR.text, fontFamily: OG_FONT.heading, fontSize: 52, fontWeight: 600, lineHeight: 1.1, wordBreak: "break-all" }}>
+              {report.domain}
+            </span>
           </div>
         </div>
 
@@ -60,8 +65,8 @@ export async function reportOgImage(locale: Locale, id: string) {
                 key={key}
                 style={{ display: "flex", flex: 1, flexDirection: "column", padding: "20px 24px", border: `2px solid ${COLOR.line}`, borderRadius: 14, background: COLOR.surface }}
               >
-                <span style={{ color: COLOR.muted, fontSize: 24 }}>{t.categories[key]}</span>
-                <span style={{ color: SEVERITY_COLOR[category.severity], fontSize: 48, fontWeight: 600, marginTop: 6 }}>
+                <span style={{ color: COLOR.muted, fontSize: 24, fontWeight: 500 }}>{t.categories[key]}</span>
+                <span style={{ color: SEVERITY_COLOR[category.severity], fontFamily: OG_FONT.heading, fontSize: 48, fontWeight: 600, marginTop: 6 }}>
                   {category.score === null ? "–" : category.score}
                 </span>
               </div>
@@ -70,6 +75,6 @@ export async function reportOgImage(locale: Locale, id: string) {
         </div>
       </div>
     ),
-    { ...OG_SIZE },
+    { ...OG_SIZE, fonts: await ogFonts() },
   );
 }
