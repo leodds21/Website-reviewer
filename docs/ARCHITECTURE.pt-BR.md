@@ -9,7 +9,7 @@ Um único app Next.js (App Router, TypeScript). Cada idioma tem o próprio layou
 | Caminho | Responsabilidade |
 |---|---|
 | `app/pt-BR/`, `app/en/` | Layout raiz, início, rota de relatório, 404 e imagens de prévia por idioma (arquivos finos) |
-| `app/_shared/` | O que esses arquivos renderizam: layout raiz e metadados, `Scanner`, página de relatório, imagens de prévia |
+| `app/_shared/` | O que esses arquivos renderizam: layout raiz e metadados, `Scanner`, página de relatório, imagens de prévia, página de erro |
 | `app/_shared/Scanner.tsx` | A ilha cliente: formulário, progresso, relatório e próximo passo, com `<Activity>` e `<ViewTransition>` |
 | `app/hooks/useAnalysis.ts` | Inicia uma análise e lê o stream de eventos |
 | `app/hooks/useReportLink.ts` | Mantém cada tela no histórico e o relatório no próprio endereço |
@@ -110,13 +110,15 @@ O relatório parcial sai quando `https`, `page`, `sitemapRobots` e `brokenLinks`
 
 A chave do cache ignora query e hash, que costumam ser parâmetros de rastreamento. `http://` e `https://`, `www.` e barra final continuam chaves separadas porque são entradas diferentes.
 
-**Coalescing.** A primeira requisição pega a trava com `SET NX PX` e publica um retrato a cada etapa. Requisições que encontram a trava acompanham esses retratos e não gastam o limite por IP, já que não custam cota do PageSpeed. A trava sempre expira. Soltar é comparar-e-apagar, então um líder atrasado não solta a trava de um mais novo. Se quem lidera sai, a execução fica marcada como abortada; um seguidor confere o cache e depois roda a análise ele mesmo, uma vez, passando pelo limite. Se o Redis falha, a requisição roda sem coalescing. Sem Redis, a mesma lógica roda em memória, por instância.
+**Coalescing.** A primeira requisição pega a trava com `SET NX PX` e publica um retrato a cada etapa. Requisições que encontram a trava acompanham esses retratos e não gastam o limite por IP, já que não custam cota do PageSpeed. A trava sempre expira. Soltar é comparar-e-apagar, então um líder atrasado não solta a trava de um mais novo. Se quem lidera sai, a execução fica marcada como abortada; um seguidor confere o cache e depois roda a análise ele mesmo, uma vez, passando pelo limite. Se o Redis falha, a requisição roda sem coalescing. Sem Redis, a mesma lógica roda em memória, por instância, com as entradas expiradas apagadas a cada escrita.
+
+**Falhas.** O cliente tenta de novo uma chamada ao Redis duas vezes (não as cinco padrão do Upstash), para uma queda não empurrar a requisição além do `maxDuration`. Os erros do Redis vão para o log sem o comando que carregam, que incluiria IPs de visitantes, URLs analisadas e relatórios.
 
 ## Relatórios compartilhados
 
-O líder guarda o relatório final com um ID de 10 caracteres base62 (`crypto.getRandomValues`, cerca de 59 bits) e o põe no cache com esse ID, então um acerto de cache dá o mesmo link. O cliente muda o endereço para `/<idioma>/report/<id>` com `pushState`/`replaceState` nativos; o Next mantém a árvore atual nessas entradas, então voltar e avançar nunca buscam de novo. O próximo passo é uma entrada de histórico com o mesmo endereço, não uma rota.
+O líder guarda o relatório final com um ID de 10 caracteres base62 (`crypto.getRandomValues`, cerca de 59 bits) e o põe no cache com esse ID, então um acerto de cache dá o mesmo link. Se salvar falha, o relatório vai sem link, e não com um link que só aquele servidor abriria. O cliente muda o endereço para `/<idioma>/report/<id>` com `pushState`/`replaceState` nativos; o Next mantém a árvore atual nessas entradas, então voltar e avançar nunca buscam de novo. O próximo passo é uma entrada de histórico com o mesmo endereço, não uma rota. Cada entrada guarda também a análise a que pertence, então voltar e avançar nunca mostram o relatório de uma análise no lugar de outra; recarregar no próximo passo volta ao relatório.
 
-`/<idioma>/report/[id]` lê o armazenamento no servidor e renderiza o mesmo `Scanner` no estágio de relatório. Ele importa as telas do relatório direto; a home carrega sob demanda e começa a buscá-las quando uma análise começa. IDs desconhecidos ou expirados mostram uma página de relatório expirado com link para uma nova análise. As páginas de relatório são `noindex`, com canonical, hreflang e imagem de prévia (domínio, nota geral, categorias, data).
+`/<idioma>/report/[id]` lê o armazenamento no servidor e renderiza o mesmo `Scanner` no estágio de relatório. Ele importa as telas do relatório direto; a home carrega sob demanda e começa a buscá-las quando uma análise começa. IDs desconhecidos ou expirados mostram uma página de relatório expirado com link para uma nova análise. Um erro do armazenamento mostra uma página de erro por idioma com botão para tentar de novo, porque o relatório pode ainda existir. As páginas de relatório são `noindex`, com canonical, hreflang e imagem de prévia (domínio, nota geral, categorias, data).
 
 ## Idiomas e CSP
 
@@ -139,7 +141,7 @@ Uma medição cuja checagem não rodou fica fora da média, em vez de contar com
 
 ## Erros
 
-Uma checagem que falha deixa a categoria "medida em parte" ou "não medida", com o motivo. Se todas falham, o stream envia um código `failed` com a causa. Se o stream cai depois de um relatório parcial, o cliente mantém o parcial e avisa que a medição do Google não terminou. Erros crus e stack traces ficam no log do servidor; o navegador só recebe códigos.
+Uma checagem que falha deixa a categoria "medida em parte" ou "não medida", com o motivo. Se todas falham, o stream envia um código `failed` com a causa. Se o stream cai depois de um relatório parcial, o cliente mantém o parcial e avisa que a medição do Google não terminou; as categorias que esperavam aparecem como não medidas e a nota geral como indisponível. Erros crus e stack traces ficam no log do servidor; o navegador só recebe códigos.
 
 ## Decisões
 

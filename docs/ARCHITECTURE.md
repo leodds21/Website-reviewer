@@ -9,7 +9,7 @@ One Next.js app (App Router, TypeScript). Each language has its own root layout;
 | Path | Responsibility |
 |---|---|
 | `app/pt-BR/`, `app/en/` | Root layout, home, report route, 404 and preview images per language (thin files) |
-| `app/_shared/` | What those files render: root layout and metadata, `Scanner`, report page, preview images |
+| `app/_shared/` | What those files render: root layout and metadata, `Scanner`, report page, preview images, error page |
 | `app/_shared/Scanner.tsx` | The client island: form, progress, report and next step, with `<Activity>` and `<ViewTransition>` |
 | `app/hooks/useAnalysis.ts` | Starts an analysis and reads the event stream |
 | `app/hooks/useReportLink.ts` | Keeps each screen in browser history and the report at its own address |
@@ -110,13 +110,15 @@ The partial report goes out once `https`, `page`, `sitemapRobots` and `brokenLin
 
 The cache key ignores query and hash, which are usually tracking parameters. `http://` and `https://`, `www.` and a trailing slash stay separate keys because they are different inputs.
 
-**Coalescing.** The first request takes the lock with `SET NX PX` and publishes a snapshot on each step. Requests that find the lock follow those snapshots and aren't charged against the rate limit, since they cost no PageSpeed quota. The lock always expires. Releasing it is compare-and-delete, so a late leader can't free a newer one's lock. If the leader's visitor leaves, the run is marked aborted; a follower checks the cache, then runs the analysis itself once, through the rate limit. If Redis fails, the request runs uncoalesced. Without Redis, the same logic runs in memory per instance.
+**Coalescing.** The first request takes the lock with `SET NX PX` and publishes a snapshot on each step. Requests that find the lock follow those snapshots and aren't charged against the rate limit, since they cost no PageSpeed quota. The lock always expires. Releasing it is compare-and-delete, so a late leader can't free a newer one's lock. If the leader's visitor leaves, the run is marked aborted; a follower checks the cache, then runs the analysis itself once, through the rate limit. If Redis fails, the request runs uncoalesced. Without Redis, the same logic runs in memory per instance, with expired entries swept on write.
+
+**Failures.** The client retries a Redis call twice (not Upstash's default five), so an outage can't push a request past `maxDuration`. Redis errors are logged without the command they carry, which would include visitor IPs, analyzed URLs and reports.
 
 ## Shared reports
 
-The leader stores the final report under a 10-character base62 id (`crypto.getRandomValues`, about 59 bits) and caches it with that id, so a cache hit gives the same link. The client moves the address to `/<locale>/report/<id>` with native `pushState`/`replaceState`; Next keeps the current tree for those entries, so back and forward never refetch. The next step is a history entry with the same address, not a route.
+The leader stores the final report under a 10-character base62 id (`crypto.getRandomValues`, about 59 bits) and caches it with that id, so a cache hit gives the same link. If the save fails, the report is sent without a link rather than with one only that server could open. The client moves the address to `/<locale>/report/<id>` with native `pushState`/`replaceState`; Next keeps the current tree for those entries, so back and forward never refetch. The next step is a history entry with the same address, not a route. Each entry also carries the analysis it belongs to, so back and forward never show one analysis's report for another; a reload on the next step comes back to the report.
 
-`/<locale>/report/[id]` reads the store on the server and renders the same `Scanner` in report stage. It imports the report screens directly; the home page loads them on demand and starts fetching them when an analysis starts. Unknown or expired ids show an expired page with a link to a new analysis. Report pages are `noindex`, with canonical, hreflang and a preview image (domain, overall score, categories, date).
+`/<locale>/report/[id]` reads the store on the server and renders the same `Scanner` in report stage. It imports the report screens directly; the home page loads them on demand and starts fetching them when an analysis starts. Unknown or expired ids show an expired page with a link to a new analysis. A storage error shows a per-locale error page with a retry button instead, since the report may still exist. Report pages are `noindex`, with canonical, hreflang and a preview image (domain, overall score, categories, date).
 
 ## Languages and CSP
 
@@ -139,7 +141,7 @@ A measurement whose check didn't run is left out, not counted as 0 or 100. A cat
 
 ## Errors
 
-One failed check leaves its category "partly measured" or "not measured", with the reason. If every check fails, the stream sends one `failed` code naming the cause. If the stream drops after a partial report, the client keeps it and says Google's measurement didn't finish. Raw errors and stack traces stay in the server log; the browser only gets codes.
+One failed check leaves its category "partly measured" or "not measured", with the reason. If every check fails, the stream sends one `failed` code naming the cause. If the stream drops after a partial report, the client keeps it and says Google's measurement didn't finish; the categories still waiting show as not measured and the overall score as unavailable. Raw errors and stack traces stay in the server log; the browser only gets codes.
 
 ## Decisions
 
