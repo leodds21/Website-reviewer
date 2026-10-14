@@ -3,8 +3,8 @@ import { runAnalysis } from "./runAnalysis";
 import { runPageSpeed } from "./pagespeed";
 
 vi.mock("./checks/https", () => ({ checkHttps: vi.fn(async () => ({ passed: true, finalUrl: "https://x.com/", redirectedFromHttp: false })) }));
-vi.mock("./checks/sitemapRobots", () => ({ checkSitemapRobots: vi.fn(async () => ({ hasSitemap: true, hasRobotsTxt: true })) }));
-vi.mock("./fetchHtml", () => ({ fetchHtml: vi.fn(async () => "<title>x</title>") }));
+vi.mock("./checks/sitemapRobots", () => ({ checkSitemapRobots: vi.fn(async () => ({ hasSitemap: true, hasRobotsTxt: true, blocksGooglebot: null, hasFaviconIco: null })) }));
+vi.mock("./fetchHtml", () => ({ fetchHtml: vi.fn(async () => ({ html: "<title>x</title>", headers: new Headers() })) }));
 vi.mock("./pagespeed", () => ({ runPageSpeed: vi.fn() }));
 
 describe("runAnalysis", () => {

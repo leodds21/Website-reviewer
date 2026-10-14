@@ -26,6 +26,13 @@ const CATEGORY_BY_CODE: Record<Issue["code"], Issue["category"]> = {
   "heading-order": "accessibility",
   "missing-form-labels": "accessibility",
   "broken-links": "seo",
+  noindex: "seo",
+  "robots-blocked": "seo",
+  "no-social-preview": "seo",
+  "no-structured-data": "seo",
+  "no-html-lang": "accessibility",
+  "mixed-content": "security",
+  "no-favicon": "seo",
 };
 
 function issue(code: Issue["code"]): Issue {

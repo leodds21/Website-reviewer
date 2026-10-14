@@ -1,3 +1,5 @@
+import { attribute } from "./html";
+
 const SAMPLE_SIZE = 20;
 
 // "alt" as its own attribute, valued or not; not "data-alt" and friends.
@@ -33,8 +35,7 @@ export function parseAltImages(html: string): AltImagesCheckResult {
     const hasAltDecision = HAS_ALT_ATTRIBUTE.test(tag) || HIDDEN_FROM_ASSISTIVE_TECH.test(tag);
 
     if (!hasAltDecision) {
-      const srcMatch = tag.match(/\bsrc\s*=\s*["']([^"']*)["']/i);
-      missingAltSrcs.push(describeImageSource(srcMatch?.[1]));
+      missingAltSrcs.push(describeImageSource(attribute(tag, "src") ?? undefined));
     }
   }
 

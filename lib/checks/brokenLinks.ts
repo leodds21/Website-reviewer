@@ -1,11 +1,10 @@
 import { safeFetch } from "../safeFetch";
 import { LINK_CHECK_TIMEOUT_MS } from "../timeouts";
 import { UnreachableError, isBotBlockStatus } from "../httpStatus";
+import { attribute, openingTags, withoutComments } from "./html";
 
 // One request per link against someone else's site, so keep the sample small.
 const MAX_LINKS_SAMPLED = 10;
-
-const HREF_PATTERN = /<a\b[^>]*\bhref\s*=\s*["']([^"']+)["']/gi;
 
 export type BrokenLinksCheckResult = {
   // Links that got a real answer; timeouts and bot blocks count in neither field.
@@ -18,11 +17,11 @@ function extractLinkUrls(html: string, baseUrl: string): string[] {
   const seen = new Set<string>();
   const urls: string[] = [];
 
-  for (const match of html.matchAll(HREF_PATTERN)) {
+  for (const tag of openingTags(withoutComments(html), "a")) {
     if (urls.length >= MAX_LINKS_SAMPLED) break;
 
     // "&amp;" in an attribute means "&"; requesting it literally can 404.
-    const raw = match[1].trim().replace(/&amp;/gi, "&");
+    const raw = (attribute(tag, "href") ?? "").replace(/&amp;/gi, "&");
     if (!raw || raw.startsWith("#")) continue;
     if (/^(mailto|tel|javascript):/i.test(raw)) continue;
 

@@ -32,4 +32,19 @@ describe("parseMetaTags", () => {
     expect(result.hasDescription).toBe(true);
     expect(result.description).toBe("Reversed attribute order");
   });
+
+  it("reads minified tags without quotes", () => {
+    const result = parseMetaTags("<html lang=en><head><meta name=viewport content=\"width=device-width\"><meta name=description content=Escritório><title>X</title>");
+
+    expect(result.hasViewport).toBe(true);
+    expect(result.description).toBe("Escritório");
+  });
+
+  it("ignores commented-out tags and an empty description", () => {
+    const result = parseMetaTags('<!-- <meta name="viewport" content="w"> --><meta name="description" content="">');
+
+    expect(result.hasViewport).toBe(false);
+    expect(result.hasDescription).toBe(false);
+    expect(result.description).toBeNull();
+  });
 });
