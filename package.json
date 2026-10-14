@@ -33,7 +33,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.0",
-    "eslint-plugin-unicorn": "^60.0.0",
+    "eslint-plugin-unicorn": "^77.0.0",
     "jsdom": "^30.0.1",
     "tailwindcss": "^4",
     "typescript": "^5",
