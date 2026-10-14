@@ -2,6 +2,28 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions: [Semantic Versioning](https://semver.org/). Earlier history is in the Git log.
 
+## [0.2.1] - 2026-10-13
+
+### Fixed
+
+- Shared report pages no longer fail hydration when the visitor's time zone differs from the server's; the date is formatted in the browser
+- Back and forward never show one analysis's report for another, and keep Next's router in sync with the address; a reload on the next step returns to the report
+- A finished analysis no longer pulls back a visitor who left it
+- After Google's measurement fails, waiting categories show as not measured instead of "measuring"; a report with nothing measurable shows no overall score instead of 0
+- A run that takes over another's analysis stops at the request's deadline, so it can't hold the lock past its function
+- A failed report save no longer produces a link only one server can open; a failed read shows a retry page instead of "expired"
+- A fractional `REPORT_TTL_DAYS` no longer breaks every save
+- The older-link note no longer scrolls on every keystroke and goes away once the address is edited
+- Memory without Redis no longer grows with every analysis
+
+### Security
+
+- Redis errors are logged without the command (IPs, URLs, reports); Redis calls retry twice instead of five times
+
+### Removed
+
+- `lucide-react` (two inline icons instead)
+
 ## [0.2.0] - 2026-10-13
 
 ### Added
