@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { synthesizeCriticalImpact, translateAnalysisError } from "./translate";
+import { synthesizeCriticalImpact, translateAnalysisError, translateIssue, translateRecommendation, translateScoreComponent } from "./translate";
 import { ptBR } from "./dictionaries/pt-BR";
 import { en } from "./dictionaries/en";
-import type { Issue } from "@/lib/issues";
+import type { Issue, IssueCode } from "@/lib/issues";
+import type { ScoreComponentKey } from "@/lib/score";
 
 const CATEGORY_BY_CODE: Record<Issue["code"], Issue["category"]> = {
   "no-https": "security",
@@ -106,6 +107,19 @@ describe("translateAnalysisError", () => {
     const message = translateAnalysisError(ptBR, { code: "something-new" as "unknown" });
 
     expect(message).toBe(translateAnalysisError(ptBR, { code: "unknown" }));
+  });
+});
+
+describe("codes from a newer server", () => {
+  const code = "something-new" as IssueCode;
+
+  it("shows the code as the title and no recommendation instead of failing", () => {
+    expect(translateIssue(ptBR, code, undefined)).toEqual({ title: code, description: "" });
+    expect(translateRecommendation(ptBR, code)).toBe("");
+  });
+
+  it("names an unknown measurement by its key", () => {
+    expect(translateScoreComponent(ptBR, { key: "something-new" as ScoreComponentKey, value: 0, lost: 10 })).toBe("something-new");
   });
 });
 

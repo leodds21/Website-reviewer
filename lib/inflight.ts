@@ -108,16 +108,6 @@ export type Leader = {
   finish(snapshot: Snapshot): Promise<void>;
 };
 
-/** Is another request already analyzing this URL? Errors read as "no". */
-export async function analysisInFlight(cacheKey: string): Promise<boolean> {
-  try {
-    return (await store.owner(lockKeyFor(cacheKey))) !== null;
-  } catch (error) {
-    console.error("inflight: lock read failed:", redisError(error));
-    return false;
-  }
-}
-
 /**
  * Tries to become the one request analyzing this URL. null means another
  * request got there first. If the store fails, this run leads without a

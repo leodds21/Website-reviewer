@@ -4,9 +4,14 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    # One PR for dev tooling and one for minor/patch runtime updates;
-    # major runtime upgrades still come one at a time, to be reviewed.
+    # Next and React move together, then one PR for dev tooling and one for
+    # minor/patch runtime updates; other major upgrades come one at a time.
+    # A package goes to the first group that matches.
     groups:
+      framework:
+        patterns: ["next", "eslint-config-next"]
+      react:
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
       dev-dependencies:
         dependency-type: "development"
       runtime-minor-and-patch:

@@ -126,7 +126,7 @@ export function ReportScreen({
 
           <TopIssues issues={report.issues} score={report.score} provisional={report.inProgress && !unfinished} />
           <Findings issues={report.issues} score={report.score} />
-          <Passes passes={report.passed ?? []} open={report.issues.length === 0} />
+          <Passes passes={report.passed} open={report.issues.length === 0} />
 
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[var(--color-line)] pt-8 print:hidden">
             <p className="font-heading text-2xl font-medium tracking-[-0.02em] text-[var(--color-text)]">{t.reportCta}</p>
