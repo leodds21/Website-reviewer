@@ -72,6 +72,24 @@
   animation: scan-fade-in 0.6s ease-out both;
 }
 
+/* The scanner's grid, still, behind the report's opening; fades out downward. */
+.report-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(ellipse 55% 90% at 8% 0%, rgb(43 111 232 / 0.16), transparent 70%),
+    linear-gradient(to right, rgb(79 163 255 / 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(79 163 255 / 0.06) 1px, transparent 1px);
+  background-size: auto, 24px 24px, 24px 24px;
+  mask-image: linear-gradient(to bottom, black 35%, transparent);
+}
+
+/* The LD mark's gradient, for thin brand rules. */
+.brand-rule {
+  background: linear-gradient(90deg, #6bcffa, #2e8bff 46%, #0b4ff5);
+}
+
 /* Moved by transform alone, so it stays smooth. */
 .scan-sweep {
   position: absolute;
@@ -217,17 +235,80 @@ dialog::backdrop {
     -webkit-print-color-adjust: exact;
   }
 
+  /* No side margins: Chrome lays the whole document out at the first
+     page's width, and the cover has none. The content insets itself
+     (.print-inset). Margin boxes show in Chrome 131+; others skip them. */
   @page {
-    margin: 14mm;
+    margin: 16mm 0 18mm;
+    @bottom-left {
+      content: "lsdias.dev · scanner";
+      padding-left: 14mm;
+      font: 7.5pt ui-monospace, monospace;
+      letter-spacing: 0.08em;
+      color: #5a667a;
+    }
+    @bottom-right {
+      content: counter(page) " / " counter(pages);
+      padding-right: 14mm;
+      font: 7.5pt ui-monospace, monospace;
+      color: #5a667a;
+    }
   }
 
+  .print-inset {
+    padding-inline: 14mm !important;
+  }
+
+  /* The cover runs to the edge of the paper. */
+  @page cover {
+    margin: 0;
+    @bottom-left {
+      content: none;
+    }
+    @bottom-right {
+      content: none;
+    }
+  }
+
+  /* The sections are already open (beforeprint); their toggles mean nothing on paper. */
+  summary {
+    display: none !important;
+  }
+
+  /* Small units only: a whole panel kept together left page one blank. */
   li,
-  aside {
+  .print-keep {
     break-inside: avoid;
   }
-  h2 {
+  h2,
+  .print-keep-with-next {
     break-after: avoid;
   }
+}
+
+/* Dark, like the site, on paper too: the cover's own tokens win over the print ones. */
+.report-cover {
+  --color-text: #edf4ff;
+  --color-body: #dbe7f5;
+  --color-muted: #aab8ca;
+  --color-subtle: #8193ae;
+  --color-line: #1c2536;
+  --color-line-strong: #2a3650;
+  --color-link: #7fc4ff;
+  --color-label: #68b5ff;
+  --color-severity-critico: #ff8a7a;
+  --color-severity-critico-text: #ffb3a8;
+  --color-severity-atencao: #f2b84b;
+  --color-severity-atencao-text: #f5cd80;
+  --color-severity-ok: #6fd3a8;
+  --color-severity-ok-text: #9fddbf;
+  page: cover;
+  position: relative;
+  height: 100vh;
+  overflow: hidden;
+  break-after: page;
+  background: #0b0d12;
+  color: var(--color-body);
 }
 
 @media (prefers-reduced-motion: reduce) {
