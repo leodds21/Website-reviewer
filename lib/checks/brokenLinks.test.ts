@@ -73,6 +73,14 @@ describe("checkBrokenLinks", () => {
     expect((vi.mocked(fetch).mock.calls[0][0] as URL).toString()).toBe("https://example.com/contato");
   });
 
+  it("resolves relative links against <base href> when the page has one", async () => {
+    vi.mocked(fetch).mockResolvedValue(fakeResponse(200));
+
+    await checkBrokenLinks('<base href="/1996/"><a href="cmp/jam.html">Jam</a>', "https://example.com/1996");
+
+    expect((vi.mocked(fetch).mock.calls[0][0] as URL).toString()).toBe("https://example.com/1996/cmp/jam.html");
+  });
+
   it("skips mailto:, tel:, javascript: and bare #fragment links", async () => {
     vi.mocked(fetch).mockResolvedValue(fakeResponse(200));
 

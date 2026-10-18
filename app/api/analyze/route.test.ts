@@ -24,8 +24,8 @@ const HAPPY_HTML = `<html><head>
   <meta name="description" content="d">
 </head><body><img src="a.png" alt="ok"></body></html>`;
 
-function pageOf(html: string, headers?: HeadersInit): FetchedPage {
-  return { html, headers: new Headers(headers) };
+function pageOf(html: string, headers?: HeadersInit, finalUrl = "https://example.com/"): FetchedPage {
+  return { html, headers: new Headers(headers), finalUrl };
 }
 
 const HAPPY = {
@@ -289,7 +289,7 @@ describe("GET /api/analyze", () => {
     // Nothing answers on https://, the plain-http version works.
     vi.mocked(fetchHtml).mockImplementation(async (url: string) => {
       if (url.startsWith("https://")) throw new TypeError("fetch failed");
-      return pageOf(HAPPY_HTML);
+      return pageOf(HAPPY_HTML, undefined, url);
     });
     vi.mocked(checkSitemapRobots).mockImplementation(async (url: string) => {
       if (url.startsWith("https://")) throw new TypeError("fetch failed");
