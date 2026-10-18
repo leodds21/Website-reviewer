@@ -2,6 +2,17 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions: [Semantic Versioning](https://semver.org/). Earlier history is in the Git log.
 
+## [Unreleased]
+
+### Changed
+
+- Mixed content is critical when it includes scripts, styles, frames or forms, which browsers block; images and media alone stay at attention
+- Mixed content counts each address once, so a file used four times reads as one
+
+### Added
+
+- Structured data (schema.org `WebApplication`) on the home page, in each language
+
 ## [0.3.1] - 2026-10-18
 
 ### Security
