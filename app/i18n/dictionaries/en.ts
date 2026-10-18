@@ -346,7 +346,9 @@ export const en: Dictionary = {
           : params.count === 1
             ? "The page loads 1 file without HTTPS."
             : `The page loads ${params.count} files without HTTPS.`,
-      description: "Browsers block or flag as not secure anything served over http://, so images, scripts or forms may not work.",
+      description: params?.active
+        ? "Browsers block scripts, styles and forms served over http://, so parts of the page may not show up or stop working."
+        : "Browsers flag anything served over http:// as not secure, and some images or videos may not load.",
     }),
     "no-favicon": () => ({
       title: "The site has no icon of its own.",
@@ -366,6 +368,7 @@ export const en: Dictionary = {
     "broken-links": "the broken links on the homepage",
     noindex: "the block that keeps the site off Google",
     "robots-blocked": "the robots.txt rule that stops Google from reading the page",
+    "mixed-content": "the insecure files the browser blocks",
   },
   synthesizeImpact: (clauses) => {
     const joined = clauses.length > 1 ? `${clauses[0]} and ${clauses[1]}` : clauses[0];

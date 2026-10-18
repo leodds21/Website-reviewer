@@ -101,11 +101,14 @@ export function deriveIssues(input: Partial<CheckResults>): Issue[] {
   // Mixed content only exists once the page itself is on https.
   if (input.https?.passed) {
     if (input.mixedContent && input.mixedContent.insecureCount > 0) {
+      // Browsers block http:// scripts, styles, frames and forms, which breaks
+      // the page; images and media only get a warning.
+      const { insecureCount, activeCount } = input.mixedContent;
       issues.push({
         category: "security",
-        severity: "atencao",
+        severity: activeCount > 0 ? "critico" : "atencao",
         code: "mixed-content",
-        params: { count: input.mixedContent.insecureCount },
+        params: { count: insecureCount, ...(activeCount > 0 && { active: activeCount }) },
         affected: input.mixedContent.insecureUrls,
       });
     } else if (!input.mixedContent && input.pagespeed?.hasInsecureRequests) {

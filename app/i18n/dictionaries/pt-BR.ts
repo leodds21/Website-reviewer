@@ -351,7 +351,9 @@ export const ptBR: Dictionary = {
           : params.count === 1
             ? "A página carrega 1 arquivo sem HTTPS."
             : `A página carrega ${params.count} arquivos sem HTTPS.`,
-      description: "O navegador bloqueia ou marca como não seguro o que vem por http://, então imagens, scripts ou formulários podem não funcionar.",
+      description: params?.active
+        ? "O navegador bloqueia scripts, estilos e formulários que vêm por http://, então partes da página podem nem aparecer ou deixar de funcionar."
+        : "O navegador marca como não seguro o que vem por http://, e algumas imagens ou vídeos podem não carregar.",
     }),
     "no-favicon": () => ({
       title: "O site não tem ícone próprio.",
@@ -372,6 +374,7 @@ export const ptBR: Dictionary = {
     "broken-links": "os links quebrados na home",
     noindex: "o bloqueio que tira o site do Google",
     "robots-blocked": "o robots.txt que impede o Google de ler a página",
+    "mixed-content": "os arquivos sem HTTPS que o navegador bloqueia",
   },
   synthesizeImpact: (clauses) => {
     const joined = clauses.length > 1 ? `${clauses[0]} e ${clauses[1]}` : clauses[0];

@@ -15,6 +15,18 @@ describe("parseMixedContent", () => {
     expect(result.insecureUrls).toContain("http://cdn.example/a.css");
   });
 
+  it("tells what browsers block (scripts, styles, frames, forms) from images and media", () => {
+    expect(parseMixedContent('<img src="http://a.example/x.png"><video src="http://a.example/v.mp4"></video>', null)).toMatchObject({
+      insecureCount: 2,
+      activeCount: 0,
+    });
+    expect(parseMixedContent('<img src="http://a.example/x.png"><script src="http://a.example/s.js"></script>', null)).toMatchObject({
+      insecureCount: 2,
+      activeCount: 1,
+      insecureUrls: ["http://a.example/s.js", "http://a.example/x.png"],
+    });
+  });
+
   it("ignores plain links, other link types, protocol-relative URLs and script bodies", () => {
     const html = `
       <a href="http://old.example/">old site</a>
@@ -32,10 +44,10 @@ describe("parseMixedContent", () => {
     expect(parseMixedContent(meta, null).insecureCount).toBe(0);
   });
 
-  it("keeps a short, de-duplicated sample", () => {
+  it("counts each address once and keeps a short sample", () => {
     const html = Array.from({ length: 30 }, (_, i) => `<img src="http://cdn.example/${i}.png"><img src="http://cdn.example/${i}.png">`).join("");
     const result = parseMixedContent(html, null);
-    expect(result.insecureCount).toBe(60);
+    expect(result.insecureCount).toBe(30);
     expect(result.insecureUrls).toHaveLength(20);
     expect(parseMixedContent(`<img src="http://x.example/${"a".repeat(300)}">`, null).insecureUrls[0]).toHaveLength(201);
   });
