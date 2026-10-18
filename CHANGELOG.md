@@ -2,6 +2,12 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions: [Semantic Versioning](https://semver.org/). Earlier history is in the Git log.
 
+## [0.3.1] - 2026-10-18
+
+### Security
+
+- Next.js 16.4.2, which fixes GHSA-673q-mjm6-r5xr, GHSA-2464-fhr4-w9xw and GHSA-p3m5-59mp-jv5r in 16.4.0; React 19.3.1
+
 ## [0.3.0] - 2026-10-14
 
 ### Added
