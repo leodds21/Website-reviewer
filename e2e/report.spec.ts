@@ -41,6 +41,17 @@ test.describe("security policy", () => {
   });
 });
 
+test.describe("structured data", () => {
+  test("describes the home page as a web application, in each language", async ({ page }) => {
+    for (const [locale, language] of [["pt-BR", "pt-BR"], ["en", "en"]] as const) {
+      await page.goto(`/${locale}`);
+      const data = JSON.parse((await page.locator('script[type="application/ld+json"]').textContent()) ?? "{}");
+      expect(data).toMatchObject({ "@type": "WebApplication", name: "lsdias.dev scanner", inLanguage: language });
+      expect(data.url).toMatch(new RegExp(`/${locale}$`));
+    }
+  });
+});
+
 test.describe("home", () => {
   test("lists the seven real checks before anything runs", async ({ page }) => {
     await page.goto("/pt-BR");
