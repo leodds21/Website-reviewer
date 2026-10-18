@@ -584,7 +584,7 @@ describe("deriveIssues, page signals", () => {
   });
 
   it("flags mixed content with its count and sample, only over working HTTPS", () => {
-    const mixedContent = { resourceCount: 5, insecureCount: 3, insecureUrls: ["http://a.example/x.png"] };
+    const mixedContent = { resourceCount: 5, insecureCount: 3, activeCount: 0, insecureUrls: ["http://a.example/x.png"] };
     expect(deriveIssues({ https, mixedContent })[0]).toMatchObject({
       code: "mixed-content",
       severity: "atencao",
@@ -595,5 +595,10 @@ describe("deriveIssues, page signals", () => {
     expect(codes({ mixedContent })).toEqual([]);
     expect(codes({ https, pagespeed: { scores: {}, hasInsecureRequests: true } })).toEqual(["mixed-content"]);
     expect(codes({ https: { ...https, passed: false }, pagespeed: { scores: {}, hasInsecureRequests: true } })).not.toContain("mixed-content");
+  });
+
+  it("makes mixed content critical when the browser blocks part of it", () => {
+    const mixedContent = { resourceCount: 3, insecureCount: 2, activeCount: 1, insecureUrls: ["http://a.example/s.js", "http://a.example/x.png"] };
+    expect(deriveIssues({ https, mixedContent })[0]).toMatchObject({ code: "mixed-content", severity: "critico", params: { count: 2, active: 1 } });
   });
 });

@@ -80,7 +80,7 @@ describe("derivePasses, page signals", () => {
   });
 
   it("calls the resources secure only over HTTPS and when there were some", () => {
-    const clean = { resourceCount: 4, insecureCount: 0, insecureUrls: [] };
+    const clean = { resourceCount: 4, insecureCount: 0, activeCount: 0, insecureUrls: [] };
     expect(codes({ https, mixedContent: clean })).toContain("secure-resources");
     expect(codes({ https, mixedContent: { ...clean, resourceCount: 0 } })).not.toContain("secure-resources");
     expect(codes({ mixedContent: clean })).not.toContain("secure-resources");
