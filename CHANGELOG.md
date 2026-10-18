@@ -13,6 +13,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions: [Sem
 
 - Structured data (schema.org `WebApplication`) on the home page, in each language
 
+### Fixed
+
+- Links on a page reached through a redirect resolved against the address asked for: `spacejam.com/1996` reported 9 of 10 links broken. `<base href>` is honored too
+- The batch CSV could fail to download in Safari
+- The batch list treated `/Contato` and `/contato` as the same page
+
 ## [0.3.1] - 2026-10-18
 
 ### Security

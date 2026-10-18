@@ -37,6 +37,14 @@ describe("fetchHtml", () => {
     expect(headers.get("x-robots-tag")).toBe("noindex");
   });
 
+  it("returns the address the redirects ended at", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({ ...fakeHtmlResponse(""), status: 301, ok: false, headers: new Headers({ location: "/pt/" }) } as Response)
+      .mockResolvedValueOnce({ ...fakeHtmlResponse("<title>x</title>"), url: "https://example.com/pt/" } as Response);
+
+    expect((await fetchHtml("example.com")).finalUrl).toBe("https://example.com/pt/");
+  });
+
   it("defaults to https when no scheme is given", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(fakeHtmlResponse(""));
 

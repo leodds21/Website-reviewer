@@ -1,7 +1,7 @@
 "use client";
 
 import { LogoMark } from "./LogoMark";
-import { ScoreMeter, overallLabel } from "./ScoreSummary";
+import { ScoreMeter, overallLabel, overallShown } from "./ScoreSummary";
 import { SEVERITY_TEXT, SeverityMark } from "./SeverityMark";
 import { useLanguage } from "@/app/i18n/LanguageContext";
 import type { CategoryKey } from "@/app/i18n/types";
@@ -13,9 +13,7 @@ const CATEGORY_KEYS: CategoryKey[] = ["performance", "seo", "accessibility", "se
 /** Paper only: the first page of the saved PDF, dark like the site. */
 export function ReportPrintCover({ report, checkedAt, unfinished }: { report: AnalyzeReport; checkedAt: string | null; unfinished: boolean }) {
   const { locale, t } = useLanguage();
-  const pending = report.score.overallSeverity === "pendente";
-  const severity = pending && unfinished ? "indisponivel" : report.score.overallSeverity;
-  const noScore = pending || severity === "indisponivel";
+  const { severity, noScore } = overallShown(report, unfinished);
   const reportUrl = report.id ? `${new URL(SITE_URL).host}/${locale}/report/${report.id}` : null;
 
   return (

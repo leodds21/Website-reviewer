@@ -13,11 +13,22 @@ export type BrokenLinksCheckResult = {
   brokenUrls: string[];
 };
 
-function extractLinkUrls(html: string, baseUrl: string): string[] {
+function extractLinkUrls(html: string, pageUrl: string): string[] {
   const seen = new Set<string>();
   const urls: string[] = [];
+  const markup = withoutComments(html);
 
-  for (const tag of openingTags(withoutComments(html), "a")) {
+  // <base href> moves what relative links resolve against, as it does in the browser.
+  const [baseTag] = openingTags(markup, "base");
+  const baseHref = baseTag ? attribute(baseTag, "href") : null;
+  let baseUrl = pageUrl;
+  try {
+    if (baseHref) baseUrl = new URL(baseHref, pageUrl).toString();
+  } catch {
+    // An unparseable base is ignored, like the browser does.
+  }
+
+  for (const tag of openingTags(markup, "a")) {
     if (urls.length >= MAX_LINKS_SAMPLED) break;
 
     // "&amp;" in an attribute means "&"; requesting it literally can 404.

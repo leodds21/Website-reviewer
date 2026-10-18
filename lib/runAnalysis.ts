@@ -106,7 +106,7 @@ export async function runAnalysis(
     }
   }
 
-  const pageFetch = withHttpFallback(async (url) => ({ url, ...(await fetchHtml(url, signal)) }));
+  const pageFetch = withHttpFallback((url) => fetchHtml(url, signal));
 
   const tasks = {
     https: httpsCheck,
@@ -115,7 +115,7 @@ export async function runAnalysis(
     // Never past the deadline: a run that took over from another request
     // starts late, and must still finish (and free its lock) in time.
     pagespeed: withHttpFallback((url) => runPageSpeed(url, AbortSignal.any([signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))]))),
-    brokenLinks: pageFetch.then(({ html, url }) => checkBrokenLinks(html, url, signal)),
+    brokenLinks: pageFetch.then(({ html, finalUrl }) => checkBrokenLinks(html, finalUrl, signal)),
   };
 
   for await (const outcome of settleInOrder(tasks)) {
@@ -127,7 +127,7 @@ export async function runAnalysis(
         console.error(`Check "${outcome.key}" failed for ${target}:`, outcome.error);
       }
     } else if (outcome.key === "page") {
-      const { html, headers, url } = outcome.value;
+      const { html, headers, finalUrl } = outcome.value;
       results.metaTags = parseMetaTags(html);
       results.altImages = parseAltImages(html);
       results.indexing = parseIndexing(html, headers.get("x-robots-tag"));
@@ -136,7 +136,7 @@ export async function runAnalysis(
       results.htmlLang = parseHtmlLang(html);
       results.favicon = parseFavicon(html);
       // An http:// page has nothing to mix: it's all insecure.
-      if (url.startsWith("https:")) results.mixedContent = parseMixedContent(html, headers.get("content-security-policy"));
+      if (finalUrl.startsWith("https:")) results.mixedContent = parseMixedContent(html, headers.get("content-security-policy"));
       platform = detectTech(html).platform;
     } else if (outcome.key === "https") {
       results.https = outcome.value;

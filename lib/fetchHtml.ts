@@ -3,7 +3,8 @@ import { normalizeUrl } from "./url";
 import { CHECK_TIMEOUT_MS } from "./timeouts";
 import { HttpStatusError } from "./httpStatus";
 
-export type FetchedPage = { html: string; headers: Headers };
+// finalUrl: where redirects ended. Relative links resolve against it, not the address asked for.
+export type FetchedPage = { html: string; headers: Headers; finalUrl: string };
 
 // Fetched once and shared by all the HTML parsers. The headers carry
 // X-Robots-Tag and the CSP, which the parsers read alongside the markup.
@@ -21,5 +22,5 @@ export async function fetchHtml(url: string, signal?: AbortSignal): Promise<Fetc
     throw new HttpStatusError(response.status, `The page answered ${response.status}.`);
   }
 
-  return { html: await readTextCapped(response), headers: response.headers };
+  return { html: await readTextCapped(response), headers: response.headers, finalUrl: response.url || requestedUrl };
 }

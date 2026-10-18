@@ -147,6 +147,13 @@ function CategoryRow({
   );
 }
 
+/** The overall score as shown: Google's measurement that never came reads as unavailable. */
+export function overallShown(report: AnalyzeReport, unfinished: boolean): { severity: Severity; noScore: boolean } {
+  const pending = report.score.overallSeverity === "pendente";
+  const severity = pending && unfinished ? "indisponivel" : report.score.overallSeverity;
+  return { severity, noScore: pending || severity === "indisponivel" };
+}
+
 export function overallLabel(t: Dictionary, severity: Severity): string {
   if (severity === "pendente") return t.scoreLabelPending;
   if (severity === "indisponivel") return t.scoreLabelUnavailable;
@@ -164,10 +171,8 @@ export function ScoreSummary({ report, unfinished = false }: { report: AnalyzeRe
   const summary = t.issueSummary(counts);
 
   const { overall } = report.score;
-  const pending = report.score.overallSeverity === "pendente";
   // A report where nothing could be measured, or whose Google measurement never came, has no overall score.
-  const overallSeverity = pending && unfinished ? "indisponivel" : report.score.overallSeverity;
-  const noScore = pending || overallSeverity === "indisponivel";
+  const { severity: overallSeverity, noScore } = overallShown(report, unfinished);
   const label = overallLabel(t, overallSeverity);
 
   return (

@@ -74,11 +74,13 @@ function downloadCsv(t: Dictionary, locale: Locale, rows: Row[]): void {
   ]);
   // The BOM makes Excel read the accents as UTF-8.
   const csv = `﻿${toCsv([header, ...body], locale === "pt-BR" ? ";" : ",")}`;
+  const href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
   const link = document.createElement("a");
-  link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  link.href = href;
   link.download = `${t.batch.fileName}-${new Date().toISOString().slice(0, 10)}.csv`;
   link.click();
-  URL.revokeObjectURL(link.href);
+  // Safari reads the file after click() returns; revoking at once can cancel the download.
+  setTimeout(() => URL.revokeObjectURL(href), 60_000);
 }
 
 /** Not linked anywhere and not indexed: a tool for whoever holds BATCH_TOKEN. */
