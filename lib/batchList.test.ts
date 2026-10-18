@@ -10,6 +10,10 @@ describe("parseBatchList", () => {
     expect(parseBatchList("Site.com\nhttps://site.com/\nsite.com").urls).toEqual(["Site.com"]);
   });
 
+  it("ignores case in the host only", () => {
+    expect(parseBatchList("SITE.com/Contato\nsite.com/Contato\nsite.com/contato").urls).toEqual(["SITE.com/Contato", "site.com/contato"]);
+  });
+
   it("keeps different paths and schemes apart, like the cache does", () => {
     expect(parseBatchList("site.com\nsite.com/contato\nhttp://site.com").urls).toHaveLength(3);
   });
