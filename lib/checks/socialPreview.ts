@@ -1,6 +1,6 @@
 import { attribute, openingTags, withoutComments } from "./html";
 
-export const SOCIAL_PREVIEW_TAGS = ["og:title", "og:description", "og:image"] as const;
+const SOCIAL_PREVIEW_TAGS = ["og:title", "og:description", "og:image"] as const;
 export type SocialPreviewTag = (typeof SOCIAL_PREVIEW_TAGS)[number];
 
 export type SocialPreviewCheckResult = {
