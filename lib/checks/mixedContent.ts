@@ -36,7 +36,8 @@ const present = (urls: (string | null)[]) => urls.filter((url): url is string =>
 /** For a page served over https: what it still loads over http://. */
 export function parseMixedContent(html: string, csp: string | null): MixedContentCheckResult {
   // Script bodies can hold any string, including URLs never requested.
-  const markup = withoutComments(html).replace(/(<script\b[^>]*>)[\s\S]*?<\/script>/gi, "$1");
+  // Browsers also end a script at "</script >" or "</SCRIPT foo>".
+  const markup = withoutComments(html).replace(/(<script\b[^>]*>)[\s\S]*?<\/script\b[^>]*>/gi, "$1");
 
   const passive = present(PASSIVE_TAGS.flatMap((name) => openingTags(markup, name).map((tag) => attribute(tag, "src"))));
   const active = present([
