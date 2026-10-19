@@ -37,6 +37,11 @@ describe("parseMixedContent", () => {
     expect(parseMixedContent(html, null).insecureCount).toBe(0);
   });
 
+  it("ends a script body at </script > too, so later tags still count", () => {
+    const html = '<script>var a = 1;</script ><img src="http://cdn.example/a.png"><script>var b;</script>';
+    expect(parseMixedContent(html, null).insecureUrls).toEqual(["http://cdn.example/a.png"]);
+  });
+
   it("counts nothing when the page upgrades insecure requests", () => {
     const html = '<img src="http://cdn.example/a.png">';
     expect(parseMixedContent(html, "default-src 'self'; upgrade-insecure-requests").insecureCount).toBe(0);
