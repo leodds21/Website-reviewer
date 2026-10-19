@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { attribute } from "./html";
+import { attribute, withoutComments } from "./html";
+
+describe("withoutComments", () => {
+  it("removes comments, nested pieces included", () => {
+    expect(withoutComments('<a href="/a">a</a><!-- <img src="x"> --><b>')).toBe('<a href="/a">a</a><b>');
+    expect(withoutComments("<!<!-- x -->-- y -->z")).toBe("z");
+  });
+});
 
 describe("attribute", () => {
   it("reads quoted and unquoted values", () => {

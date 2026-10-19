@@ -1,9 +1,18 @@
 // Small helpers for the HTML parsers. Regular expressions, not a DOM: see
 // "Decisions" in docs/ARCHITECTURE.md.
 
-/** The markup without comments, so commented-out tags don't count. */
+/**
+ * The markup without comments, so commented-out tags don't count. Repeats
+ * until nothing changes: removing one comment can join the pieces of another.
+ */
 export function withoutComments(html: string): string {
-  return html.replace(/<!--[\s\S]*?-->/g, "");
+  let markup = html;
+  let previous;
+  do {
+    previous = markup;
+    markup = markup.replace(/<!--[\s\S]*?-->/g, "");
+  } while (markup !== previous);
+  return markup;
 }
 
 /** Every opening tag with this name, attributes included. */
