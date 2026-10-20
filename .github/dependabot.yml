@@ -23,6 +23,15 @@ updates:
       # Follows the Node major the app runs on (22, in CI and on Vercel).
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # Paused, not dropped: Next's lint plugins (import, jsx-a11y, react) stop
+      # at ESLint 9, unicorn 66+ needs ESLint 10, and typescript-eslint stops
+      # at TypeScript 6.0. Remove these once they catch up.
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint-plugin-unicorn"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
