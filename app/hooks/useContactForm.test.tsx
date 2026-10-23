@@ -56,6 +56,19 @@ describe("useContactForm", () => {
     expect(result.current.errorCode).toBe("offline");
   });
 
+  it("sends the hidden spam-trap field, so Formspree can drop bot submissions", async () => {
+    vi.mocked(fetch).mockResolvedValue(fakeResponse(true));
+    const form = document.createElement("form");
+    form.innerHTML = '<input name="_gotcha" value="filled by a bot">';
+    const { result } = renderHook(() => useContactForm({ domain: "example.com" }));
+
+    await act(async () => {
+      await result.current.submitContact({ preventDefault: vi.fn(), currentTarget: form } as unknown as FormEvent);
+    });
+
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body))._gotcha).toBe("filled by a bot");
+  });
+
   it("moves to just-succeeded right after a successful response", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(fakeResponse(true));
     const { result } = renderHook(() => useContactForm({ domain: "example.com" }));
