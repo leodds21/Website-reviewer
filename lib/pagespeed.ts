@@ -71,7 +71,6 @@ export async function runPageSpeed(url: string, signal?: AbortSignal): Promise<P
 
   const endpoint = new URL(PAGESPEED_ENDPOINT);
   endpoint.searchParams.set("url", requestedUrl);
-  endpoint.searchParams.set("key", apiKey);
   for (const category of ["performance", "accessibility", "best-practices", "seo"] as const) {
     endpoint.searchParams.append("category", category);
   }
@@ -79,6 +78,8 @@ export async function runPageSpeed(url: string, signal?: AbortSignal): Promise<P
   const timeout = AbortSignal.timeout(PAGESPEED_TIMEOUT_MS);
   const response = await fetch(endpoint, {
     method: "GET",
+    // A header, not ?key=: URLs end up in logs and error messages.
+    headers: { "X-Goog-Api-Key": apiKey },
     signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
   });
 
