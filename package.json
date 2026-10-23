@@ -19,7 +19,7 @@
   "dependencies": {
     "@upstash/redis": "^1.38.2",
     "@vercel/speed-insights": "^2.0.0",
-    "next": "16.4.2",
+    "next": "16.4.3",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "undici": "^8.11.2"
@@ -32,7 +32,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.4.2",
+    "eslint-config-next": "16.4.3",
     "eslint-plugin-unicorn": "^60.0.0",
     "jsdom": "^30.0.1",
     "tailwindcss": "^4",
