@@ -29,6 +29,16 @@ describe("runPageSpeed", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it("sends the API key in a header, never in the URL", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(fakeJsonResponse(200, { lighthouseResult: { categories: {} } }));
+
+    await runPageSpeed("example.com");
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(String(url)).not.toContain("test-key");
+    expect(new Headers(init?.headers).get("x-goog-api-key")).toBe("test-key");
+  });
+
   it("maps Lighthouse's 0-1 category scores to 0-100", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       fakeJsonResponse(200, {
