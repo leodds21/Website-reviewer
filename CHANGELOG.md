@@ -19,6 +19,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions: [Sem
 - The batch CSV could fail to download in Safari
 - The batch list treated `/Contato` and `/contato` as the same page
 
+### Security
+
+- The PageSpeed API key goes in the `X-Goog-Api-Key` header instead of the URL, so it can't end up in logs or error messages
+- The contact form has a hidden spam trap (`_gotcha`) that Formspree uses to drop bot submissions
+
 ## [0.3.1] - 2026-10-18
 
 ### Security

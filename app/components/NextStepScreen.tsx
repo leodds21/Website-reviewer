@@ -100,6 +100,8 @@ export function NextStepScreen({
           ) : (
             <form onSubmit={submitContact} className="flex flex-col gap-4">
               <h2 className="text-xl">{t.contactHeading}</h2>
+              {/* Spam trap, never shown: see useContactForm. */}
+              <input type="text" name="_gotcha" tabIndex={-1} autoComplete="off" className="hidden" />
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="contact-name" className="text-sm font-semibold text-[var(--color-body)]">
                   {t.nameLabel}

@@ -24,6 +24,9 @@ export function useContactForm(options: { domain: string | undefined }) {
   const submitContact = useCallback(
     async (event: React.FormEvent) => {
       event.preventDefault();
+      // The hidden _gotcha field: people leave it empty, spam bots fill it, and Formspree drops those.
+      const form = event.currentTarget instanceof HTMLFormElement ? event.currentTarget : null;
+      const gotcha = form ? String(new FormData(form).get("_gotcha") ?? "") : "";
 
       const endpoint = process.env.NEXT_PUBLIC_FORMSPREE_ENDPOINT;
       if (!endpoint) {
@@ -60,6 +63,7 @@ export function useContactForm(options: { domain: string | undefined }) {
             message: contact.message,
             _subject: `lsdias.dev: novo contato sobre ${options.domain}`,
             site: options.domain,
+            _gotcha: gotcha,
           }),
         });
 
