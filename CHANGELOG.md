@@ -8,6 +8,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions: [Sem
 
 - Mixed content is critical when it includes scripts, styles, frames or forms, which browsers block; images and media alone stay at attention
 - Mixed content counts each address once, so a file used four times reads as one
+- An address sent from lsdias.dev's scanner section (`?url=…&from=portfolio`) comes in the field with the run button focused, without the older-link note; it still never runs on its own
 
 ### Added
 

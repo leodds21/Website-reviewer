@@ -26,6 +26,7 @@ export function HomeScreen({
   error,
   analyzing,
   completedSteps,
+  focusRun = false,
 }: {
   url: string;
   onUrlChange: (value: string) => void;
@@ -33,10 +34,17 @@ export function HomeScreen({
   error: AnalyzeError | null;
   analyzing: boolean;
   completedSteps: StepKey[];
+  focusRun?: boolean;
 }) {
   const { t } = useLanguage();
   const planRef = useRef<HTMLElement>(null);
   const noteRef = useRef<HTMLDivElement>(null);
+  const runRef = useRef<HTMLButtonElement>(null);
+
+  // The address was typed on the portfolio: one press runs it.
+  useEffect(() => {
+    if (focusRun) runRef.current?.focus({ preventScroll: true });
+  }, [focusRun]);
 
   useEffect(() => {
     if (analyzing) revealIfHidden(planRef.current, "start");
@@ -74,6 +82,7 @@ export function HomeScreen({
               className="min-h-14 rounded-lg border border-[var(--color-line-strong)] bg-[var(--color-field)] px-4 font-mono text-base text-[var(--color-text)] disabled:opacity-60"
             />
             <button
+              ref={runRef}
               type="submit"
               disabled={analyzing || !url.trim()}
               className="min-h-14 rounded-full bg-[var(--color-accent)] px-7 font-heading text-[17px] font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:bg-[var(--color-line-strong)] disabled:text-[var(--color-muted)]"

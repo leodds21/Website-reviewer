@@ -353,6 +353,26 @@ test.describe("report", () => {
     expect(analyses).toBe(1);
   });
 
+  test("an address typed on the portfolio comes filled with the run button focused, no note", async ({ page }) => {
+    let analyses = 0;
+    await mockAnalysis(page, REPORT_WITH_FINDINGS);
+    await page.route("**/api/analyze?**", (route) => {
+      analyses++;
+      return route.fallback();
+    });
+    await page.goto("/pt-BR?url=exemplo.com.br&from=portfolio");
+
+    await expect(page.getByLabel("Endereço do site")).toHaveValue("exemplo.com.br");
+    await expect(page.getByRole("button", { name: /Rodar diagnóstico/ })).toBeFocused();
+    await expect(page.getByText("Este endereço veio de um link antigo.", { exact: false })).toHaveCount(0);
+    await expect(page).toHaveURL(/\/pt-BR$/);
+    expect(analyses).toBe(0);
+
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("heading", { level: 1, name: "Relatório de exemplo.com.br" })).toBeAttached();
+    expect(analyses).toBe(1);
+  });
+
   test("never scrolls sideways", async ({ page }) => {
     await mockAnalysis(page, REPORT_WITH_FINDINGS);
     await analyze(page, "exemplo.com.br");
