@@ -40,18 +40,19 @@ export function Scanner({ initialReport = null, screens = LAZY_SCREENS }: { init
   const { ReportScreen, NextStepScreen } = screens;
   const [url, setUrl] = useState("");
   const [manualReview, setManualReview] = useState(false);
-  // An old ?url= link: the field comes filled, nothing runs on its own.
-  const [prefilled, setPrefilled] = useState(false);
+  // A ?url= link: the field comes filled, nothing runs on its own. An old
+  // link gets a note; one from the portfolio gets the run button focused.
+  const [prefill, setPrefill] = useState<"old-link" | "portfolio" | null>(null);
   const { stage, setStage, completedSteps, report, error, unfinished, hadPartial, startAnalysis } = useAnalysis(initialReport);
   // Idle and analyzing are one screen; moving focus would undo the scroll on phones.
   const stageRef = useStageFocus<HTMLDivElement>(stage === "analyzing" ? "idle" : stage);
   const { locale, t } = useLanguage();
 
-  const prefill = useCallback((site: string) => {
+  const onPrefill = useCallback((site: string, fromPortfolio: boolean) => {
     setUrl(site);
-    setPrefilled(true);
+    setPrefill(fromPortfolio ? "portfolio" : "old-link");
   }, []);
-  useReportLink({ locale, stage, setStage, report, onPrefill: prefill });
+  useReportLink({ locale, stage, setStage, report, onPrefill });
 
   const openReport = stage === "report" || stage === "next-step" ? report : null;
   // One polite message per milestone. Lives here, mounted from the start, so
@@ -79,7 +80,7 @@ export function Scanner({ initialReport = null, screens = LAZY_SCREENS }: { init
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    setPrefilled(false);
+    setPrefill(null);
     preloadReportScreens();
     startAnalysis(url);
   }
@@ -96,10 +97,11 @@ export function Scanner({ initialReport = null, screens = LAZY_SCREENS }: { init
             url={url}
             onUrlChange={(value) => {
               setUrl(value);
-              setPrefilled(false);
+              setPrefill(null);
             }}
             onSubmit={handleSubmit}
-            error={error ?? (prefilled ? OLD_LINK_NOTE : null)}
+            error={error ?? (prefill === "old-link" ? OLD_LINK_NOTE : null)}
+            focusRun={prefill === "portfolio"}
             analyzing={stage === "analyzing"}
             completedSteps={stage === "analyzing" ? completedSteps : []}
           />

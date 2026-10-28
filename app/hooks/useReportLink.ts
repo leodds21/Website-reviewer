@@ -38,7 +38,7 @@ export function useReportLink({
   stage: Stage;
   setStage: (stage: Stage) => void;
   report: AnalyzeReport | null;
-  onPrefill: (site: string) => void;
+  onPrefill: (site: string, fromPortfolio: boolean) => void;
 }) {
   const reportId = report?.id;
   const run = useRef("");
@@ -50,8 +50,10 @@ export function useReportLink({
   useEffect(() => {
     if (loaded.current) return;
     loaded.current = true;
-    const site = new URLSearchParams(window.location.search).get("url");
-    if (site) onPrefill(site);
+    const params = new URLSearchParams(window.location.search);
+    const site = params.get("url");
+    // lsdias.dev's scanner section sends the address someone just typed there.
+    if (site) onPrefill(site, params.get("from") === "portfolio");
 
     run.current = crypto.randomUUID();
     const stage: LinkedStage = reportId ? "report" : "idle";
